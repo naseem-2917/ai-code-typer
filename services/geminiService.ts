@@ -1,21 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import { Language, SnippetLength, SnippetLevel } from '../types';
 
-// --------------------- FIX STARTS HERE ---------------------
-// Fix: Use conditional logic to handle both Vite/Netlify (import.meta.env) and 
-// Google AI Studio (process.env) environments without crashing the app.
-
-const isViteEnv = typeof import.meta !== 'undefined' && typeof import.meta.env !== 'undefined';
-
-const apiKey = 
-  // 1. Agar hum Vite environment mein hain (Netlify), toh VITE_GEMINI_API_KEY use karo.
-  isViteEnv 
-  ? import.meta.env.VITE_GEMINI_API_KEY 
-  // 2. Agar hum Studio/Local environment mein hain, toh process.env.API_KEY use karo.
-  : process.env.API_KEY; 
-
-const ai = new GoogleGenAI({ apiKey });
-// --------------------- FIX ENDS HERE ---------------------
+// Fix: Per coding guidelines, the API key must be obtained exclusively from process.env.API_KEY.
+// The previous logic attempted to support Vite's import.meta.env, which is not permitted and caused a TypeScript error.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const lengthMap = {
   short: 'around 4-6 lines',

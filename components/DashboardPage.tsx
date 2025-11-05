@@ -1,5 +1,5 @@
 // FIX: Implemented the DashboardPage component to display user stats.
-import React, { useContext, useMemo, useState } from 'react';
+import React, { useContext, useMemo, useState, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
 import { Card } from './ui/Card';
 import { Stat } from './ui/Stat';
@@ -9,6 +9,7 @@ import { PencilIcon } from './icons/PencilIcon';
 import { PracticeSetupModal } from './PracticeSetupModal';
 import { SnippetLength, SnippetLevel } from '../types';
 import { SegmentedControl } from './ui/SegmentedControl';
+import { exportAllData, importData } from '../services/dataService';
 import {
   ResponsiveContainer,
   LineChart,
@@ -114,16 +115,64 @@ const DashboardPage: React.FC = () => {
         setGoals, 
         navigateTo, 
         startTargetedSession,
+        showAlert,
     } = context;
     
     const [isGoalsModalOpen, setIsGoalsModalOpen] = useState(false);
     const [isTargetedSetupOpen, setIsTargetedSetupOpen] = useState(false);
     const [timeFilter, setTimeFilter] = useState<'24h' | '7d' | '30d' | 'all'>('all');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useAccessKey('2', () => setTimeFilter('24h'));
     useAccessKey('7', () => setTimeFilter('7d'));
     useAccessKey('3', () => setTimeFilter('30d'));
     useAccessKey('a', () => setTimeFilter('all'));
+
+    const handleExportData = () => {
+        try {
+            exportAllData();
+        } catch (error) {
+            showAlert('Failed to export data.', 'error');
+            console.error(error);
+        }
+    };
+
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const fileContent = e.target?.result as string;
+                if (!fileContent) {
+                    throw new Error("File is empty.");
+                }
+                importData(fileContent);
+                showAlert('Data imported successfully! Please refresh the page to see the changes.', 'info', 8000);
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+                showAlert(`Import failed: ${message}`, 'error');
+                console.error(error);
+            } finally {
+                if (event.target) {
+                    event.target.value = '';
+                }
+            }
+        };
+        reader.onerror = () => {
+            showAlert('Error reading the selected file.', 'error');
+            if (event.target) {
+                event.target.value = '';
+            }
+        };
+
+        reader.readAsText(file);
+    };
 
     const filteredHistory = useMemo(() => {
         const now = Date.now();
@@ -452,6 +501,26 @@ const DashboardPage: React.FC = () => {
                 ) : (
                     <p className="text-slate-500">Not enough data for error analysis. Keep practicing!</p>
                 )}
+            </Card>
+
+            <Card className="p-6">
+                <h2 className="text-xl font-semibold mb-4">Data Management</h2>
+                <p className="text-sm text-slate-500 mb-4">Save your practice history, goals, and settings to a file, or import them on another device.</p>
+                <div className="flex flex-col sm:flex-row gap-4">
+                    <Button onClick={handleExportData}>
+                        Export Data
+                    </Button>
+                    <Button variant="secondary" onClick={handleImportClick}>
+                        Import Data
+                    </Button>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept=".json,application/json"
+                        onChange={handleFileImport}
+                    />
+                </div>
             </Card>
             
             <GoalsModal
