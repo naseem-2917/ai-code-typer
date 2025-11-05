@@ -19,13 +19,26 @@ interface TargetedResultsModalProps {
   sessionAttemptMap: Record<string, number>;
 }
 
+const displayKey = (key: string): string => {
+  switch (key) {
+    case ' ':
+      return 'Space (␣)';
+    case '\n':
+      return 'Enter (↵)';
+    case '\t':
+      return 'Tab (⇥)';
+    default:
+      return key;
+  }
+};
+
 const KeyStatDisplay: React.FC<{
     char: string;
     beforeRate: number;
     afterRate: number;
 }> = ({ char, beforeRate, afterRate }) => {
     const improvement = beforeRate - afterRate;
-    const displayChar = char === ' ' ? 'Space' : char;
+    const displayChar = displayKey(char);
 
     let verdictColor = 'text-slate-500 dark:text-slate-400';
     if (improvement > 2) verdictColor = 'text-green-500';
