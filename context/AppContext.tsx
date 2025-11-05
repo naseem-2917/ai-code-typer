@@ -104,6 +104,7 @@ interface AppContextType {
   loadNextSnippetInQueue: () => void;
   alertMessage: { message: string; type: 'warning' | 'info' | 'error' } | null;
   showAlert: (message: string, type: 'warning' | 'info' | 'error', duration?: number) => void;
+  reloadDataFromStorage: () => void;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -448,6 +449,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const showAccessKeyMenu = () => setIsAccessKeyMenuVisible(true);
   const hideAccessKeyMenu = () => setIsAccessKeyMenuVisible(false);
 
+  const reloadDataFromStorage = useCallback(() => {
+    const savedTheme = localStorage.getItem('theme');
+    setTheme(savedTheme ? (savedTheme as 'light' | 'dark') : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+    const savedLangId = localStorage.getItem('selectedLanguage');
+    setSelectedLanguage(SUPPORTED_LANGUAGES.find(l => l.id === savedLangId) || SUPPORTED_LANGUAGES[0]);
+
+    const savedHistory = localStorage.getItem('practiceHistory');
+    setPracticeHistory(savedHistory ? JSON.parse(savedHistory) : []);
+
+    const savedErrorStats = localStorage.getItem('keyErrorStats');
+    setKeyErrorStats(savedErrorStats ? JSON.parse(savedErrorStats) : {});
+
+    const savedAttemptStats = localStorage.getItem('keyAttemptStats');
+    setKeyAttemptStats(savedAttemptStats ? JSON.parse(savedAttemptStats) : {});
+
+    setWpmGoal(parseInt(localStorage.getItem('wpmGoal') || '60', 10));
+    setAccuracyGoal(parseInt(localStorage.getItem('accuracyGoal') || '98', 10));
+
+    setSetupTab((localStorage.getItem('setupTab') as 'generate' | 'upload') || 'generate');
+  }, []);
+
   const value: AppContextType = {
     theme, toggleTheme,
     selectedLanguage, setSelectedLanguage,
@@ -471,6 +494,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setRequestFocusOnCodeCallback, requestFocusOnCode,
     practiceQueue, currentQueueIndex, startMultiFileSession, loadNextSnippetInQueue,
     alertMessage, showAlert,
+    reloadDataFromStorage,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

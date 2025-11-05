@@ -1,3 +1,29 @@
+import { PracticeStats } from "../types";
+
+/**
+ * Recalculates aggregate statistics from a given practice history.
+ * @param history The complete practice history array.
+ * @returns An object containing the recalculated keyErrorStats and keyAttemptStats.
+ */
+export const recalculateDerivedStats = (history: PracticeStats[]): { keyErrorStats: Record<string, number>, keyAttemptStats: Record<string, number> } => {
+  const newKeyErrorStats: Record<string, number> = {};
+  const newKeyAttemptStats: Record<string, number> = {};
+
+  for (const session of history) {
+    if (session.errorMap) {
+      for (const [key, count] of Object.entries(session.errorMap)) {
+        newKeyErrorStats[key] = (newKeyErrorStats[key] || 0) + count;
+      }
+    }
+    if (session.attemptMap) {
+      for (const [key, count] of Object.entries(session.attemptMap)) {
+        newKeyAttemptStats[key] = (newKeyAttemptStats[key] || 0) + count;
+      }
+    }
+  }
+  return { keyErrorStats: newKeyErrorStats, keyAttemptStats: newKeyAttemptStats };
+};
+
 /**
  * Compiles all user-related data from localStorage into a single JSON object
  * and initiates a download for the user.
@@ -36,10 +62,16 @@ export const exportAllData = () => {
   // 4. Create a Blob from the JSON string.
   const blob = new Blob([jsonString], { type: 'application/json' });
 
-  // 5. Generate a filename with the current date.
+  // 5. Generate a filename with the current date and time.
   const date = new Date();
-  const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  const filename = `ai-code-typer-backup-${dateString}.json`;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  const dateTimeString = `${year}-${month}-${day}-${hours}-${minutes}-${seconds}`;
+  const filename = `ai-code-typer-backup-${dateTimeString}.json`;
 
   // 6. Create a temporary link element to trigger the download.
   const link = document.createElement('a');
@@ -55,11 +87,12 @@ export const exportAllData = () => {
 
 
 /**
- * Parses a JSON string and writes the data to localStorage.
+ * Parses a JSON string and writes the data to localStorage, with options for merging or replacing history.
  * @param jsonString The JSON string from the backup file.
+ * @param mode Determines how to handle existing practice history.
  * @throws An error if the JSON is invalid or the data format is incorrect.
  */
-export const importData = (jsonString: string): void => {
+export const importData = (jsonString: string, mode: 'merge' | 'replace'): void => {
   let data;
   try {
     data = JSON.parse(jsonString);
@@ -79,10 +112,38 @@ export const importData = (jsonString: string): void => {
     throw new Error('File does not appear to be a valid AI Code Typer backup.');
   }
 
+  // 1. Overwrite all settings and non-history data first.
   Object.keys(data).forEach(key => {
-    const value = data[key];
-    // localStorage only stores strings. Objects/arrays must be stringified.
-    const valueToStore = typeof value === 'string' ? value : JSON.stringify(value);
-    localStorage.setItem(key, valueToStore);
+    if (key !== 'practiceHistory' && key !== 'keyErrorStats' && key !== 'keyAttemptStats') {
+        const value = data[key];
+        const valueToStore = typeof value === 'string' ? value : JSON.stringify(value);
+        localStorage.setItem(key, valueToStore);
+    }
   });
+
+  // 2. Handle practice history based on the selected mode.
+  let finalHistory: PracticeStats[] = [];
+  const importedHistory: PracticeStats[] = Array.isArray(data.practiceHistory) ? data.practiceHistory : [];
+
+  if (mode === 'merge') {
+    const existingHistoryRaw = localStorage.getItem('practiceHistory');
+    const existingHistory: PracticeStats[] = existingHistoryRaw ? JSON.parse(existingHistoryRaw) : [];
+    
+    // De-duplicate based on timestamp to avoid adding the same session twice.
+    const existingTimestamps = new Set(existingHistory.map(s => s.timestamp));
+    const uniqueImportedSessions = importedHistory.filter(s => !existingTimestamps.has(s.timestamp));
+    
+    finalHistory = [...existingHistory, ...uniqueImportedSessions];
+    finalHistory.sort((a, b) => a.timestamp - b.timestamp); // Sort chronologically
+  } else { // 'replace' mode
+    finalHistory = importedHistory;
+  }
+  
+  // 3. Recalculate derived stats from the final, authoritative history.
+  const { keyErrorStats, keyAttemptStats } = recalculateDerivedStats(finalHistory);
+
+  // 4. Save the final history and recalculated stats to localStorage.
+  localStorage.setItem('practiceHistory', JSON.stringify(finalHistory));
+  localStorage.setItem('keyErrorStats', JSON.stringify(keyErrorStats));
+  localStorage.setItem('keyAttemptStats', JSON.stringify(keyAttemptStats));
 };

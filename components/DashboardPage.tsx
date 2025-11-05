@@ -1,5 +1,5 @@
 // FIX: Implemented the DashboardPage component to display user stats.
-import React, { useContext, useMemo, useState, useRef } from 'react';
+import React, { useContext, useMemo, useState, useRef, useCallback } from 'react';
 import { AppContext } from '../context/AppContext';
 import { Card } from './ui/Card';
 import { Stat } from './ui/Stat';
@@ -24,6 +24,7 @@ import {
   Cell,
 } from 'recharts';
 import { useAccessKey } from '../hooks/useAccessKey';
+import { ConfirmationModal } from './ui/ConfirmationModal';
 
 const COLORS = ['#10b981', '#3b82f6', '#ef4444', '#f97316', '#8b5cf6', '#ec4899'];
 
@@ -116,29 +117,48 @@ const DashboardPage: React.FC = () => {
         navigateTo, 
         startTargetedSession,
         showAlert,
+        reloadDataFromStorage,
     } = context;
     
     const [isGoalsModalOpen, setIsGoalsModalOpen] = useState(false);
     const [isTargetedSetupOpen, setIsTargetedSetupOpen] = useState(false);
     const [timeFilter, setTimeFilter] = useState<'24h' | '7d' | '30d' | 'all'>('all');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [importConfirmation, setImportConfirmation] = useState<{ fileContent: string } | null>(null);
+
 
     useAccessKey('2', () => setTimeFilter('24h'));
     useAccessKey('7', () => setTimeFilter('7d'));
     useAccessKey('3', () => setTimeFilter('30d'));
     useAccessKey('a', () => setTimeFilter('all'));
 
-    const handleExportData = () => {
+    const handleExportData = useCallback(() => {
         try {
             exportAllData();
+            showAlert('Data exported successfully!', 'info');
         } catch (error) {
             showAlert('Failed to export data.', 'error');
             console.error(error);
         }
-    };
+    }, [showAlert]);
 
-    const handleImportClick = () => {
+    const handleImportClick = useCallback(() => {
         fileInputRef.current?.click();
+    }, []);
+
+    useAccessKey('E', handleExportData, { disabled: isGoalsModalOpen || isTargetedSetupOpen });
+    useAccessKey('I', handleImportClick, { disabled: isGoalsModalOpen || isTargetedSetupOpen });
+
+    const finishImport = (fileContent: string, mode: 'merge' | 'replace') => {
+        try {
+            importData(fileContent, mode);
+            reloadDataFromStorage(); // This forces the app state to update from localStorage
+            showAlert('Data imported successfully. Please refresh the page to see changes.', 'info', 8000);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+            showAlert(`Import failed: ${message}`, 'error');
+            console.error(error);
+        }
     };
 
     const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -147,21 +167,25 @@ const DashboardPage: React.FC = () => {
 
         const reader = new FileReader();
         reader.onload = (e) => {
-            try {
-                const fileContent = e.target?.result as string;
-                if (!fileContent) {
-                    throw new Error("File is empty.");
-                }
-                importData(fileContent);
-                showAlert('Data imported successfully! Please refresh the page to see the changes.', 'info', 8000);
-            } catch (error) {
-                const message = error instanceof Error ? error.message : 'An unknown error occurred.';
-                showAlert(`Import failed: ${message}`, 'error');
-                console.error(error);
-            } finally {
-                if (event.target) {
-                    event.target.value = '';
-                }
+            const fileContent = e.target?.result as string;
+            if (!fileContent) {
+                showAlert('File is empty or could not be read.', 'error');
+                return;
+            }
+
+            const existingHistory = localStorage.getItem('practiceHistory');
+            const hasExistingHistory = existingHistory && JSON.parse(existingHistory).length > 0;
+
+            if (hasExistingHistory) {
+                setImportConfirmation({ fileContent });
+            } else {
+                // If there's no history, just replace/add.
+                finishImport(fileContent, 'replace');
+            }
+
+            // Reset file input to allow re-uploading the same file
+            if (event.target) {
+                event.target.value = '';
             }
         };
         reader.onerror = () => {
@@ -172,6 +196,13 @@ const DashboardPage: React.FC = () => {
         };
 
         reader.readAsText(file);
+    };
+
+    const handleImportConfirm = (mode: 'merge' | 'replace') => {
+        if (importConfirmation) {
+            finishImport(importConfirmation.fileContent, mode);
+        }
+        setImportConfirmation(null); // Close the modal
     };
 
     const filteredHistory = useMemo(() => {
@@ -322,8 +353,20 @@ const DashboardPage: React.FC = () => {
         return (
             <div className="text-center p-8 h-full flex flex-col justify-center items-center">
                 <h2 className="text-2xl font-bold mb-4">Your Dashboard</h2>
-                <p className="text-slate-500 mb-6">You haven't completed any practice sessions yet. Complete a session to see your stats here!</p>
-                <Button onClick={() => navigateTo('home')}>Start Practicing</Button>
+                <p className="text-slate-500 mb-6">You haven't completed any practice sessions yet. Start a new session or import your previous data.</p>
+                <div className="flex gap-4">
+                    <Button onClick={() => navigateTo('home')}>Start Practicing</Button>
+                    <Button variant="secondary" onClick={handleImportClick} accessKeyChar="I">
+                        Import Data
+                    </Button>
+                </div>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept=".json,application/json"
+                    onChange={handleFileImport}
+                />
             </div>
         );
     }
@@ -450,7 +493,7 @@ const DashboardPage: React.FC = () => {
                         <h2 className="text-xl font-semibold mb-4">Practice History</h2>
                         <div className="max-h-96 overflow-y-auto custom-scrollbar">
                             <table className="w-full text-sm text-left">
-                                <thead className="text-xs text-gray-500 uppercase bg-slate-100 dark:bg-slate-700 sticky top-0">
+                                <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-slate-100 dark:bg-slate-700 sticky top-0">
                                     <tr>
                                         <th scope="col" className="px-6 py-3">Language</th>
                                         <th scope="col" className="px-6 py-3">WPM</th>
@@ -462,7 +505,7 @@ const DashboardPage: React.FC = () => {
                                 </thead>
                                 <tbody>
                                     {filteredHistory.slice().reverse().map((session, index) => (
-                                        <tr key={`${session.timestamp}-${index}`} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600/50">
+                                        <tr key={`${session.timestamp}-${index}`} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600/50 text-gray-800 dark:text-gray-300">
                                             <td className="px-6 py-4">{session.language}</td>
                                             <td className="px-6 py-4 font-medium">{session.wpm}</td>
                                             <td className="px-6 py-4">{session.accuracy.toFixed(2)}%</td>
@@ -507,10 +550,10 @@ const DashboardPage: React.FC = () => {
                 <h2 className="text-xl font-semibold mb-4">Data Management</h2>
                 <p className="text-sm text-slate-500 mb-4">Save your practice history, goals, and settings to a file, or import them on another device.</p>
                 <div className="flex flex-col sm:flex-row gap-4">
-                    <Button onClick={handleExportData}>
+                    <Button onClick={handleExportData} accessKeyChar="E">
                         Export Data
                     </Button>
-                    <Button variant="secondary" onClick={handleImportClick}>
+                    <Button variant="secondary" onClick={handleImportClick} accessKeyChar="I">
                         Import Data
                     </Button>
                     <input
@@ -536,6 +579,18 @@ const DashboardPage: React.FC = () => {
               onClose={() => setIsTargetedSetupOpen(false)}
               onStart={(length, level) => handleStartTargetedPractice(length!, level!)}
               variant="targeted"
+            />
+
+            <ConfirmationModal
+                isOpen={!!importConfirmation}
+                onClose={() => setImportConfirmation(null)}
+                title="Import Data"
+                message="You have existing practice history. How would you like to import the new data?"
+                buttons={[
+                    { label: 'Merge', onClick: () => handleImportConfirm('merge'), variant: 'primary' },
+                    { label: 'Replace', onClick: () => handleImportConfirm('replace'), variant: 'secondary' },
+                    { label: 'Cancel', onClick: () => setImportConfirmation(null), variant: 'ghost' },
+                ]}
             />
         </div>
     );
