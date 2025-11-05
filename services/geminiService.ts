@@ -1,22 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import { Language, SnippetLength, SnippetLevel } from '../types';
 
-// --------------------- FIX STARTS HERE ---------------------
-
-// Yeh logic Netlify (Vite) aur Google AI Studio dono ko handle karega.
-
-const isViteEnv = typeof import.meta !== 'undefined' && typeof import.meta.env !== 'undefined';
-
-const apiKey = 
-  // 1. Agar hum Vite environment mein hain (Netlify), toh VITE_GEMINI_API_KEY use karo.
-  isViteEnv 
-  ? import.meta.env.VITE_GEMINI_API_KEY 
-  // 2. Agar hum Studio/Local environment mein hain, toh process.env.API_KEY use karo.
-  : process.env.API_KEY; 
-
-const ai = new GoogleGenAI({ apiKey });
-
-// --------------------- FIX ENDS HERE ---------------------
+// Fix: Corrected API key initialization to adhere to the coding guidelines.
+// The API key must be obtained exclusively from `process.env.API_KEY`.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const lengthMap = {
   short: 'around 4-6 lines',
