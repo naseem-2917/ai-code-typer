@@ -380,206 +380,208 @@ const DashboardPage: React.FC = () => {
     const filterAccessKeys = ['2', '7', '3', 'A'];
 
     return (
-        <div className="space-y-8 h-full overflow-y-auto custom-scrollbar p-4">
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                <h1 className="text-3xl font-bold">Your Progress Dashboard</h1>
-                <SegmentedControl
-                    options={filterOptions}
-                    selectedValue={timeFilter}
-                    onSelect={(value) => setTimeFilter(value as any)}
-                    accessKeyChars={filterAccessKeys}
-                />
-            </div>
-            
-            {filteredHistory.length === 0 ? (
-                <Card className="p-8 text-center text-slate-500">
-                    No practice sessions found for the selected time period.
-                </Card>
-            ) : (
-                <>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                        <Stat label="Average WPM" value={overallStats.avgWpm} />
-                        <Stat label="Average Accuracy" value={`${overallStats.avgAccuracy}%`} />
-                        <Stat label="Best WPM" value={overallStats.bestWpm} />
-                        <Stat label="Total Practice Time" value={formatDuration(overallStats.totalDuration)} />
-                        <Stat label="Total Lines Typed" value={overallStats.totalLines} />
-                        <Stat label="Total Errors" value={overallStats.totalErrors} />
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <Card className="lg:col-span-2 p-6">
-                            <h2 className="text-xl font-semibold mb-4">Historical Performance</h2>
-                            <ResponsiveContainer width="100%" height={300}>
-                                <LineChart data={graphConfig.data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                                    <XAxis
-                                        type="number"
-                                        dataKey="timestamp"
-                                        domain={graphConfig.domain}
-                                        ticks={graphConfig.ticks}
-                                        tickFormatter={graphConfig.tickFormatter}
-                                        padding={{ left: 20, right: 20 }}
-                                    />
-                                    <YAxis yAxisId="left" label={{ value: 'WPM', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }} />
-                                    <YAxis yAxisId="right" orientation="right" label={{ value: 'Accuracy (%)', angle: -90, position: 'insideRight', style: { textAnchor: 'middle' } }} />
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Legend />
-                                    <Line yAxisId="left" type="monotone" dataKey="wpm" stroke="#10b981" name="WPM" dot={true} />
-                                    <Line yAxisId="right" type="monotone" dataKey="accuracy" stroke="#3b82f6" name="Accuracy" dot={true} />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </Card>
-
-                        <div className="space-y-8">
-                            <Card className="p-6">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h2 className="text-xl font-semibold">Your Goals</h2>
-                                    <Button variant="ghost" size="icon" onClick={() => setIsGoalsModalOpen(true)}>
-                                        <PencilIcon className="w-5 h-5" />
-                                    </Button>
-                                </div>
-                                <div className="space-y-4">
-                                    <div>
-                                    <div className="flex justify-between items-baseline mb-1">
-                                            <span className="text-sm font-medium">WPM: {overallStats.avgWpm} / {wpmGoal}</span>
-                                            <span className={`text-sm font-bold ${wpmGoalAchieved ? 'text-amber-500' : ''}`}>{wpmGoalAchieved ? 'Goal Achieved!' : `${wpmProgress.toFixed(0)}%`}</span>
-                                    </div>
-                                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
-                                        <div className={`h-2.5 rounded-full ${wpmGoalAchieved ? 'bg-amber-400' : 'bg-primary-500'}`} style={{ width: `${wpmProgress}%` }}></div>
-                                    </div>
-                                    </div>
-                                    <div>
-                                    <div className="flex justify-between items-baseline mb-1">
-                                            <span className="text-sm font-medium">Accuracy: {overallStats.avgAccuracy}% / {accuracyGoal}%</span>
-                                            <span className={`text-sm font-bold ${accuracyGoalAchieved ? 'text-amber-500' : ''}`}>{accuracyGoalAchieved ? 'Goal Achieved!' : `${accuracyProgress.toFixed(0)}%`}</span>
-                                    </div>
-                                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
-                                        <div className={`h-2.5 rounded-full ${accuracyGoalAchieved ? 'bg-amber-400' : 'bg-primary-500'}`} style={{ width: `${accuracyProgress}%` }}></div>
-                                    </div>
-                                    </div>
-                                </div>
-                            </Card>
-
-                            <Card className="p-6">
-                                <h2 className="text-xl font-semibold mb-4">Language Focus</h2>
-                                {languageFocus.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height={200}>
-                                        <PieChart>
-                                            <Pie 
-                                                data={languageFocus} 
-                                                dataKey="value" 
-                                                nameKey="name" 
-                                                cx="50%" 
-                                                cy="50%" 
-                                                outerRadius={60}
-                                                fill="#8884d8" 
-                                                labelLine={false}
-                                                label={renderCustomizedLabel}
-                                            >
-                                                {languageFocus.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                                            </Pie>
-                                            <Tooltip formatter={(value: number) => overallStats.totalDuration > 0 ? `${(value / overallStats.totalDuration * 100).toFixed(2)}%` : '0.00%'} />
-                                            <Legend />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                ) : (
-                                    <div className="h-[200px] flex items-center justify-center text-slate-500">No language data for this period.</div>
-                                )}
-                            </Card>
-                        </div>
-                    </div>
-
-                    <Card className="p-6">
-                        <h2 className="text-xl font-semibold mb-4">Practice History</h2>
-                        <div className="max-h-96 overflow-y-auto custom-scrollbar">
-                            <table className="w-full text-sm text-left">
-                                <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-slate-100 dark:bg-slate-700 sticky top-0">
-                                    <tr>
-                                        <th scope="col" className="px-6 py-3">Language</th>
-                                        <th scope="col" className="px-6 py-3">WPM</th>
-                                        <th scope="col" className="px-6 py-3">Accuracy</th>
-                                        <th scope="col" className="px-6 py-3">Errors</th>
-                                        <th scope="col" className="px-6 py-3">Duration</th>
-                                        <th scope="col" className="px-6 py-3">Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredHistory.slice().reverse().map((session, index) => (
-                                        <tr key={`${session.timestamp}-${index}`} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600/50 text-gray-800 dark:text-gray-300">
-                                            <td className="px-6 py-4">{session.language}</td>
-                                            <td className="px-6 py-4 font-medium">{session.wpm}</td>
-                                            <td className="px-6 py-4">{session.accuracy.toFixed(2)}%</td>
-                                            <td className="px-6 py-4">{session.errors}</td>
-                                            <td className="px-6 py-4">{formatSessionDuration(session.duration)}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">{new Date(session.timestamp).toLocaleString()}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </Card>
-                </>
-            )}
-
-            <Card className="p-6">
-                <h2 className="text-xl font-semibold mb-4">Targeted Practice Area</h2>
-                {errorAnalysis.length > 0 ? (
-                    <>
-                        <p className="text-sm text-slate-500 mb-4">Here are your top 5 weakest keys based on error rate. Start a targeted session to improve!</p>
-                        <div className="space-y-2">
-                            {errorAnalysis.map(({ key, errorRate }) => (
-                                <div key={key} className="flex items-center justify-between text-sm">
-                                    <span className="font-mono bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded w-24 text-center">{displayKey(key)}</span>
-                                    <div className="w-full mx-4 bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
-                                        <div className="bg-red-500 h-2.5 rounded-full" style={{ width: `${Math.min(100, errorRate * 5)}%` }}></div>
-                                    </div>
-                                    <span className="font-semibold w-28 text-right">{errorRate.toFixed(1)}% error rate</span>
-                                </div>
-                            ))}
-                        </div>
-                        <Button className="mt-6 w-full" onClick={() => setIsTargetedSetupOpen(true)}>
-                            Practice These Keys
-                        </Button>
-                    </>
-                ) : (
-                    <p className="text-slate-500">Not enough data for error analysis. Keep practicing!</p>
-                )}
-            </Card>
-
-            <Card className="p-6">
-                <h2 className="text-xl font-semibold mb-4">Data Management</h2>
-                <p className="text-sm text-slate-500 mb-4">Save your practice history, goals, and settings to a file, or import them on another device.</p>
-                <div className="flex flex-col sm:flex-row gap-4">
-                    <Button onClick={handleExportData} accessKeyChar="E">
-                        Export Data
-                    </Button>
-                    <Button variant="secondary" onClick={handleImportClick} accessKeyChar="I">
-                        Import Data
-                    </Button>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        className="hidden"
-                        accept=".json,application/json"
-                        onChange={handleFileImport}
+        <>
+            <div className="space-y-8 h-full overflow-y-auto custom-scrollbar p-4">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                    <h1 className="text-3xl font-bold">Your Progress Dashboard</h1>
+                    <SegmentedControl
+                        options={filterOptions}
+                        selectedValue={timeFilter}
+                        onSelect={(value) => setTimeFilter(value as any)}
+                        accessKeyChars={filterAccessKeys}
                     />
                 </div>
-            </Card>
-            
-            <GoalsModal
-                isOpen={isGoalsModalOpen}
-                onClose={() => setIsGoalsModalOpen(false)}
-                onSave={(wpm, acc) => { setGoals(wpm, acc); setIsGoalsModalOpen(false); }}
-                currentWpmGoal={wpmGoal}
-                currentAccuracyGoal={accuracyGoal}
-            />
-            
-            <PracticeSetupModal
-              isOpen={isTargetedSetupOpen}
-              onClose={() => setIsTargetedSetupOpen(false)}
-              onStart={(length, level) => handleStartTargetedPractice(length!, level!)}
-              variant="targeted"
-            />
+                
+                {filteredHistory.length === 0 ? (
+                    <Card className="p-8 text-center text-slate-500">
+                        No practice sessions found for the selected time period.
+                    </Card>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                            <Stat label="Average WPM" value={overallStats.avgWpm} />
+                            <Stat label="Average Accuracy" value={`${overallStats.avgAccuracy}%`} />
+                            <Stat label="Best WPM" value={overallStats.bestWpm} />
+                            <Stat label="Total Practice Time" value={formatDuration(overallStats.totalDuration)} />
+                            <Stat label="Total Lines Typed" value={overallStats.totalLines} />
+                            <Stat label="Total Errors" value={overallStats.totalErrors} />
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <Card className="lg:col-span-2 p-6">
+                                <h2 className="text-xl font-semibold mb-4">Historical Performance</h2>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <LineChart data={graphConfig.data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                                        <XAxis
+                                            type="number"
+                                            dataKey="timestamp"
+                                            domain={graphConfig.domain}
+                                            ticks={graphConfig.ticks}
+                                            tickFormatter={graphConfig.tickFormatter}
+                                            padding={{ left: 20, right: 20 }}
+                                        />
+                                        <YAxis yAxisId="left" label={{ value: 'WPM', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }} />
+                                        <YAxis yAxisId="right" orientation="right" label={{ value: 'Accuracy (%)', angle: -90, position: 'insideRight', style: { textAnchor: 'middle' } }} />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Legend />
+                                        <Line yAxisId="left" type="monotone" dataKey="wpm" stroke="#10b981" name="WPM" dot={true} />
+                                        <Line yAxisId="right" type="monotone" dataKey="accuracy" stroke="#3b82f6" name="Accuracy" dot={true} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </Card>
+
+                            <div className="space-y-8">
+                                <Card className="p-6">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h2 className="text-xl font-semibold">Your Goals</h2>
+                                        <Button variant="ghost" size="icon" onClick={() => setIsGoalsModalOpen(true)}>
+                                            <PencilIcon className="w-5 h-5" />
+                                        </Button>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div>
+                                        <div className="flex justify-between items-baseline mb-1">
+                                                <span className="text-sm font-medium">WPM: {overallStats.avgWpm} / {wpmGoal}</span>
+                                                <span className={`text-sm font-bold ${wpmGoalAchieved ? 'text-amber-500' : ''}`}>{wpmGoalAchieved ? 'Goal Achieved!' : `${wpmProgress.toFixed(0)}%`}</span>
+                                        </div>
+                                        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
+                                            <div className={`h-2.5 rounded-full ${wpmGoalAchieved ? 'bg-amber-400' : 'bg-primary-500'}`} style={{ width: `${wpmProgress}%` }}></div>
+                                        </div>
+                                        </div>
+                                        <div>
+                                        <div className="flex justify-between items-baseline mb-1">
+                                                <span className="text-sm font-medium">Accuracy: {overallStats.avgAccuracy}% / {accuracyGoal}%</span>
+                                                <span className={`text-sm font-bold ${accuracyGoalAchieved ? 'text-amber-500' : ''}`}>{accuracyGoalAchieved ? 'Goal Achieved!' : `${accuracyProgress.toFixed(0)}%`}</span>
+                                        </div>
+                                        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
+                                            <div className={`h-2.5 rounded-full ${accuracyGoalAchieved ? 'bg-amber-400' : 'bg-primary-500'}`} style={{ width: `${accuracyProgress}%` }}></div>
+                                        </div>
+                                        </div>
+                                    </div>
+                                </Card>
+
+                                <Card className="p-6">
+                                    <h2 className="text-xl font-semibold mb-4">Language Focus</h2>
+                                    {languageFocus.length > 0 ? (
+                                        <ResponsiveContainer width="100%" height={200}>
+                                            <PieChart>
+                                                <Pie 
+                                                    data={languageFocus} 
+                                                    dataKey="value" 
+                                                    nameKey="name" 
+                                                    cx="50%" 
+                                                    cy="50%" 
+                                                    outerRadius={60}
+                                                    fill="#8884d8" 
+                                                    labelLine={false}
+                                                    label={renderCustomizedLabel}
+                                                >
+                                                    {languageFocus.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                                </Pie>
+                                                <Tooltip formatter={(value: number) => overallStats.totalDuration > 0 ? `${(value / overallStats.totalDuration * 100).toFixed(2)}%` : '0.00%'} />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    ) : (
+                                        <div className="h-[200px] flex items-center justify-center text-slate-500">No language data for this period.</div>
+                                    )}
+                                </Card>
+                            </div>
+                        </div>
+
+                        <Card className="p-6">
+                            <h2 className="text-xl font-semibold mb-4">Practice History</h2>
+                            <div className="max-h-96 overflow-y-auto custom-scrollbar">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-slate-100 dark:bg-slate-700 sticky top-0">
+                                        <tr>
+                                            <th scope="col" className="px-6 py-3">Language</th>
+                                            <th scope="col" className="px-6 py-3">WPM</th>
+                                            <th scope="col" className="px-6 py-3">Accuracy</th>
+                                            <th scope="col" className="px-6 py-3">Errors</th>
+                                            <th scope="col" className="px-6 py-3">Duration</th>
+                                            <th scope="col" className="px-6 py-3">Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredHistory.slice().reverse().map((session, index) => (
+                                            <tr key={`${session.timestamp}-${index}`} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600/50 text-gray-800 dark:text-gray-300">
+                                                <td className="px-6 py-4">{session.language}</td>
+                                                <td className="px-6 py-4 font-medium">{session.wpm}</td>
+                                                <td className="px-6 py-4">{session.accuracy.toFixed(2)}%</td>
+                                                <td className="px-6 py-4">{session.errors}</td>
+                                                <td className="px-6 py-4">{formatSessionDuration(session.duration)}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">{new Date(session.timestamp).toLocaleString()}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </Card>
+                    </>
+                )}
+
+                <Card className="p-6">
+                    <h2 className="text-xl font-semibold mb-4">Targeted Practice Area</h2>
+                    {errorAnalysis.length > 0 ? (
+                        <>
+                            <p className="text-sm text-slate-500 mb-4">Here are your top 5 weakest keys based on error rate. Start a targeted session to improve!</p>
+                            <div className="space-y-2">
+                                {errorAnalysis.map(({ key, errorRate }) => (
+                                    <div key={key} className="flex items-center justify-between text-sm">
+                                        <span className="font-mono bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded w-24 text-center">{displayKey(key)}</span>
+                                        <div className="w-full mx-4 bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
+                                            <div className="bg-red-500 h-2.5 rounded-full" style={{ width: `${Math.min(100, errorRate * 5)}%` }}></div>
+                                        </div>
+                                        <span className="font-semibold w-28 text-right">{errorRate.toFixed(1)}% error rate</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <Button className="mt-6 w-full" onClick={() => setIsTargetedSetupOpen(true)}>
+                                Practice These Keys
+                            </Button>
+                        </>
+                    ) : (
+                        <p className="text-slate-500">Not enough data for error analysis. Keep practicing!</p>
+                    )}
+                </Card>
+
+                <Card className="p-6">
+                    <h2 className="text-xl font-semibold mb-4">Data Management</h2>
+                    <p className="text-sm text-slate-500 mb-4">Save your practice history, goals, and settings to a file, or import them on another device.</p>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <Button onClick={handleExportData} accessKeyChar="E">
+                            Export Data
+                        </Button>
+                        <Button variant="secondary" onClick={handleImportClick} accessKeyChar="I">
+                            Import Data
+                        </Button>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept=".json,application/json"
+                            onChange={handleFileImport}
+                        />
+                    </div>
+                </Card>
+                
+                <GoalsModal
+                    isOpen={isGoalsModalOpen}
+                    onClose={() => setIsGoalsModalOpen(false)}
+                    onSave={(wpm, acc) => { setGoals(wpm, acc); setIsGoalsModalOpen(false); }}
+                    currentWpmGoal={wpmGoal}
+                    currentAccuracyGoal={accuracyGoal}
+                />
+                
+                <PracticeSetupModal
+                  isOpen={isTargetedSetupOpen}
+                  onClose={() => setIsTargetedSetupOpen(false)}
+                  onStart={(length, level) => handleStartTargetedPractice(length!, level!)}
+                  variant="targeted"
+                />
+            </div>
 
             <ConfirmationModal
                 isOpen={!!importConfirmation}
@@ -589,10 +591,9 @@ const DashboardPage: React.FC = () => {
                 buttons={[
                     { label: 'Merge', onClick: () => handleImportConfirm('merge'), variant: 'primary' },
                     { label: 'Replace', onClick: () => handleImportConfirm('replace'), variant: 'secondary' },
-                    { label: 'Cancel', onClick: () => setImportConfirmation(null), variant: 'ghost' },
                 ]}
             />
-        </div>
+        </>
     );
 };
 

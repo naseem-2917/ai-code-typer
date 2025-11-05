@@ -92,14 +92,22 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!isOpen) return;
 
+      // For Tab/Shift+Tab, we let the browser handle focus changes.
+      // The `onFocus` prop on each button will automatically update our `focusedIndex` state.
+      if (event.key === 'Tab') {
+          return;
+      }
+
+      // For Arrow keys, we manually control focus.
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault();
+        event.preventDefault(); // Prevent page scrolling
         const direction = event.key === 'ArrowDown' ? 1 : -1;
         const newIndex = (focusedIndex + direction + buttons.length) % buttons.length;
         setFocusedIndex(newIndex);
         buttonRefs.current[newIndex]?.focus();
       } else if (event.key === 'Enter') {
         event.preventDefault();
+        // Click the button that has state-based focus
         buttonRefs.current[focusedIndex]?.click();
       }
     };
