@@ -4,12 +4,15 @@ import { Language, SnippetLength, SnippetLevel } from '../types';
 // --------------------- FIX STARTS HERE ---------------------
 
 // Yeh logic Netlify (Vite) aur Google AI Studio dono ko handle karega.
-// 1. Netlify Production mein, yeh VITE_GEMINI_API_KEY ko access karega.
-// 2. Local/Studio environment mein, agar VITE_ key nahi mili, toh yeh fallback (process.env.API_KEY) use karega.
-//    Agar dono hi na mile, toh yeh 'undefined' hoga, jise GoogleGenAI library Google environment mein manage kar leti hai.
+
+const isViteEnv = typeof import.meta !== 'undefined' && typeof import.meta.env !== 'undefined';
+
 const apiKey = 
-  import.meta.env.VITE_GEMINI_API_KEY || 
-  process.env.API_KEY; 
+  // 1. Agar hum Vite environment mein hain (Netlify), toh VITE_GEMINI_API_KEY use karo.
+  isViteEnv 
+  ? import.meta.env.VITE_GEMINI_API_KEY 
+  // 2. Agar hum Studio/Local environment mein hain, toh process.env.API_KEY use karo.
+  : process.env.API_KEY; 
 
 const ai = new GoogleGenAI({ apiKey });
 
