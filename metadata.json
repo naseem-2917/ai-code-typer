@@ -1,0 +1,5 @@
+{
+  "name": "AI Code Typer Local Storage",
+  "description": "A typing practice platform for programmers. It uses AI to generate personalized code snippets to help improve typing speed and accuracy with real code syntax.",
+  "requestFramePermissions": []
+}

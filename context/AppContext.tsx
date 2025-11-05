@@ -1,0 +1,477 @@
+import React, { createContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
+import { Language, SnippetLength, SnippetLevel, FontSize, Page, PracticeStats, PracticeQueueItem } from '../types';
+import { SUPPORTED_LANGUAGES } from '../constants';
+import { generateCodeSnippet, generateTargetedCodeSnippet } from '../services/geminiService';
+
+const CUSTOM_LANGUAGE: Language = { id: 'custom', name: 'Custom', prismAlias: 'clike' };
+
+const getLanguageFromExtension = (filename: string): Language => {
+    const lastDotIndex = filename.lastIndexOf('.');
+    if (lastDotIndex < 0) {
+        return CUSTOM_LANGUAGE;
+    }
+    const extension = filename.substring(lastDotIndex).toLowerCase();
+
+    const extensionMap: Record<string, Language | undefined> = {
+        '.py': SUPPORTED_LANGUAGES.find(l => l.id === 'python'),
+        '.js': SUPPORTED_LANGUAGES.find(l => l.id === 'javascript'),
+        '.jsx': SUPPORTED_LANGUAGES.find(l => l.id === 'javascript'),
+        '.ts': SUPPORTED_LANGUAGES.find(l => l.id === 'typescript'),
+        '.tsx': SUPPORTED_LANGUAGES.find(l => l.id === 'typescript'),
+        '.java': SUPPORTED_LANGUAGES.find(l => l.id === 'java'),
+        '.cpp': SUPPORTED_LANGUAGES.find(l => l.id === 'cpp'),
+        '.cc': SUPPORTED_LANGUAGES.find(l => l.id === 'cpp'),
+        '.cxx': SUPPORTED_LANGUAGES.find(l => l.id === 'cpp'),
+        '.h': SUPPORTED_LANGUAGES.find(l => l.id === 'cpp'),
+        '.hpp': SUPPORTED_LANGUAGES.find(l => l.id === 'cpp'),
+        '.go': SUPPORTED_LANGUAGES.find(l => l.id === 'go'),
+        '.rs': SUPPORTED_LANGUAGES.find(l => l.id === 'rust'),
+    };
+    return extensionMap[extension] || CUSTOM_LANGUAGE;
+};
+
+const convertSpacesToTabs = (code: string): string => {
+  return code
+    .split('\n')
+    .map(line => {
+      const leadingSpacesMatch = line.match(/^ +/);
+      if (leadingSpacesMatch) {
+        const spaceCount = leadingSpacesMatch[0].length;
+        if (spaceCount > 0 && spaceCount % 4 === 0) {
+          const tabCount = spaceCount / 4;
+          const tabs = '\t'.repeat(tabCount);
+          return tabs + line.substring(spaceCount);
+        }
+      }
+      return line;
+    })
+    .join('\n');
+};
+
+
+interface AppContextType {
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
+  selectedLanguage: Language;
+  setSelectedLanguage: (language: Language) => void;
+  snippet: string;
+  isLoadingSnippet: boolean;
+  snippetError: string | null;
+  fetchNewSnippet: (options?: { length?: SnippetLength, level?: SnippetLevel }) => void;
+  startCustomSession: (code: string) => void;
+  startTargetedSession: (keys: string[], options: { length: SnippetLength, level: SnippetLevel }) => void;
+  isCustomSession: boolean;
+  snippetLength: SnippetLength;
+  setSnippetLength: (length: SnippetLength) => void;
+  snippetLevel: SnippetLevel;
+  setSnippetLevel: (level: SnippetLevel) => void;
+  blockOnErrorThreshold: number;
+  setBlockOnErrorThreshold: (threshold: number) => void;
+  fontSize: FontSize;
+  increaseFontSize: () => void;
+  decreaseFontSize: () => void;
+  showKeyboard: boolean;
+  toggleKeyboard: () => void;
+  showHandGuide: boolean;
+  toggleHandGuide: () => void;
+  page: Page;
+  navigateTo: (page: Page) => void;
+  getPreviousPage: () => Page | null;
+  isSetupModalOpen: boolean;
+  openSetupModal: () => void;
+  closeSetupModal: () => void;
+  isInitialSetupComplete: boolean;
+  setupTab: 'generate' | 'upload';
+  setSetupTab: (tab: 'generate' | 'upload') => void;
+  practiceHistory: PracticeStats[];
+  addPracticeResult: (stats: PracticeStats) => void;
+  keyErrorStats: Record<string, number>;
+  keyAttemptStats: Record<string, number>;
+  wpmGoal: number;
+  accuracyGoal: number;
+  setGoals: (wpm: number, accuracy: number) => void;
+  isAccessKeyMenuVisible: boolean;
+  showAccessKeyMenu: () => void;
+  hideAccessKeyMenu: () => void;
+  currentTargetedKeys: string[];
+  lastPracticeAction: 'generate' | 'upload' | 'practice_same' | null;
+  setLastPracticeAction: (action: 'generate' | 'upload' | 'practice_same') => void;
+  setRequestFocusOnCodeCallback: (callback: (() => void) | null) => void;
+  requestFocusOnCode: () => void;
+  practiceQueue: PracticeQueueItem[];
+  currentQueueIndex: number;
+  startMultiFileSession: (files: File[]) => Promise<void>;
+  loadNextSnippetInQueue: () => void;
+  alertMessage: { message: string; type: 'warning' | 'info' | 'error' } | null;
+  showAlert: (message: string, type: 'warning' | 'info' | 'error', duration?: number) => void;
+}
+
+export const AppContext = createContext<AppContextType | null>(null);
+
+const FONT_SIZES: FontSize[] = ['sm', 'md', 'lg', 'xl'];
+
+export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) return savedTheme as 'light' | 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>(() => {
+    const savedLangId = localStorage.getItem('selectedLanguage');
+    return SUPPORTED_LANGUAGES.find(l => l.id === savedLangId) || SUPPORTED_LANGUAGES[0];
+  });
+  
+  const [snippet, setSnippet] = useState('');
+  const [isLoadingSnippet, setIsLoadingSnippet] = useState(false);
+  const [snippetError, setSnippetError] = useState<string | null>(null);
+  const [isCustomSession, setIsCustomSession] = useState(false);
+  
+  const [snippetLength, setSnippetLength] = useState<SnippetLength>('medium');
+  const [snippetLevel, setSnippetLevel] = useState<SnippetLevel>('medium');
+  const [blockOnErrorThreshold, setBlockOnErrorThreshold] = useState<number>(2);
+  
+  const [fontSize, setFontSize] = useState<FontSize>('md');
+  const [showKeyboard, setShowKeyboard] = useState(true);
+  const [showHandGuide, setShowHandGuide] = useState(true);
+  
+  const [page, setPage] = useState<Page>('home');
+  const previousPageRef = useRef<Page | null>(null);
+  const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
+  
+  const [practiceHistory, setPracticeHistory] = useState<PracticeStats[]>(() => {
+    const savedHistory = localStorage.getItem('practiceHistory');
+    return savedHistory ? JSON.parse(savedHistory) : [];
+  });
+  
+  const [keyErrorStats, setKeyErrorStats] = useState<Record<string, number>>(() => {
+    const savedStats = localStorage.getItem('keyErrorStats');
+    return savedStats ? JSON.parse(savedStats) : {};
+  });
+
+  const [keyAttemptStats, setKeyAttemptStats] = useState<Record<string, number>>(() => {
+    const savedStats = localStorage.getItem('keyAttemptStats');
+    return savedStats ? JSON.parse(savedStats) : {};
+  });
+
+  const [wpmGoal, setWpmGoal] = useState<number>(() => parseInt(localStorage.getItem('wpmGoal') || '60', 10));
+  const [accuracyGoal, setAccuracyGoal] = useState<number>(() => parseInt(localStorage.getItem('accuracyGoal') || '98', 10));
+
+  const [isAccessKeyMenuVisible, setIsAccessKeyMenuVisible] = useState(false);
+  const [currentTargetedKeys, setCurrentTargetedKeys] = useState<string[]>([]);
+  const [lastPracticeAction, setLastPracticeAction] = useState<'generate' | 'upload' | 'practice_same' | null>(null);
+  
+  const [focusRequestCallback, setFocusRequestCallback] = useState<(() => void) | null>(null);
+
+  const [setupTab, setSetupTab] = useState<'generate' | 'upload'>(
+    () => (localStorage.getItem('setupTab') as 'generate' | 'upload') || 'generate'
+  );
+  
+  const [practiceQueue, setPracticeQueue] = useState<PracticeQueueItem[]>([]);
+  const [currentQueueIndex, setCurrentQueueIndex] = useState<number>(-1);
+  
+  const [alertMessage, setAlertMessage] = useState<{ message: string; type: 'warning' | 'info' | 'error' } | null>(null);
+  const alertTimeoutRef = useRef<number | null>(null);
+
+
+  const isInitialSetupComplete = !!snippet;
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem('selectedLanguage', selectedLanguage.id);
+  }, [selectedLanguage]);
+
+  useEffect(() => {
+    localStorage.setItem('practiceHistory', JSON.stringify(practiceHistory));
+  }, [practiceHistory]);
+
+  useEffect(() => {
+    localStorage.setItem('keyErrorStats', JSON.stringify(keyErrorStats));
+    localStorage.setItem('keyAttemptStats', JSON.stringify(keyAttemptStats));
+  }, [keyErrorStats, keyAttemptStats]);
+
+  useEffect(() => {
+    localStorage.setItem('wpmGoal', String(wpmGoal));
+    localStorage.setItem('accuracyGoal', String(accuracyGoal));
+  }, [wpmGoal, accuracyGoal]);
+
+  useEffect(() => {
+    localStorage.setItem('setupTab', setupTab);
+  }, [setupTab]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Alt') {
+            e.preventDefault();
+            setIsAccessKeyMenuVisible(true);
+        }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+        if (e.key === 'Alt') {
+            setIsAccessKeyMenuVisible(false);
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+  
+  const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+  const openSetupModal = () => setIsSetupModalOpen(true);
+  const closeSetupModal = () => setIsSetupModalOpen(false);
+
+  const navigateTo = (p: Page) => {
+    if (p !== page) {
+      previousPageRef.current = page;
+    }
+    setPage(p);
+  };
+
+  const getPreviousPage = () => previousPageRef.current;
+
+  const setRequestFocusOnCodeCallback = useCallback((cb: (() => void) | null) => {
+      setFocusRequestCallback(() => cb);
+  }, []);
+
+  const requestFocusOnCode = useCallback(() => {
+      if (focusRequestCallback) {
+          focusRequestCallback();
+      }
+  }, [focusRequestCallback]);
+  
+  const clearPracticeQueue = () => {
+      setPracticeQueue([]);
+      setCurrentQueueIndex(-1);
+  };
+  
+  const fetchNewSnippet = useCallback(async (options?: { length?: SnippetLength, level?: SnippetLevel }) => {
+    if (isLoadingSnippet) return;
+    
+    clearPracticeQueue();
+    setIsLoadingSnippet(true);
+    setSnippet('');
+    setSnippetError(null);
+    setIsCustomSession(false);
+    setCurrentTargetedKeys([]);
+    
+    const length = options?.length || snippetLength;
+    const level = options?.level || snippetLevel;
+    
+    setSnippetLength(length);
+    setSnippetLevel(level);
+
+    try {
+      const newSnippet = await generateCodeSnippet(selectedLanguage, length, level);
+      setSnippet(convertSpacesToTabs(newSnippet));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch a new code snippet. Please try again.';
+      setSnippetError(errorMessage);
+      console.error(err);
+    } finally {
+      setIsLoadingSnippet(false);
+    }
+  }, [selectedLanguage, snippetLength, snippetLevel, isLoadingSnippet]);
+
+  const startCustomSession = (code: string) => {
+    clearPracticeQueue();
+    const convertedCode = convertSpacesToTabs(code);
+    setSnippet(convertedCode);
+    setIsCustomSession(true);
+    setCurrentTargetedKeys([]);
+  };
+  
+  const startTargetedSession = useCallback(async (keys: string[], options: { length: SnippetLength, level: SnippetLevel }) => {
+    if (isLoadingSnippet) return;
+
+    clearPracticeQueue();
+    setSnippet('');
+    setIsLoadingSnippet(true);
+    setSnippetError(null);
+    setIsCustomSession(false);
+    setCurrentTargetedKeys(keys);
+    try {
+        const newSnippet = await generateTargetedCodeSnippet(selectedLanguage, keys, options.length, options.level);
+        setSnippet(convertSpacesToTabs(newSnippet));
+    } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch a targeted snippet. Please try again.';
+        setSnippetError(errorMessage);
+        console.error(err);
+    } finally {
+        setIsLoadingSnippet(false);
+    }
+  }, [selectedLanguage, isLoadingSnippet]);
+
+  const loadSnippetFromQueue = useCallback((index: number) => {
+      if (practiceQueue[index]) {
+          const item = practiceQueue[index];
+          setSnippet(item.code);
+          setSelectedLanguage(item.language);
+          setCurrentQueueIndex(index);
+          setIsCustomSession(true);
+          setCurrentTargetedKeys([]);
+          setSnippetError(null);
+          setIsLoadingSnippet(false);
+      }
+  }, [practiceQueue]);
+
+  const startMultiFileSession = async (files: File[]) => {
+      setIsLoadingSnippet(true);
+      setSnippet('');
+      clearPracticeQueue();
+
+      const readFile = (file: File): Promise<PracticeQueueItem & { isValid: boolean }> => 
+          new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                  const rawCode = e.target?.result as string;
+                  const trimmedCode = rawCode.trim();
+                  
+                  const normalizedCode = rawCode.replace(/\r\n?/g, '\n');
+                  const convertedCode = convertSpacesToTabs(normalizedCode);
+                  resolve({
+                      code: convertedCode,
+                      name: file.name,
+                      language: getLanguageFromExtension(file.name),
+                      isValid: trimmedCode.length >= 2,
+                  });
+              };
+              reader.onerror = (e) => reject(e);
+              reader.readAsText(file);
+          });
+      
+      try {
+          const allItems = await Promise.all(files.map(readFile));
+
+          const validQueue = allItems.filter(item => item.isValid);
+          const invalidQueue = allItems.filter(item => !item.isValid);
+          
+          if (invalidQueue.length > 0) {
+              const invalidNames = invalidQueue.map(f => f.name).join(', ');
+              showAlert(`Ignored files with less than 2 characters: ${invalidNames}`, 'warning', 6000);
+          }
+
+          if (validQueue.length === 0) {
+              showAlert("All selected files are invalid. Code must be at least 2 characters long.", 'error');
+              throw new Error("All selected files are invalid.");
+          }
+
+          setPracticeQueue(validQueue);
+          const item = validQueue[0];
+          setSnippet(item.code);
+          setSelectedLanguage(item.language);
+          setCurrentQueueIndex(0);
+          setIsCustomSession(true);
+          setSnippetError(null);
+
+      } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : 'Failed to process files.';
+          setSnippetError(errorMessage);
+          console.error(err);
+          throw err;
+      } finally {
+          setIsLoadingSnippet(false);
+      }
+  };
+
+  const loadNextSnippetInQueue = useCallback(() => {
+      const nextIndex = currentQueueIndex + 1;
+      if (nextIndex < practiceQueue.length) {
+          loadSnippetFromQueue(nextIndex);
+      }
+  }, [currentQueueIndex, practiceQueue, loadSnippetFromQueue]);
+
+  const showAlert = useCallback((message: string, type: 'warning' | 'info' | 'error', duration: number = 4000) => {
+    if (alertTimeoutRef.current) {
+        clearTimeout(alertTimeoutRef.current);
+    }
+    setAlertMessage({ message, type });
+    alertTimeoutRef.current = window.setTimeout(() => {
+        setAlertMessage(null);
+    }, duration);
+  }, []);
+
+  const increaseFontSize = () => {
+    const currentIndex = FONT_SIZES.indexOf(fontSize);
+    if (currentIndex < FONT_SIZES.length - 1) {
+      setFontSize(FONT_SIZES[currentIndex + 1]);
+    }
+  };
+
+  const decreaseFontSize = () => {
+    const currentIndex = FONT_SIZES.indexOf(fontSize);
+    if (currentIndex > 0) {
+      setFontSize(FONT_SIZES[currentIndex - 1]);
+    }
+  };
+
+  const toggleKeyboard = () => setShowKeyboard(prev => !prev);
+  const toggleHandGuide = () => setShowHandGuide(prev => !prev);
+
+  const addPracticeResult = (stats: PracticeStats) => {
+    setPracticeHistory(prev => [...prev, stats].slice(-100));
+    
+    if (stats.errorMap) {
+      setKeyErrorStats(prev => {
+        const newStats = { ...prev };
+        for (const [key, count] of Object.entries(stats.errorMap!)) {
+          newStats[key] = (newStats[key] || 0) + count;
+        }
+        return newStats;
+      });
+    }
+
+    if(stats.attemptMap) {
+      setKeyAttemptStats(prev => {
+        const newStats = { ...prev };
+        for (const [key, count] of Object.entries(stats.attemptMap!)) {
+          newStats[key] = (newStats[key] || 0) + count;
+        }
+        return newStats;
+      });
+    }
+  };
+
+  const setGoals = (wpm: number, accuracy: number) => {
+    setWpmGoal(wpm);
+    setAccuracyGoal(accuracy);
+    localStorage.setItem('wpmGoal', String(wpm));
+    localStorage.setItem('accuracyGoal', String(accuracy));
+  };
+  
+  const showAccessKeyMenu = () => setIsAccessKeyMenuVisible(true);
+  const hideAccessKeyMenu = () => setIsAccessKeyMenuVisible(false);
+
+  const value: AppContextType = {
+    theme, toggleTheme,
+    selectedLanguage, setSelectedLanguage,
+    snippet, isLoadingSnippet, snippetError, fetchNewSnippet, startCustomSession, startTargetedSession, isCustomSession,
+    snippetLength, setSnippetLength,
+    snippetLevel, setSnippetLevel,
+    blockOnErrorThreshold, setBlockOnErrorThreshold,
+    fontSize, increaseFontSize, decreaseFontSize,
+    showKeyboard, toggleKeyboard,
+    showHandGuide, toggleHandGuide,
+    page, navigateTo, getPreviousPage,
+    isSetupModalOpen, openSetupModal, closeSetupModal,
+    isInitialSetupComplete,
+    setupTab, setSetupTab,
+    practiceHistory, addPracticeResult,
+    keyErrorStats, keyAttemptStats,
+    wpmGoal, accuracyGoal, setGoals,
+    isAccessKeyMenuVisible, showAccessKeyMenu, hideAccessKeyMenu,
+    currentTargetedKeys,
+    lastPracticeAction, setLastPracticeAction,
+    setRequestFocusOnCodeCallback, requestFocusOnCode,
+    practiceQueue, currentQueueIndex, startMultiFileSession, loadNextSnippetInQueue,
+    alertMessage, showAlert,
+  };
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+};
