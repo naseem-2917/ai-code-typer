@@ -1,5 +1,5 @@
 // FIX: Implemented the DashboardPage component to display user stats.
-import React, { useContext, useMemo, useState, useRef, useCallback } from 'react';
+import React, { useContext, useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { Card } from './ui/Card';
 import { Stat } from './ui/Stat';
@@ -112,7 +112,9 @@ const DashboardPage: React.FC = () => {
         keyErrorStats, 
         keyAttemptStats, 
         wpmGoal, 
-        accuracyGoal, 
+        accuracyGoal,
+        timeGoal,
+        dailyPracticeTime,
         setGoals, 
         navigateTo, 
         startTargetedSession,
@@ -125,6 +127,39 @@ const DashboardPage: React.FC = () => {
     const [timeFilter, setTimeFilter] = useState<'24h' | '7d' | '30d' | 'all'>('all');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [importConfirmation, setImportConfirmation] = useState<{ fileContent: string } | null>(null);
+
+    const [focusedButtonIndex, setFocusedButtonIndex] = useState(0);
+    const startButtonRef = useRef<HTMLButtonElement>(null);
+    const importButtonRef = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+        if (practiceHistory.length === 0) {
+            startButtonRef.current?.focus();
+        }
+    }, [practiceHistory.length]);
+    
+    useEffect(() => {
+        if (practiceHistory.length > 0) return;
+        
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                setFocusedButtonIndex(prev => (prev === 0 ? 1 : 0));
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [practiceHistory.length]);
+
+    useEffect(() => {
+        if (practiceHistory.length > 0) return;
+        
+        if (focusedButtonIndex === 0) {
+            startButtonRef.current?.focus();
+        } else {
+            importButtonRef.current?.focus();
+        }
+    }, [focusedButtonIndex, practiceHistory.length]);
 
 
     useAccessKey('2', () => setTimeFilter('24h'));
@@ -346,8 +381,31 @@ const DashboardPage: React.FC = () => {
     
     const wpmProgress = wpmGoal > 0 ? Math.min(100, (overallStats.avgWpm / wpmGoal) * 100) : 0;
     const accuracyProgress = accuracyGoal > 0 ? Math.min(100, (overallStats.avgAccuracy / accuracyGoal) * 100) : 0;
-    const wpmGoalAchieved = overallStats.avgWpm >= wpmGoal;
-    const accuracyGoalAchieved = overallStats.avgAccuracy >= accuracyGoal;
+    const timeGoalInSeconds = timeGoal * 60;
+    const timeProgress = timeGoalInSeconds > 0 ? Math.min(100, (dailyPracticeTime / timeGoalInSeconds) * 100) : 0;
+
+    const wpmGoalAchieved = overallStats.avgWpm > wpmGoal;
+    const accuracyGoalAchieved = overallStats.avgAccuracy >= accuracyGoal; // Unchanged as per spec
+    const timeGoalAchieved = dailyPracticeTime > timeGoalInSeconds;
+
+    // Dynamic WPM Goal Suggestion
+    let wpmIncreaseAmount = 0;
+    let newWpmGoal = 0;
+    if (wpmGoalAchieved) {
+        newWpmGoal = Math.floor(overallStats.avgWpm / 10) * 10 + 10;
+        wpmIncreaseAmount = newWpmGoal - wpmGoal;
+    }
+
+    // Dynamic Time Goal Suggestion
+    let timeIncreaseAmount = 0;
+    let newTimeGoal = 0;
+    if (timeGoalAchieved) {
+        const dailyPracticeMinutes = dailyPracticeTime / 60;
+        newTimeGoal = Math.floor(dailyPracticeMinutes / 5) * 5 + 5;
+        timeIncreaseAmount = newTimeGoal - timeGoal;
+    }
+    
+    const accuracyIncreaseAmount = Math.min(5, 100 - accuracyGoal);
 
     if (practiceHistory.length === 0) {
         return (
@@ -355,8 +413,25 @@ const DashboardPage: React.FC = () => {
                 <h2 className="text-2xl font-bold mb-4">Your Dashboard</h2>
                 <p className="text-slate-500 mb-6">You haven't completed any practice sessions yet. Start a new session or import your previous data.</p>
                 <div className="flex gap-4">
-                    <Button onClick={() => navigateTo('home')}>Start Practicing</Button>
-                    <Button variant="secondary" onClick={handleImportClick} accessKeyChar="I">
+                    <Button
+                        ref={startButtonRef}
+                        variant={focusedButtonIndex === 0 ? 'primary' : 'secondary'}
+                        onClick={() => navigateTo('practice')}
+                        onFocus={() => setFocusedButtonIndex(0)}
+                        onMouseEnter={() => setFocusedButtonIndex(0)}
+                        accessKeyChar="Enter"
+                        accessKeyLabel="↵"
+                    >
+                        Start Practicing
+                    </Button>
+                    <Button
+                        ref={importButtonRef}
+                        variant={focusedButtonIndex === 1 ? 'primary' : 'secondary'}
+                        onClick={handleImportClick}
+                        onFocus={() => setFocusedButtonIndex(1)}
+                        onMouseEnter={() => setFocusedButtonIndex(1)}
+                        accessKeyChar="I"
+                    >
                         Import Data
                     </Button>
                 </div>
@@ -441,22 +516,52 @@ const DashboardPage: React.FC = () => {
                                     </div>
                                     <div className="space-y-4">
                                         <div>
-                                        <div className="flex justify-between items-baseline mb-1">
-                                                <span className="text-sm font-medium">WPM: {overallStats.avgWpm} / {wpmGoal}</span>
-                                                <span className={`text-sm font-bold ${wpmGoalAchieved ? 'text-amber-500' : ''}`}>{wpmGoalAchieved ? 'Goal Achieved!' : `${wpmProgress.toFixed(0)}%`}</span>
-                                        </div>
-                                        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
-                                            <div className={`h-2.5 rounded-full ${wpmGoalAchieved ? 'bg-amber-400' : 'bg-primary-500'}`} style={{ width: `${wpmProgress}%` }}></div>
-                                        </div>
+                                            <div className="flex justify-between items-baseline mb-1">
+                                                <span className="text-sm font-medium">Daily Time: {formatSessionDuration(dailyPracticeTime)} / {timeGoal}m</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-sm font-bold ${dailyPracticeTime >= timeGoalInSeconds ? 'text-amber-500' : ''}`}>{dailyPracticeTime >= timeGoalInSeconds ? 'Goal Achieved!' : `${timeProgress.toFixed(0)}%`}</span>
+                                                    {timeGoalAchieved && timeIncreaseAmount > 0 && (
+                                                        <Button variant="ghost" size="sm" className="!py-0 !px-2 !h-auto" onClick={() => setGoals(wpmGoal, accuracyGoal, newTimeGoal)} title={`Increase daily time goal to ${newTimeGoal} minutes`}>
+                                                            +{timeIncreaseAmount} min
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
+                                                <div className={`h-2.5 rounded-full ${dailyPracticeTime >= timeGoalInSeconds ? 'bg-amber-400' : 'bg-primary-500'}`} style={{ width: `${timeProgress}%` }}></div>
+                                            </div>
                                         </div>
                                         <div>
-                                        <div className="flex justify-between items-baseline mb-1">
+                                            <div className="flex justify-between items-baseline mb-1">
+                                                <span className="text-sm font-medium">WPM: {overallStats.avgWpm} / {wpmGoal}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-sm font-bold ${overallStats.avgWpm >= wpmGoal ? 'text-amber-500' : ''}`}>{overallStats.avgWpm >= wpmGoal ? 'Goal Achieved!' : `${wpmProgress.toFixed(0)}%`}</span>
+                                                    {wpmGoalAchieved && wpmIncreaseAmount > 0 && (
+                                                        <Button variant="ghost" size="sm" className="!py-0 !px-2 !h-auto" onClick={() => setGoals(newWpmGoal, accuracyGoal, timeGoal)} title={`Increase WPM goal to ${newWpmGoal}`}>
+                                                            +{wpmIncreaseAmount} WPM
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
+                                                <div className={`h-2.5 rounded-full ${overallStats.avgWpm >= wpmGoal ? 'bg-amber-400' : 'bg-primary-500'}`} style={{ width: `${wpmProgress}%` }}></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className="flex justify-between items-baseline mb-1">
                                                 <span className="text-sm font-medium">Accuracy: {overallStats.avgAccuracy}% / {accuracyGoal}%</span>
-                                                <span className={`text-sm font-bold ${accuracyGoalAchieved ? 'text-amber-500' : ''}`}>{accuracyGoalAchieved ? 'Goal Achieved!' : `${accuracyProgress.toFixed(0)}%`}</span>
-                                        </div>
-                                        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
-                                            <div className={`h-2.5 rounded-full ${accuracyGoalAchieved ? 'bg-amber-400' : 'bg-primary-500'}`} style={{ width: `${accuracyProgress}%` }}></div>
-                                        </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-sm font-bold ${accuracyGoalAchieved ? 'text-amber-500' : ''}`}>{accuracyGoalAchieved ? 'Goal Achieved!' : `${accuracyProgress.toFixed(0)}%`}</span>
+                                                    {accuracyGoalAchieved && accuracyIncreaseAmount > 0 && (
+                                                        <Button variant="ghost" size="sm" className="!py-0 !px-2 !h-auto" onClick={() => setGoals(wpmGoal, Math.min(100, accuracyGoal + accuracyIncreaseAmount), timeGoal)} title={`Increase accuracy goal by ${accuracyIncreaseAmount}%`}>
+                                                            +{accuracyIncreaseAmount}%
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
+                                                <div className={`h-2.5 rounded-full ${accuracyGoalAchieved ? 'bg-amber-400' : 'bg-primary-500'}`} style={{ width: `${accuracyProgress}%` }}></div>
+                                            </div>
                                         </div>
                                     </div>
                                 </Card>
@@ -570,9 +675,10 @@ const DashboardPage: React.FC = () => {
                 <GoalsModal
                     isOpen={isGoalsModalOpen}
                     onClose={() => setIsGoalsModalOpen(false)}
-                    onSave={(wpm, acc) => { setGoals(wpm, acc); setIsGoalsModalOpen(false); }}
+                    onSave={(wpm, acc, time) => { setGoals(wpm, acc, time); setIsGoalsModalOpen(false); }}
                     currentWpmGoal={wpmGoal}
                     currentAccuracyGoal={accuracyGoal}
+                    currentTimeGoal={timeGoal}
                 />
                 
                 <PracticeSetupModal

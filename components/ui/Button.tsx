@@ -7,6 +7,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost';
   size?: 'sm' | 'md' | 'lg' | 'icon';
   accessKeyChar?: string;
+  accessKeyLabel?: string;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
@@ -15,6 +16,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
   variant = 'primary',
   size = 'md',
   accessKeyChar,
+  accessKeyLabel,
   ...props
 }, ref) => {
   const context = useContext(AppContext);
@@ -48,7 +50,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
       {...props}
     >
       {context?.isAccessKeyMenuVisible && accessKeyChar && !props.disabled && (
-        <AccessKeyLabel label={accessKeyChar} />
+        <AccessKeyLabel label={accessKeyLabel || accessKeyChar} />
       )}
       {children}
     </button>

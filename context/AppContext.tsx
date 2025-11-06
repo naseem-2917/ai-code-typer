@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useCallback, ReactNode, useR
 import { Language, SnippetLength, SnippetLevel, FontSize, Page, PracticeStats, PracticeQueueItem } from '../types';
 import { SUPPORTED_LANGUAGES } from '../constants';
 import { generateCodeSnippet, generateTargetedCodeSnippet } from '../services/geminiService';
+import { updateDailyPracticeTime } from '../services/dataService';
 
 const CUSTOM_LANGUAGE: Language = { id: 'custom', name: 'Custom', prismAlias: 'clike' };
 
@@ -89,7 +90,9 @@ interface AppContextType {
   keyAttemptStats: Record<string, number>;
   wpmGoal: number;
   accuracyGoal: number;
-  setGoals: (wpm: number, accuracy: number) => void;
+  timeGoal: number;
+  dailyPracticeTime: number;
+  setGoals: (wpm: number, accuracy: number, time: number) => void;
   isAccessKeyMenuVisible: boolean;
   showAccessKeyMenu: () => void;
   hideAccessKeyMenu: () => void;
@@ -155,8 +158,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return savedStats ? JSON.parse(savedStats) : {};
   });
 
-  const [wpmGoal, setWpmGoal] = useState<number>(() => parseInt(localStorage.getItem('wpmGoal') || '60', 10));
-  const [accuracyGoal, setAccuracyGoal] = useState<number>(() => parseInt(localStorage.getItem('accuracyGoal') || '98', 10));
+  const [wpmGoal, setWpmGoal] = useState<number>(() => parseInt(localStorage.getItem('wpmGoal') || '20', 10));
+  const [accuracyGoal, setAccuracyGoal] = useState<number>(() => parseInt(localStorage.getItem('accuracyGoal') || '95', 10));
+  const [timeGoal, setTimeGoal] = useState<number>(() => parseInt(localStorage.getItem('timeGoal') || '15', 10));
+  const [dailyPracticeTime, setDailyPracticeTime] = useState<number>(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const storedDate = localStorage.getItem('dailyPracticeDate');
+    if (storedDate === today) {
+      return Number(localStorage.getItem('dailyPracticeTime') || '0');
+    }
+    // It's a new day, so clear stored time and return 0
+    localStorage.setItem('dailyPracticeTime', '0');
+    localStorage.setItem('dailyPracticeDate', today);
+    return 0;
+  });
 
   const [isAccessKeyMenuVisible, setIsAccessKeyMenuVisible] = useState(false);
   const [currentTargetedKeys, setCurrentTargetedKeys] = useState<string[]>([]);
@@ -198,7 +213,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     localStorage.setItem('wpmGoal', String(wpmGoal));
     localStorage.setItem('accuracyGoal', String(accuracyGoal));
-  }, [wpmGoal, accuracyGoal]);
+    localStorage.setItem('timeGoal', String(timeGoal));
+  }, [wpmGoal, accuracyGoal, timeGoal]);
 
   useEffect(() => {
     localStorage.setItem('setupTab', setupTab);
@@ -417,6 +433,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addPracticeResult = (stats: PracticeStats) => {
     setPracticeHistory(prev => [...prev, stats].slice(-100));
+    const newDailyTime = updateDailyPracticeTime(stats.duration);
+    setDailyPracticeTime(newDailyTime);
     
     if (stats.errorMap) {
       setKeyErrorStats(prev => {
@@ -439,11 +457,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const setGoals = (wpm: number, accuracy: number) => {
+  const setGoals = (wpm: number, accuracy: number, time: number) => {
     setWpmGoal(wpm);
     setAccuracyGoal(accuracy);
+    setTimeGoal(time);
     localStorage.setItem('wpmGoal', String(wpm));
     localStorage.setItem('accuracyGoal', String(accuracy));
+    localStorage.setItem('timeGoal', String(time));
   };
   
   const showAccessKeyMenu = () => setIsAccessKeyMenuVisible(true);
@@ -465,8 +485,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const savedAttemptStats = localStorage.getItem('keyAttemptStats');
     setKeyAttemptStats(savedAttemptStats ? JSON.parse(savedAttemptStats) : {});
 
-    setWpmGoal(parseInt(localStorage.getItem('wpmGoal') || '60', 10));
-    setAccuracyGoal(parseInt(localStorage.getItem('accuracyGoal') || '98', 10));
+    setWpmGoal(parseInt(localStorage.getItem('wpmGoal') || '20', 10));
+    setAccuracyGoal(parseInt(localStorage.getItem('accuracyGoal') || '95', 10));
+    setTimeGoal(parseInt(localStorage.getItem('timeGoal') || '15', 10));
+
+    const today = new Date().toISOString().split('T')[0];
+    const storedDate = localStorage.getItem('dailyPracticeDate');
+    if (storedDate === today) {
+        setDailyPracticeTime(Number(localStorage.getItem('dailyPracticeTime') || '0'));
+    } else {
+        setDailyPracticeTime(0);
+    }
 
     setSetupTab((localStorage.getItem('setupTab') as 'generate' | 'upload') || 'generate');
   }, []);
@@ -487,7 +516,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setupTab, setSetupTab,
     practiceHistory, addPracticeResult,
     keyErrorStats, keyAttemptStats,
-    wpmGoal, accuracyGoal, setGoals,
+    wpmGoal, accuracyGoal, timeGoal, dailyPracticeTime, setGoals,
     isAccessKeyMenuVisible, showAccessKeyMenu, hideAccessKeyMenu,
     currentTargetedKeys,
     lastPracticeAction, setLastPracticeAction,

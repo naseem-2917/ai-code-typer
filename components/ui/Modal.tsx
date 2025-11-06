@@ -42,7 +42,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="fixed top-0 left-0 w-screen h-screen z-50 flex items-center justify-center bg-black/70">
       <Card ref={modalRef} className="w-full max-w-md p-6 animate-fade-in-up">
         <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold">{title}</h2>

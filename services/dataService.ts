@@ -25,6 +25,29 @@ export const recalculateDerivedStats = (history: PracticeStats[]): { keyErrorSta
 };
 
 /**
+ * Updates and returns the total practice time for the current day.
+ * Resets the timer if the day has changed.
+ * @param sessionDuration The duration of the just-completed session in seconds.
+ * @returns The total practice duration for today in seconds.
+ */
+export const updateDailyPracticeTime = (sessionDuration: number): number => {
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+  const storedDate = localStorage.getItem('dailyPracticeDate');
+  let dailyTime = Number(localStorage.getItem('dailyPracticeTime') || '0');
+
+  if (storedDate !== today) {
+    // It's a new day, reset the time and set the new date
+    dailyTime = 0;
+    localStorage.setItem('dailyPracticeDate', today);
+  }
+
+  dailyTime += sessionDuration;
+  localStorage.setItem('dailyPracticeTime', String(dailyTime));
+  
+  return dailyTime;
+};
+
+/**
  * Compiles all user-related data from localStorage into a single JSON object
  * and initiates a download for the user.
  */
@@ -39,6 +62,9 @@ export const exportAllData = () => {
     'wpmGoal',
     'accuracyGoal',
     'setupTab',
+    'timeGoal',
+    'dailyPracticeDate',
+    'dailyPracticeTime',
   ];
 
   // 2. Collect all data into a single object.
