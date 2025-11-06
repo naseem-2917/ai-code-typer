@@ -17,7 +17,7 @@ import { HandGuideIcon } from './icons/HandGuideIcon';
 import { Dropdown, DropdownItem, DropdownRef } from './ui/Dropdown';
 import { BlockIcon } from './icons/BlockIcon';
 import { WarningIcon } from './icons/WarningIcon';
-import { SnippetLength, SnippetLevel } from '../types';
+import { PausedSessionData, FinishedSessionData, SnippetLength, SnippetLevel } from '../types';
 import { CheckIcon } from './icons/CheckIcon';
 import { FileCodeIcon } from './icons/FileCodeIcon';
 
@@ -92,12 +92,12 @@ const PracticePage: React.FC = () => {
         snippet, isLoadingSnippet, snippetError, selectedLanguage, fetchNewSnippet,
         showKeyboard, showHandGuide, toggleHandGuide, addPracticeResult,
         startCustomSession, navigateTo, isCustomSession, currentTargetedKeys,
-        setLastPracticeAction, lastPracticeAction, startTargetedSession,
+        setCurrentTargetedKeys, setLastPracticeAction, lastPracticeAction, startTargetedSession,
         blockOnErrorThreshold, setBlockOnErrorThreshold,
         setRequestFocusOnCodeCallback, requestFocusOnCode,
         practiceQueue, currentQueueIndex, loadNextSnippetInQueue,
         isSetupModalOpen, openSetupModal, closeSetupModal, isInitialSetupComplete,
-        getPreviousPage,
+        getPreviousPage, restorePracticeSession,
     } = context;
     
     const [isResultsModalOpen, setIsResultsModalOpen] = useState(false);
@@ -106,12 +106,14 @@ const PracticePage: React.FC = () => {
     const [isCapsLockOn, setIsCapsLockOn] = useState(false);
     const [hasSubmitted, setHasSubmitted] = useState(false);
     const [isSessionEndedEarly, setIsSessionEndedEarly] = useState(false);
+    const [sessionToRestore, setSessionToRestore] = useState<PausedSessionData | null>(null);
 
     const gameContainerRef = useRef<HTMLDivElement>(null);
     const codeContainerRef = useRef<HTMLDivElement>(null);
     const scrollableCardRef = useRef<HTMLDivElement>(null);
     const cursorRef = useRef<HTMLSpanElement>(null);
     const blockOnErrorRef = useRef<DropdownRef>(null);
+    const hasRestoredOnMount = useRef(false);
 
     const onPauseCallback = useCallback(() => requestFocusOnCode(), [requestFocusOnCode]);
     const onResumeCallback = useCallback(() => requestFocusOnCode(), [requestFocusOnCode]);
@@ -121,11 +123,86 @@ const PracticePage: React.FC = () => {
         onResume: onResumeCallback
     });
 
+    // Effect for restoring session state from localStorage ONCE on mount
     useEffect(() => {
-        if (!isInitialSetupComplete && !isLoadingSnippet) {
+        const sessionResultJSON = localStorage.getItem('sessionResultToShow');
+        if (sessionResultJSON) {
+            hasRestoredOnMount.current = true;
+            localStorage.removeItem('sessionResultToShow');
+            try {
+                const finishedSession = JSON.parse(sessionResultJSON) as FinishedSessionData;
+                setLastStats(finishedSession.stats);
+                setIsSessionEndedEarly(finishedSession.isEarlyExit);
+                setLastPracticeAction(finishedSession.lastPracticeAction);
+                if (finishedSession.currentTargetedKeys && finishedSession.currentTargetedKeys.length > 0) {
+                    setCurrentTargetedKeys(finishedSession.currentTargetedKeys);
+                    setIsTargetedResultsModalOpen(true);
+                } else {
+                    setIsResultsModalOpen(true);
+                }
+            } catch (e) { console.error("Failed to parse session result", e); }
+            return;
+        }
+    
+        const continuedSessionJSON = localStorage.getItem('continuedSession');
+        if (continuedSessionJSON) {
+            hasRestoredOnMount.current = true;
+            localStorage.removeItem('continuedSession');
+            try {
+                const savedSession = JSON.parse(continuedSessionJSON) as PausedSessionData;
+                restorePracticeSession(savedSession.context);
+                setSessionToRestore(savedSession);
+            } catch (e) { console.error("Failed to parse continued session", e); }
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Effect for handling initial setup modal if no session was restored
+    useEffect(() => {
+        if (!hasRestoredOnMount.current && !isInitialSetupComplete && !isLoadingSnippet) {
             openSetupModal();
         }
     }, [isInitialSetupComplete, isLoadingSnippet, openSetupModal]);
+    
+    // Effect to apply restored game state once the context (snippet) is ready
+    useEffect(() => {
+      if (sessionToRestore && snippet === sessionToRestore.context.snippet) {
+        game.restoreState(sessionToRestore.game);
+        setSessionToRestore(null);
+      }
+    }, [sessionToRestore, snippet, game]);
+
+    // Effect for SAVING session state to localStorage on unmount/navigation
+    useEffect(() => {
+        return () => {
+            if (!game.isFinished && game.typedText.length > 0) {
+                const continuedSession: PausedSessionData = {
+                    game: game.getSavableState(),
+                    context: {
+                        snippet,
+                        selectedLanguage,
+                        isCustomSession,
+                        currentTargetedKeys,
+                        practiceQueue,
+                        currentQueueIndex,
+                    },
+                    timestamp: Date.now(),
+                };
+                localStorage.setItem('continuedSession', JSON.stringify(continuedSession));
+            } else if (game.isFinished && hasSubmitted) {
+                const sessionResult: FinishedSessionData = {
+                    stats: lastStats,
+                    isEarlyExit: isSessionEndedEarly,
+                    isCustomSession,
+                    lastPracticeAction,
+                    isMultiFileSession: practiceQueue.length > 1 && currentQueueIndex < practiceQueue.length - 1,
+                    currentTargetedKeys,
+                };
+                localStorage.setItem('sessionResultToShow', JSON.stringify(sessionResult));
+            }
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [game, hasSubmitted, lastStats, isSessionEndedEarly, lastPracticeAction, isCustomSession, snippet, selectedLanguage, currentTargetedKeys, practiceQueue, currentQueueIndex]);
 
 
     useEffect(() => {

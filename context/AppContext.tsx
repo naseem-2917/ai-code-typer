@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
-import { Language, SnippetLength, SnippetLevel, FontSize, Page, PracticeStats, PracticeQueueItem } from '../types';
+import { Language, SnippetLength, SnippetLevel, FontSize, Page, PracticeStats, PracticeQueueItem, SavedContextState } from '../types';
 import { SUPPORTED_LANGUAGES } from '../constants';
 import { generateCodeSnippet, generateTargetedCodeSnippet } from '../services/geminiService';
 import { updateDailyPracticeTime } from '../services/dataService';
@@ -97,6 +97,7 @@ interface AppContextType {
   showAccessKeyMenu: () => void;
   hideAccessKeyMenu: () => void;
   currentTargetedKeys: string[];
+  setCurrentTargetedKeys: (keys: string[]) => void;
   lastPracticeAction: 'generate' | 'upload' | 'practice_same' | null;
   setLastPracticeAction: (action: 'generate' | 'upload' | 'practice_same') => void;
   setRequestFocusOnCodeCallback: (callback: (() => void) | null) => void;
@@ -108,6 +109,7 @@ interface AppContextType {
   alertMessage: { message: string; type: 'warning' | 'info' | 'error' } | null;
   showAlert: (message: string, type: 'warning' | 'info' | 'error', duration?: number) => void;
   reloadDataFromStorage: () => void;
+  restorePracticeSession: (contextState: SavedContextState) => void;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -500,6 +502,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSetupTab((localStorage.getItem('setupTab') as 'generate' | 'upload') || 'generate');
   }, []);
 
+  const restorePracticeSession = (contextState: SavedContextState) => {
+    setSnippet(contextState.snippet);
+    setSelectedLanguage(contextState.selectedLanguage);
+    setIsCustomSession(contextState.isCustomSession);
+    setCurrentTargetedKeys(contextState.currentTargetedKeys);
+    setPracticeQueue(contextState.practiceQueue);
+    setCurrentQueueIndex(contextState.currentQueueIndex);
+  };
+
   const value: AppContextType = {
     theme, toggleTheme,
     selectedLanguage, setSelectedLanguage,
@@ -518,12 +529,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     keyErrorStats, keyAttemptStats,
     wpmGoal, accuracyGoal, timeGoal, dailyPracticeTime, setGoals,
     isAccessKeyMenuVisible, showAccessKeyMenu, hideAccessKeyMenu,
-    currentTargetedKeys,
+    currentTargetedKeys, setCurrentTargetedKeys,
     lastPracticeAction, setLastPracticeAction,
     setRequestFocusOnCodeCallback, requestFocusOnCode,
     practiceQueue, currentQueueIndex, startMultiFileSession, loadNextSnippetInQueue,
     alertMessage, showAlert,
     reloadDataFromStorage,
+    restorePracticeSession,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

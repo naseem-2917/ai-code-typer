@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { SavableTypingGameState } from '../types';
 
 export enum CharState {
   Idle,
@@ -30,6 +31,8 @@ export interface TypingGame {
   resetIdleTimer: () => void;
   errorMap: Record<string, number>;
   attemptMap: Record<string, number>;
+  getSavableState: () => SavableTypingGameState;
+  restoreState: (savedState: SavableTypingGameState) => void;
 }
 
 
@@ -282,12 +285,52 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
   
   useEffect(() => stopTimer, [stopTimer]);
 
+  const getSavableState = useCallback((): SavableTypingGameState => {
+    const currentAccumulated = accumulatedDurationRef.current + (lastResumeTimeRef.current && !gameStateRef.current.isPaused ? (Date.now() - lastResumeTimeRef.current) : 0);
+    return {
+      startTime: gameStateRef.current.startTime,
+      charStates,
+      typedText,
+      errors,
+      consecutiveErrors,
+      isFinished,
+      accumulatedDuration: currentAccumulated,
+      errorMap: errorMapRef.current,
+      attemptMap: attemptMapRef.current,
+      isTypingStarted: gameStateRef.current.isTypingStarted,
+    };
+  }, [charStates, typedText, errors, consecutiveErrors, isFinished]);
+
+  const restoreState = useCallback((savedState: SavableTypingGameState) => {
+    stopTimer();
+    setStartTime(savedState.startTime);
+    setCharStates(savedState.charStates);
+    setTypedText(savedState.typedText);
+    setErrors(savedState.errors);
+    setConsecutiveErrors(savedState.consecutiveErrors);
+    setIsFinished(savedState.isFinished);
+
+    accumulatedDurationRef.current = savedState.accumulatedDuration;
+    lastResumeTimeRef.current = null;
+
+    errorMapRef.current = savedState.errorMap;
+    attemptMapRef.current = savedState.attemptMap;
+
+    gameStateRef.current.isTypingStarted = savedState.isTypingStarted;
+    gameStateRef.current.startTime = savedState.startTime;
+
+    setDuration(savedState.accumulatedDuration / 1000);
+    setIsPaused(true);
+  }, [stopTimer]);
+
   return {
     charStates, typedText, wpm, accuracy, errors, duration, isFinished,
     currentIndex, isError, isPaused, handleKeyDown, pauseGame, resumeGame,
     reset, clearAutoPauseTimer, resetIdleTimer,
     errorMap: errorMapRef.current,
     attemptMap: attemptMapRef.current,
+    getSavableState,
+    restoreState,
   };
 };
 
