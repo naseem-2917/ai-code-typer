@@ -262,9 +262,14 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
     if (startTime && !isFinished) {
       const currentTotalDurationMs = accumulatedDurationRef.current + (lastResumeTimeRef.current && !isPaused ? (Date.now() - lastResumeTimeRef.current) : 0);
       const durationInMinutes = currentTotalDurationMs / 60000;
+      const durationInSeconds = currentTotalDurationMs / 1000;
 
       const wordsTyped = typedText.length / 5;
-      if (durationInMinutes > 0) {
+      
+      // FIX: Implemented a condition to prevent WPM from spiking on the first character.
+      // WPM is now only calculated if more than one character has been typed OR
+      // more than one second has passed, ensuring a more stable initial reading.
+      if (durationInMinutes > 0 && (typedText.length > 1 || durationInSeconds > 1)) {
         setWpm(Math.round(wordsTyped / durationInMinutes));
       } else {
         setWpm(0);

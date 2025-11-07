@@ -460,20 +460,20 @@ const PracticePage: React.FC = () => {
             
             <div className="flex items-center justify-between gap-4 flex-shrink-0">
                 <div className="flex items-center gap-2">
-                    <Button variant="secondary" onClick={openSetupModal} title="New Snippet (Alt+N)" accessKeyChar="N">New Snippet</Button>
-                    <Button variant="secondary" size="icon" onClick={game.isPaused ? game.resumeGame : game.pauseGame} title={game.isPaused ? "Resume (or start typing)" : "Pause (Alt+S)"} accessKeyChar='S'>
+                    <Button variant="secondary" onClick={openSetupModal} title="New Snippet (Alt+N)" accessKeyChar="N" disabled={isSetupModalOpen}>New Snippet</Button>
+                    <Button variant="secondary" size="icon" onClick={game.isPaused ? game.resumeGame : game.pauseGame} title={game.isPaused ? "Resume (or start typing)" : "Pause (Alt+S)"} accessKeyChar='S' disabled={isSetupModalOpen}>
                         {game.isPaused ? <PlayIcon className="w-5 h-5" /> : <PauseIcon className="w-5 h-5" />}
                     </Button>
-                     <Button variant="secondary" size="icon" onClick={resetGame} title="Reset (Alt+R)" accessKeyChar="R">
+                     <Button variant="secondary" size="icon" onClick={resetGame} title="Reset (Alt+R)" accessKeyChar="R" disabled={isSetupModalOpen}>
                         <ResetIcon className="w-5 h-5" />
                     </Button>
-                    <Button variant="secondary" onClick={handleEndSession} title="End Session (Alt+E)" accessKeyChar="E">End Session</Button>
+                    <Button variant="secondary" onClick={handleEndSession} title="End Session (Alt+E)" accessKeyChar="E" disabled={isSetupModalOpen}>End Session</Button>
                 </div>
                 <div className="flex items-center gap-2">
                     <Dropdown
                         ref={blockOnErrorRef}
                         trigger={
-                            <Button variant="ghost" accessKeyChar="B">
+                            <Button variant="ghost" accessKeyChar="B" disabled={isSetupModalOpen}>
                                <BlockIcon className="w-5 h-5 mr-2"/> Block on Error
                             </Button>
                         }
@@ -488,7 +488,7 @@ const PracticePage: React.FC = () => {
                             </DropdownItem>
                         ))}
                     </Dropdown>
-                    <Button variant="ghost" onClick={() => { toggleHandGuide(); requestFocusOnCode(); }} title="Toggle Hand Guide (Alt+G)" accessKeyChar="G">
+                    <Button variant="ghost" onClick={() => { toggleHandGuide(); requestFocusOnCode(); }} title="Toggle Hand Guide (Alt+G)" accessKeyChar="G" disabled={isSetupModalOpen}>
                        <HandGuideIcon className="w-5 h-5 mr-2"/> Hand Guide
                     </Button>
                 </div>

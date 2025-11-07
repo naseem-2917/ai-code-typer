@@ -162,10 +162,10 @@ const DashboardPage: React.FC = () => {
     }, [focusedButtonIndex, practiceHistory.length]);
 
 
-    useAccessKey('2', () => setTimeFilter('24h'));
-    useAccessKey('7', () => setTimeFilter('7d'));
-    useAccessKey('3', () => setTimeFilter('30d'));
-    useAccessKey('a', () => setTimeFilter('all'));
+    useAccessKey('2', () => setTimeFilter('24h'), { disabled: isGoalsModalOpen || isTargetedSetupOpen });
+    useAccessKey('7', () => setTimeFilter('7d'), { disabled: isGoalsModalOpen || isTargetedSetupOpen });
+    useAccessKey('3', () => setTimeFilter('30d'), { disabled: isGoalsModalOpen || isTargetedSetupOpen });
+    useAccessKey('a', () => setTimeFilter('all'), { disabled: isGoalsModalOpen || isTargetedSetupOpen });
 
     const handleExportData = useCallback(() => {
         try {
