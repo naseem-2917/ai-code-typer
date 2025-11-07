@@ -1,0 +1,35 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main # Jab bhi main branch par push ho, tab chalao
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+
+      - name: Install Node.js 🚀
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies ⚙️
+        run: npm install
+
+      # API Key ko build process mein inject karna
+      - name: Build project 🏗️
+        env:
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }} 
+        run: npm run build 
+
+      # Deployment to gh-pages branch
+      - name: Deploy to GitHub Pages 🚀
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist 
+          publish_branch: gh-pages
