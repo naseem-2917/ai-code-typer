@@ -8,6 +8,13 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    
+    # CRITICAL FIX: Add necessary permissions for the bot to push to the gh-pages branch
+    permissions:
+      contents: write # Files ko read aur write karne ke liye
+      pages: write    # Pages site ko update karne ke liye
+      id-token: write # Zaroori tokens ke liye
+      
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v4
@@ -20,9 +27,10 @@ jobs:
       - name: Install dependencies ⚙️
         run: npm install
 
-      # API Key ko build process mein inject karna
+      # API Key Injection and Build
       - name: Build project 🏗️
         env:
+          # Securely injects the key from GitHub Secrets for the Vite build process
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }} 
         run: npm run build 
 
@@ -31,5 +39,5 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist 
-          publish_branch: gh-pages
+          publish_dir: ./dist # Output folder from Vite build
+          publish_branch: gh-pages # Target deployment branch
