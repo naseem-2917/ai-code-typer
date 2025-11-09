@@ -110,7 +110,7 @@ export const UploadCodeModal: React.FC<UploadCodeModalProps> = ({ isOpen, onClos
             }
           }}
           placeholder="Paste your code here..."
-          className="w-full h-48 p-2 font-mono text-sm bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="w-full h-48 p-2 font-mono text-sm bg-slate-100 dark:bg-slate-600 dark:text-slate-50 dark:placeholder-slate-400 border border-slate-300 dark:border-slate-400 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
           aria-label="Paste code area"
         />
         <input

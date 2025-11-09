@@ -118,7 +118,7 @@ export const Select = forwardRef<SelectRef, SelectProps>(({ options, className =
               }
           }
         }}
-        className="w-full flex items-center justify-between px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full flex items-center justify-between px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-400 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >

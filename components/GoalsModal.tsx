@@ -44,7 +44,7 @@ export const GoalsModal: React.FC<GoalsModalProps> = ({ isOpen, onClose, onSave,
             min="0"
             value={time}
             onChange={(e) => setTime(e.target.value)}
-            className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full p-2 bg-slate-100 dark:bg-slate-600 dark:text-slate-50 dark:placeholder-slate-400 border border-slate-300 dark:border-slate-400 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
             placeholder="e.g., 15"
           />
         </div>
@@ -57,7 +57,7 @@ export const GoalsModal: React.FC<GoalsModalProps> = ({ isOpen, onClose, onSave,
             type="number"
             value={wpm}
             onChange={(e) => setWpm(e.target.value)}
-            className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full p-2 bg-slate-100 dark:bg-slate-600 dark:text-slate-50 dark:placeholder-slate-400 border border-slate-300 dark:border-slate-400 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
             placeholder="e.g., 80"
           />
         </div>
@@ -72,7 +72,7 @@ export const GoalsModal: React.FC<GoalsModalProps> = ({ isOpen, onClose, onSave,
             max="100"
             value={accuracy}
             onChange={(e) => setAccuracy(e.target.value)}
-            className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full p-2 bg-slate-100 dark:bg-slate-600 dark:text-slate-50 dark:placeholder-slate-400 border border-slate-300 dark:border-slate-400 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
             placeholder="e.g., 99"
           />
         </div>
