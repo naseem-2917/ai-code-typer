@@ -1,34 +1,34 @@
 import React, { createContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
-import { Language, SnippetLength, SnippetLevel, FontSize, Page, PracticeStats, PracticeQueueItem, SavedContextState } from '../types';
+import { Language, SnippetLength, SnippetLevel, FontSize, Page, PracticeStats, PracticeQueueItem, SavedContextState, PracticeMode } from '../types';
 import { SUPPORTED_LANGUAGES } from '../constants';
-import { generateCodeSnippet, generateTargetedCodeSnippet } from '../services/geminiService';
+import { generateCodeSnippet, generateTargetedCodeSnippet, generateGeneralSnippet } from '../services/geminiService';
 import { updateDailyPracticeTime } from '../services/dataService';
 
 const CUSTOM_LANGUAGE: Language = { id: 'custom', name: 'Custom', prismAlias: 'clike' };
 
 const getLanguageFromExtension = (filename: string): Language => {
-    const lastDotIndex = filename.lastIndexOf('.');
-    if (lastDotIndex < 0) {
-        return CUSTOM_LANGUAGE;
-    }
-    const extension = filename.substring(lastDotIndex).toLowerCase();
+  const lastDotIndex = filename.lastIndexOf('.');
+  if (lastDotIndex < 0) {
+    return CUSTOM_LANGUAGE;
+  }
+  const extension = filename.substring(lastDotIndex).toLowerCase();
 
-    const extensionMap: Record<string, Language | undefined> = {
-        '.py': SUPPORTED_LANGUAGES.find(l => l.id === 'python'),
-        '.js': SUPPORTED_LANGUAGES.find(l => l.id === 'javascript'),
-        '.jsx': SUPPORTED_LANGUAGES.find(l => l.id === 'javascript'),
-        '.ts': SUPPORTED_LANGUAGES.find(l => l.id === 'typescript'),
-        '.tsx': SUPPORTED_LANGUAGES.find(l => l.id === 'typescript'),
-        '.java': SUPPORTED_LANGUAGES.find(l => l.id === 'java'),
-        '.cpp': SUPPORTED_LANGUAGES.find(l => l.id === 'cpp'),
-        '.cc': SUPPORTED_LANGUAGES.find(l => l.id === 'cpp'),
-        '.cxx': SUPPORTED_LANGUAGES.find(l => l.id === 'cpp'),
-        '.h': SUPPORTED_LANGUAGES.find(l => l.id === 'cpp'),
-        '.hpp': SUPPORTED_LANGUAGES.find(l => l.id === 'cpp'),
-        '.go': SUPPORTED_LANGUAGES.find(l => l.id === 'go'),
-        '.rs': SUPPORTED_LANGUAGES.find(l => l.id === 'rust'),
-    };
-    return extensionMap[extension] || CUSTOM_LANGUAGE;
+  const extensionMap: Record<string, Language | undefined> = {
+    '.py': SUPPORTED_LANGUAGES.find(l => l.id === 'python'),
+    '.js': SUPPORTED_LANGUAGES.find(l => l.id === 'javascript'),
+    '.jsx': SUPPORTED_LANGUAGES.find(l => l.id === 'javascript'),
+    '.ts': SUPPORTED_LANGUAGES.find(l => l.id === 'typescript'),
+    '.tsx': SUPPORTED_LANGUAGES.find(l => l.id === 'typescript'),
+    '.java': SUPPORTED_LANGUAGES.find(l => l.id === 'java'),
+    '.cpp': SUPPORTED_LANGUAGES.find(l => l.id === 'cpp'),
+    '.cc': SUPPORTED_LANGUAGES.find(l => l.id === 'cpp'),
+    '.cxx': SUPPORTED_LANGUAGES.find(l => l.id === 'cpp'),
+    '.h': SUPPORTED_LANGUAGES.find(l => l.id === 'cpp'),
+    '.hpp': SUPPORTED_LANGUAGES.find(l => l.id === 'cpp'),
+    '.go': SUPPORTED_LANGUAGES.find(l => l.id === 'go'),
+    '.rs': SUPPORTED_LANGUAGES.find(l => l.id === 'rust'),
+  };
+  return extensionMap[extension] || CUSTOM_LANGUAGE;
 };
 
 const convertSpacesToTabs = (code: string): string => {
@@ -58,8 +58,8 @@ interface AppContextType {
   snippet: string;
   isLoadingSnippet: boolean;
   snippetError: string | null;
-  fetchNewSnippet: (options?: { length?: SnippetLength, level?: SnippetLevel }) => void;
-  startCustomSession: (code: string) => void;
+  fetchNewSnippet: (options?: { length?: SnippetLength, level?: SnippetLevel, mode?: PracticeMode }) => void;
+  startCustomSession: (code: string, mode?: PracticeMode) => void;
   startTargetedSession: (keys: string[], options: { length: SnippetLength, level: SnippetLevel }) => void;
   isCustomSession: boolean;
   snippetLength: SnippetLength;
@@ -110,6 +110,8 @@ interface AppContextType {
   showAlert: (message: string, type: 'warning' | 'info' | 'error', duration?: number) => void;
   reloadDataFromStorage: () => void;
   restorePracticeSession: (contextState: SavedContextState) => void;
+  practiceMode: PracticeMode;
+  setPracticeMode: (mode: PracticeMode) => void;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -127,29 +129,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const savedLangId = localStorage.getItem('selectedLanguage');
     return SUPPORTED_LANGUAGES.find(l => l.id === savedLangId) || SUPPORTED_LANGUAGES[0];
   });
-  
+
+  const [practiceMode, setPracticeMode] = useState<PracticeMode>('code');
+
   const [snippet, setSnippet] = useState('');
   const [isLoadingSnippet, setIsLoadingSnippet] = useState(false);
   const [snippetError, setSnippetError] = useState<string | null>(null);
   const [isCustomSession, setIsCustomSession] = useState(false);
-  
+
   const [snippetLength, setSnippetLength] = useState<SnippetLength>('medium');
   const [snippetLevel, setSnippetLevel] = useState<SnippetLevel>('medium');
   const [blockOnErrorThreshold, setBlockOnErrorThreshold] = useState<number>(2);
-  
+
   const [fontSize, setFontSize] = useState<FontSize>('md');
   const [showKeyboard, setShowKeyboard] = useState(true);
   const [showHandGuide, setShowHandGuide] = useState(true);
-  
+
   const [page, setPage] = useState<Page>('home');
   const previousPageRef = useRef<Page | null>(null);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
-  
+
   const [practiceHistory, setPracticeHistory] = useState<PracticeStats[]>(() => {
     const savedHistory = localStorage.getItem('practiceHistory');
     return savedHistory ? JSON.parse(savedHistory) : [];
   });
-  
+
   const [keyErrorStats, setKeyErrorStats] = useState<Record<string, number>>(() => {
     const savedStats = localStorage.getItem('keyErrorStats');
     return savedStats ? JSON.parse(savedStats) : {};
@@ -178,16 +182,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isAccessKeyMenuVisible, setIsAccessKeyMenuVisible] = useState(false);
   const [currentTargetedKeys, setCurrentTargetedKeys] = useState<string[]>([]);
   const [lastPracticeAction, setLastPracticeAction] = useState<'generate' | 'upload' | 'practice_same' | null>(null);
-  
+
   const [focusRequestCallback, setFocusRequestCallback] = useState<(() => void) | null>(null);
 
   const [setupTab, setSetupTab] = useState<'generate' | 'upload'>(
     () => (localStorage.getItem('setupTab') as 'generate' | 'upload') || 'generate'
   );
-  
+
   const [practiceQueue, setPracticeQueue] = useState<PracticeQueueItem[]>([]);
   const [currentQueueIndex, setCurrentQueueIndex] = useState<number>(-1);
-  
+
   const [alertMessage, setAlertMessage] = useState<{ message: string; type: 'warning' | 'info' | 'error' } | null>(null);
   const alertTimeoutRef = useRef<number | null>(null);
 
@@ -224,24 +228,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Alt') {
-            e.preventDefault();
-            setIsAccessKeyMenuVisible(true);
-        }
+      if (e.key === 'Alt') {
+        e.preventDefault();
+        setIsAccessKeyMenuVisible(true);
+      }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
-        if (e.key === 'Alt') {
-            setIsAccessKeyMenuVisible(false);
-        }
+      if (e.key === 'Alt') {
+        setIsAccessKeyMenuVisible(false);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     return () => {
-        window.removeEventListener('keydown', handleKeyDown);
-        window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
-  
+
   const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
   const openSetupModal = () => setIsSetupModalOpen(true);
   const closeSetupModal = () => setIsSetupModalOpen(false);
@@ -256,38 +260,50 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const getPreviousPage = () => previousPageRef.current;
 
   const setRequestFocusOnCodeCallback = useCallback((cb: (() => void) | null) => {
-      setFocusRequestCallback(() => cb);
+    setFocusRequestCallback(() => cb);
   }, []);
 
   const requestFocusOnCode = useCallback(() => {
-      if (focusRequestCallback) {
-          focusRequestCallback();
-      }
+    if (focusRequestCallback) {
+      focusRequestCallback();
+    }
   }, [focusRequestCallback]);
-  
+
   const clearPracticeQueue = () => {
-      setPracticeQueue([]);
-      setCurrentQueueIndex(-1);
+    setPracticeQueue([]);
+    setCurrentQueueIndex(-1);
   };
-  
-  const fetchNewSnippet = useCallback(async (options?: { length?: SnippetLength, level?: SnippetLevel }) => {
+
+  const fetchNewSnippet = useCallback(async (options?: { length?: SnippetLength, level?: SnippetLevel, mode?: PracticeMode }) => {
     if (isLoadingSnippet) return;
-    
+
     clearPracticeQueue();
     setIsLoadingSnippet(true);
     setSnippet('');
     setSnippetError(null);
     setIsCustomSession(false);
     setCurrentTargetedKeys([]);
-    
+
     const length = options?.length || snippetLength;
     const level = options?.level || snippetLevel;
-    
+
     setSnippetLength(length);
     setSnippetLevel(level);
 
+    if (options?.mode) {
+      setPracticeMode(options.mode);
+    }
+
+    // Use the mode from options if provided, otherwise use the current state
+    const currentMode = options?.mode || practiceMode;
+
     try {
-      const newSnippet = await generateCodeSnippet(selectedLanguage, length, level);
+      let newSnippet = '';
+      if (currentMode === 'general') {
+        newSnippet = await generateGeneralSnippet(length, level);
+      } else {
+        newSnippet = await generateCodeSnippet(selectedLanguage, length, level);
+      }
       setSnippet(convertSpacesToTabs(newSnippet));
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch a new code snippet. Please try again.';
@@ -296,16 +312,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } finally {
       setIsLoadingSnippet(false);
     }
-  }, [selectedLanguage, snippetLength, snippetLevel, isLoadingSnippet]);
+  }, [selectedLanguage, snippetLength, snippetLevel, isLoadingSnippet, practiceMode]);
 
-  const startCustomSession = (code: string) => {
+  const startCustomSession = (code: string, mode?: PracticeMode) => {
     clearPracticeQueue();
     const convertedCode = convertSpacesToTabs(code);
     setSnippet(convertedCode);
     setIsCustomSession(true);
     setCurrentTargetedKeys([]);
+    if (mode) {
+      setPracticeMode(mode);
+    }
   };
-  
+
   const startTargetedSession = useCallback(async (keys: string[], options: { length: SnippetLength, level: SnippetLevel }) => {
     if (isLoadingSnippet) return;
 
@@ -316,103 +335,103 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setIsCustomSession(false);
     setCurrentTargetedKeys(keys);
     try {
-        const newSnippet = await generateTargetedCodeSnippet(selectedLanguage, keys, options.length, options.level);
-        setSnippet(convertSpacesToTabs(newSnippet));
+      const newSnippet = await generateTargetedCodeSnippet(selectedLanguage, keys, options.length, options.level);
+      setSnippet(convertSpacesToTabs(newSnippet));
     } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch a targeted snippet. Please try again.';
-        setSnippetError(errorMessage);
-        console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch a targeted snippet. Please try again.';
+      setSnippetError(errorMessage);
+      console.error(err);
     } finally {
-        setIsLoadingSnippet(false);
+      setIsLoadingSnippet(false);
     }
   }, [selectedLanguage, isLoadingSnippet]);
 
   const loadSnippetFromQueue = useCallback((index: number) => {
-      if (practiceQueue[index]) {
-          const item = practiceQueue[index];
-          setSnippet(item.code);
-          setSelectedLanguage(item.language);
-          setCurrentQueueIndex(index);
-          setIsCustomSession(true);
-          setCurrentTargetedKeys([]);
-          setSnippetError(null);
-          setIsLoadingSnippet(false);
-      }
+    if (practiceQueue[index]) {
+      const item = practiceQueue[index];
+      setSnippet(item.code);
+      setSelectedLanguage(item.language);
+      setCurrentQueueIndex(index);
+      setIsCustomSession(true);
+      setCurrentTargetedKeys([]);
+      setSnippetError(null);
+      setIsLoadingSnippet(false);
+    }
   }, [practiceQueue]);
 
   const startMultiFileSession = async (files: File[]) => {
-      setIsLoadingSnippet(true);
-      setSnippet('');
-      clearPracticeQueue();
+    setIsLoadingSnippet(true);
+    setSnippet('');
+    clearPracticeQueue();
 
-      const readFile = (file: File): Promise<PracticeQueueItem & { isValid: boolean }> => 
-          new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = (e) => {
-                  const rawCode = e.target?.result as string;
-                  const trimmedCode = rawCode.trim();
-                  
-                  const normalizedCode = rawCode.replace(/\r\n?/g, '\n');
-                  const convertedCode = convertSpacesToTabs(normalizedCode);
-                  resolve({
-                      code: convertedCode,
-                      name: file.name,
-                      language: getLanguageFromExtension(file.name),
-                      isValid: trimmedCode.length >= 2,
-                  });
-              };
-              reader.onerror = (e) => reject(e);
-              reader.readAsText(file);
+    const readFile = (file: File): Promise<PracticeQueueItem & { isValid: boolean }> =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const rawCode = e.target?.result as string;
+          const trimmedCode = rawCode.trim();
+
+          const normalizedCode = rawCode.replace(/\r\n?/g, '\n');
+          const convertedCode = convertSpacesToTabs(normalizedCode);
+          resolve({
+            code: convertedCode,
+            name: file.name,
+            language: getLanguageFromExtension(file.name),
+            isValid: trimmedCode.length >= 2,
           });
-      
-      try {
-          const allItems = await Promise.all(files.map(readFile));
+        };
+        reader.onerror = (e) => reject(e);
+        reader.readAsText(file);
+      });
 
-          const validQueue = allItems.filter(item => item.isValid);
-          const invalidQueue = allItems.filter(item => !item.isValid);
-          
-          if (invalidQueue.length > 0) {
-              const invalidNames = invalidQueue.map(f => f.name).join(', ');
-              showAlert(`Ignored files with less than 2 characters: ${invalidNames}`, 'warning', 6000);
-          }
+    try {
+      const allItems = await Promise.all(files.map(readFile));
 
-          if (validQueue.length === 0) {
-              showAlert("All selected files are invalid. Code must be at least 2 characters long.", 'error');
-              throw new Error("All selected files are invalid.");
-          }
+      const validQueue = allItems.filter(item => item.isValid);
+      const invalidQueue = allItems.filter(item => !item.isValid);
 
-          setPracticeQueue(validQueue);
-          const item = validQueue[0];
-          setSnippet(item.code);
-          setSelectedLanguage(item.language);
-          setCurrentQueueIndex(0);
-          setIsCustomSession(true);
-          setSnippetError(null);
-
-      } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : 'Failed to process files.';
-          setSnippetError(errorMessage);
-          console.error(err);
-          throw err;
-      } finally {
-          setIsLoadingSnippet(false);
+      if (invalidQueue.length > 0) {
+        const invalidNames = invalidQueue.map(f => f.name).join(', ');
+        showAlert(`Ignored files with less than 2 characters: ${invalidNames}`, 'warning', 6000);
       }
+
+      if (validQueue.length === 0) {
+        showAlert("All selected files are invalid. Code must be at least 2 characters long.", 'error');
+        throw new Error("All selected files are invalid.");
+      }
+
+      setPracticeQueue(validQueue);
+      const item = validQueue[0];
+      setSnippet(item.code);
+      setSelectedLanguage(item.language);
+      setCurrentQueueIndex(0);
+      setIsCustomSession(true);
+      setSnippetError(null);
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to process files.';
+      setSnippetError(errorMessage);
+      console.error(err);
+      throw err;
+    } finally {
+      setIsLoadingSnippet(false);
+    }
   };
 
   const loadNextSnippetInQueue = useCallback(() => {
-      const nextIndex = currentQueueIndex + 1;
-      if (nextIndex < practiceQueue.length) {
-          loadSnippetFromQueue(nextIndex);
-      }
+    const nextIndex = currentQueueIndex + 1;
+    if (nextIndex < practiceQueue.length) {
+      loadSnippetFromQueue(nextIndex);
+    }
   }, [currentQueueIndex, practiceQueue, loadSnippetFromQueue]);
 
   const showAlert = useCallback((message: string, type: 'warning' | 'info' | 'error', duration: number = 4000) => {
     if (alertTimeoutRef.current) {
-        clearTimeout(alertTimeoutRef.current);
+      clearTimeout(alertTimeoutRef.current);
     }
     setAlertMessage({ message, type });
     alertTimeoutRef.current = window.setTimeout(() => {
-        setAlertMessage(null);
+      setAlertMessage(null);
     }, duration);
   }, []);
 
@@ -434,10 +453,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const toggleHandGuide = () => setShowHandGuide(prev => !prev);
 
   const addPracticeResult = (stats: PracticeStats) => {
-    setPracticeHistory(prev => [...prev, stats].slice(-100));
-    const newDailyTime = updateDailyPracticeTime(stats.duration);
+    // Override language if in General mode
+    const finalStats = { ...stats };
+    if (practiceMode === 'general') {
+      finalStats.language = 'General';
+    }
+    setPracticeHistory(prev => [...prev, finalStats].slice(-100));
+    const newDailyTime = updateDailyPracticeTime(finalStats.duration);
     setDailyPracticeTime(newDailyTime);
-    
+
     if (stats.errorMap) {
       setKeyErrorStats(prev => {
         const newStats = { ...prev };
@@ -448,7 +472,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
     }
 
-    if(stats.attemptMap) {
+    if (stats.attemptMap) {
       setKeyAttemptStats(prev => {
         const newStats = { ...prev };
         for (const [key, count] of Object.entries(stats.attemptMap!)) {
@@ -467,7 +491,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('accuracyGoal', String(accuracy));
     localStorage.setItem('timeGoal', String(time));
   };
-  
+
   const showAccessKeyMenu = () => setIsAccessKeyMenuVisible(true);
   const hideAccessKeyMenu = () => setIsAccessKeyMenuVisible(false);
 
@@ -494,9 +518,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const today = new Date().toISOString().split('T')[0];
     const storedDate = localStorage.getItem('dailyPracticeDate');
     if (storedDate === today) {
-        setDailyPracticeTime(Number(localStorage.getItem('dailyPracticeTime') || '0'));
+      setDailyPracticeTime(Number(localStorage.getItem('dailyPracticeTime') || '0'));
     } else {
-        setDailyPracticeTime(0);
+      setDailyPracticeTime(0);
     }
 
     setSetupTab((localStorage.getItem('setupTab') as 'generate' | 'upload') || 'generate');
@@ -536,6 +560,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     alertMessage, showAlert,
     reloadDataFromStorage,
     restorePracticeSession,
+    practiceMode, setPracticeMode,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -28,6 +28,7 @@ export type SnippetLength = 'short' | 'medium' | 'long';
 export type SnippetLevel = 'easy' | 'medium' | 'hard';
 export type FontSize = 'sm' | 'md' | 'lg' | 'xl';
 export type Page = 'home' | 'practice' | 'dashboard';
+export type PracticeMode = 'code' | 'general';
 
 export interface SavableTypingGameState {
   startTime: number | null;

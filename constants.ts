@@ -10,3 +10,5 @@ export const SUPPORTED_LANGUAGES: Language[] = [
   { id: 'go', name: 'Go', prismAlias: 'go' },
   { id: 'rust', name: 'Rust', prismAlias: 'rust' },
 ];
+
+export const GENERAL_LANGUAGE: Language = { id: 'general', name: 'General', prismAlias: 'text' };
