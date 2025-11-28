@@ -199,14 +199,10 @@ The snippet should be ${PS[e]} long.
 The difficulty level should be ${RS[n]}.`;return NS(r)},hz=async(t,e,n,r)=>{const i=e.map(s=>s===" "?"space":s===`
 `?"newline":s==="	"?"tab":s).join(", "),o=`Generate a code snippet in ${t.name}.
 The snippet must be ${PS[n]} long and of ${RS[r]} difficulty.
-Crucially, the code must frequently and naturally use the following characters for typing practice: [${i}]. Make them appear as part of valid syntax (variable names, operators, strings, etc.).`;return NS(o)},mz=async(t,e,n=["characters"])=>{const r=n.includes("characters"),i=n.includes("numbers"),o=n.includes("symbols");let s="";r?s+=`- Common English words and sentences
-`:s+=`- DO NOT include common English sentences or paragraphs. Focus ONLY on the requested types below.
-`,i&&(s+=`- Numbers (e.g., 123, 4.56, dates, quantities, phone numbers)
-`),o&&(s+=`- Basic symbols (e.g., !, @, #, $, %, &, *, (, ), -, +, =, [, ], {, }, ;, :, ', ", ,, ., ?, /)
-`);const c=`Generate a random text snippet for typing practice.
+Crucially, the code must frequently and naturally use the following characters for typing practice: [${i}]. Make them appear as part of valid syntax (variable names, operators, strings, etc.).`;return NS(o)},mz=async(t,e,n=["characters"])=>{const r=n.includes("characters"),i=n.includes("numbers"),o=n.includes("symbols");let s="";r?s+="- Common English words and sentences.":n.length>0&&(s+="CRUCIAL: DO NOT use full English sentences or common words. Focus ONLY on generating the selected non-text elements below. "),i&&(s+="\\n- Numbers (e.g., 123, 4.56, dates, quantities, phone numbers)."),o&&(s+=`\\n- Basic symbols (e.g., !, @, #, $, %, &, *, (, ), -, +, =, [, ], {, }, ;, :, ', ", ,, ., ?, /) and ensure they are used frequently.`),n.length===0&&(s="- Common English words and sentences and numbers.");const c=`Generate a random text snippet for typing practice.
 The snippet should be ${PS[t]} long.
 The difficulty level should be ${RS[e]}.
-The text MUST strictly follow these content rules:
+The content MUST strictly follow these content rules:
 ${s}
 
 If only numbers or symbols are requested, generate a sequence of them (like data entries, math problems, or random patterns) rather than English sentences.
