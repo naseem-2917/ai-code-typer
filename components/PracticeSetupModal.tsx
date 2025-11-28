@@ -85,14 +85,17 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
   }, [isOpen, snippetLength, snippetLevel, practiceMode]);
 
   const handleStartGenerate = () => {
+    // MANDATORY RESET: Clear any previous session state before starting
     setLastPracticeAction('generate');
     setPracticeMode(selectedMode);
     setSnippetLength(selectedLength);
     setSnippetLevel(selectedLevel);
+    // Explicitly reset session key to force remount
     onStart(selectedLength, selectedLevel, null, selectedMode, selectedContentTypes);
   };
 
   const handleCustomCodeSubmit = (code: string) => {
+    // MANDATORY RESET: Clear any previous session state before starting
     setLastPracticeAction('upload');
     onStart(null, null, code, selectedMode);
   };
