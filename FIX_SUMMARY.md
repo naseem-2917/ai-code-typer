@@ -22,13 +22,15 @@
 - **File**: `services/geminiService.ts`
 - **Change**: Updated prompt logic to strictly enforce content types (Numbers/Symbols) and added `systemInstruction` for natural line breaks.
 
-## 4. Deployment Failure Fix ('viteBuild is not a function')
+## 4. Deployment Failure Fixes
 - **File**: `package.json` & `vite.config.ts`
 - **Problem**: 
     - `package.json` contained invalid/non-existent versions of Vite (`^7.1.12`) and React (`^19.2.0`), and duplicate entries.
     - `vite.config.ts` contained markdown syntax errors.
+    - `@google/genai` version `^0.1.3` was causing ETARGET errors.
 - **Fix**:
     - Cleaned up `package.json` to use stable, compatible versions (Vite 5.x, React 18.x).
+    - Updated `@google/genai` to `^0.2.1`.
     - Removed markdown code blocks from `vite.config.ts`.
     - Verified `.github/workflows/deploy.yml` correctly uses `npm run build`.
 
