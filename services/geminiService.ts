@@ -2,7 +2,7 @@
 /// <reference types="vite/client" />
 
 import { GoogleGenAI } from "@google/genai";
-import { Language, SnippetLength, SnippetLevel } from '../types';
+import { Language, SnippetLength, SnippetLevel, ContentType } from '../types';
 
 // --------------------- CRITICAL DUAL-ENV FIX START ---------------------
 // FIX: This ensures the app uses the secure VITE key on the live site 
@@ -135,16 +135,26 @@ Crucially, the code must frequently and naturally use the following characters f
 
 export const generateGeneralSnippet = async (
   length: SnippetLength,
-  level: SnippetLevel
+  level: SnippetLevel,
+  contentTypes: ContentType[] = ['characters']
 ): Promise<string> => {
+  const includeNumbers = contentTypes.includes('numbers');
+  const includeSymbols = contentTypes.includes('symbols');
+
+  let contentInstruction = "- Common words and sentences";
+  if (includeNumbers) {
+    contentInstruction += "\n- Numbers (e.g., 123, 4.56, dates, quantities)";
+  }
+  if (includeSymbols) {
+    contentInstruction += "\n- Basic symbols (e.g., !, @, #, $, %, &, *, (, ), -, +, =, [, ], {, }, ;, :, ', \", ,, ., ?, /)";
+  }
+
   const prompt = `Generate a random text snippet for typing practice.
 The snippet should be ${lengthMap[length]} long.
 The difficulty level should be ${levelMap[level]}.
-The text should be general English text, but it MUST include a mix of:
-- Common words
-- Numbers (e.g., 123, 4.56)
-- Basic symbols (e.g., !, @, #, $, %, &, *, (, ), -, +, =, [, ], {, }, ;, :, ', ", ,, ., ?, /)
-It should NOT be a code snippet. Just plain text with varied characters for practice.`;
+The text should be general English text, and it MUST include a mix of:
+${contentInstruction}
+It should NOT be a code snippet. Just plain text with varied characters for practice based on the requested content types.`;
 
   return generateSnippet(prompt);
 };

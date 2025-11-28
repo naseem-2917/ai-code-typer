@@ -1,18 +1,17 @@
-import React, { useState, useRef, useEffect, useContext, useCallback } from 'react';
-import { Modal } from './ui/Modal';
-import { SegmentedControl } from './ui/SegmentedControl';
-import { Button } from './ui/Button';
-import { SnippetLength, SnippetLevel, Language, PracticeMode } from '../types';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
-import { SUPPORTED_LANGUAGES } from '../constants';
-import { Select, SelectRef } from './ui/Select';
-import { useAccessKey } from '../hooks/useAccessKey';
+import { Modal } from './ui/Modal';
+import { Button } from './ui/Button';
+import { SegmentedControl } from './ui/SegmentedControl';
+import { Select } from './ui/Select';
 import { UploadIcon } from './icons/UploadIcon';
+import { SnippetLength, SnippetLevel, Language, PracticeMode, ContentType } from '../types';
+import { SUPPORTED_LANGUAGES } from '../constants';
 
 interface PracticeSetupModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onStart: (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode) => void;
+  onStart: (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => void;
   variant: 'default' | 'targeted';
 }
 
@@ -48,237 +47,113 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
 
   const {
     selectedLanguage, setSelectedLanguage, isLoadingSnippet, setLastPracticeAction,
-    snippetLength, snippetLevel, setupTab, setSetupTab, startMultiFileSession, showAlert,
-    practiceMode, setPracticeMode
+    setupTab, setSetupTab, snippetLength, setSnippetLength, snippetLevel, setSnippetLevel,
+    practiceMode, setPracticeMode, startMultiFileSession
   } = context;
 
   const [selectedLength, setSelectedLength] = useState<SnippetLength>(snippetLength);
   const [selectedLevel, setSelectedLevel] = useState<SnippetLevel>(snippetLevel);
   const [selectedMode, setSelectedMode] = useState<PracticeMode>(practiceMode);
   const [pastedCode, setPastedCode] = useState('');
+  const [selectedContentTypes, setSelectedContentTypes] = useState<ContentType[]>(['characters']);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pasteTextAreaRef = useRef<HTMLTextAreaElement>(null);
 
-  const tabRef = useRef<HTMLDivElement>(null);
-  const languageRef = useRef<SelectRef>(null);
+  // Refs for focus management
   const lengthRef = useRef<HTMLDivElement>(null);
   const levelRef = useRef<HTMLDivElement>(null);
-  const startRef = useRef<HTMLButtonElement>(null);
-  const pasteTextAreaRef = useRef<HTMLTextAreaElement>(null);
+  const languageRef = useRef<HTMLDivElement>(null);
+  const generateBtnRef = useRef<HTMLButtonElement>(null);
+  const pasteTextAreaRefFocus = useRef<HTMLTextAreaElement>(null);
   const selectFileRef = useRef<HTMLButtonElement>(null);
-  const backRef = useRef<HTMLButtonElement>(null);
   const useCodeRef = useRef<HTMLButtonElement>(null);
+  const backRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (isOpen) {
       setSelectedLength(snippetLength);
       setSelectedLevel(snippetLevel);
       setSelectedMode(practiceMode);
-      if (variant === 'default' && setupTab === 'upload') {
-        // do nothing
-      } else {
-        setSetupTab('generate');
-      }
-      setPastedCode('');
+      // Reset content types if needed, or keep default
     }
-  }, [isOpen, variant, snippetLength, snippetLevel, setupTab, setSetupTab, practiceMode]);
-
-  useEffect(() => {
-    if (setupTab === 'generate' && selectedLanguage.id === 'custom') {
-      setSelectedLanguage(SUPPORTED_LANGUAGES[0]);
-    }
-  }, [setupTab, selectedLanguage, setSelectedLanguage]);
-
-  useEffect(() => {
-    if (isOpen) {
-      const timeoutId = setTimeout(() => {
-        if (setupTab === 'upload') {
-          pasteTextAreaRef.current?.focus();
-        } else if (variant === 'default') {
-          startRef.current?.focus();
-        }
-      }, 100);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [isOpen, setupTab, variant]);
-
-  // FIX: Implemented minimum code length validation for pasted code.
-  const handleCustomCodeSubmit = (code: string) => {
-    if (code.trim().length < 2) {
-      showAlert("Code must have at least 2 characters to start a practice session.", 'warning');
-      return;
-    }
-    const codeWithNormalizedNewlines = code.replace(/\r\n?/g, '\n');
-    setLastPracticeAction('upload');
-    // Pass selectedMode to ensure correct mode is set
-    onStart(null, null, codeWithNormalizedNewlines, selectedMode);
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) {
-      return;
-    }
-
-    let filesToProcess = Array.from(files);
-
-    if (filesToProcess.length > 10) {
-      filesToProcess = filesToProcess.slice(0, 10);
-      showAlert("Maximum limit reached. Only the first 10 files have been selected for practice.", 'warning');
-    }
-
-    setLastPracticeAction('upload');
-    // FIX: Added a catch block to handle cases where all files are invalid, preventing the modal from closing.
-    startMultiFileSession(filesToProcess)
-      .then(() => {
-        onStart(null, null, null);
-      })
-      .catch((err) => {
-        console.error("File processing failed:", err.message);
-        // Do not close the modal, the alert is already shown in the context.
-      });
-
-    if (event.target) {
-      event.target.value = '';
-    }
-  };
-
+  }, [isOpen, snippetLength, snippetLevel, practiceMode]);
 
   const handleStartGenerate = () => {
     setLastPracticeAction('generate');
-    // Update global mode
     setPracticeMode(selectedMode);
-    onStart(selectedLength, selectedLevel, null, selectedMode);
+    setSnippetLength(selectedLength);
+    setSnippetLevel(selectedLevel);
+    onStart(selectedLength, selectedLevel, null, selectedMode, selectedContentTypes);
   };
 
-  const handleLanguageChange = (langId: string) => {
-    const lang = uploadLanguages.find(l => l.id === langId);
-    if (lang) setSelectedLanguage(lang);
-  }
+  const handleCustomCodeSubmit = (code: string) => {
+    setLastPracticeAction('upload');
+    onStart(null, null, code, selectedMode);
+  };
 
-  useAccessKey('G', () => setSetupTab('generate'), { disabled: !isOpen || variant === 'targeted' });
-  useAccessKey('U', () => setSetupTab('upload'), { disabled: !isOpen || variant === 'targeted' });
-  useAccessKey('L', () => languageRef.current?.toggle(), { disabled: !isOpen });
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isOpen) return;
-
-      if (e.key === 'Enter' && e.ctrlKey) {
-        e.preventDefault();
-        if (setupTab === 'generate' || variant === 'targeted') {
-          startRef.current?.click();
-        } else {
-          useCodeRef.current?.click();
-        }
-        return;
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
+      if (files.length === 1) {
+        const file = files[0];
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const text = event.target?.result as string;
+          handleCustomCodeSubmit(text);
+        };
+        reader.readAsText(file);
+      } else {
+        await startMultiFileSession(files);
+        onClose();
       }
+    }
+  };
 
-      const activeElement = document.activeElement as HTMLElement;
-
-      if (activeElement === pasteTextAreaRef.current && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-        return;
-      }
-
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        e.preventDefault();
-
-        const isGenerate = setupTab === 'generate' || variant === 'targeted';
-
-        const generateFocusOrder = [
-          tabRef.current,
-          languageRef.current?.getTriggerElement(),
-          lengthRef.current,
-          levelRef.current,
-          startRef.current
-        ];
-
-        const uploadFocusOrder = [
-          tabRef.current,
-          languageRef.current?.getTriggerElement(),
-          pasteTextAreaRef.current,
-          selectFileRef.current
-        ];
-
-        const focusableElements = (isGenerate ? generateFocusOrder : uploadFocusOrder).filter(Boolean) as HTMLElement[];
-
-        const bottomButtons = [selectFileRef.current, backRef.current, useCodeRef.current];
-        const isBottomButtonFocused = bottomButtons.some(btn => btn === activeElement);
-
-        let currentIndex = focusableElements.findIndex(el => el === activeElement);
-
-        if (isBottomButtonFocused && !isGenerate) {
-          currentIndex = focusableElements.length - 1;
-        }
-
-        if (currentIndex === -1) {
-          focusableElements[0]?.focus();
-          return;
-        }
-
-        const direction = e.key === 'ArrowDown' ? 1 : -1;
-        const nextIndex = (currentIndex + direction + focusableElements.length) % focusableElements.length;
-
-        focusableElements[nextIndex]?.focus();
-        return;
-      }
-
-      if (setupTab === 'upload' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
-        const buttons = [selectFileRef.current, backRef.current, useCodeRef.current].filter(Boolean) as HTMLElement[];
-        const currentButtonIndex = buttons.indexOf(activeElement);
-
-        if (currentButtonIndex !== -1) {
-          e.preventDefault();
-          const direction = e.key === 'ArrowRight' ? 1 : -1;
-          const nextButtonIndex = (currentButtonIndex + direction + buttons.length) % buttons.length;
-          buttons[nextButtonIndex]?.focus();
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, setupTab, variant]);
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const langId = e.target.value;
+    const lang = uploadLanguages.find(l => l.id === langId) || uploadLanguages[0];
+    setSelectedLanguage(lang);
+  };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={variant === 'targeted' ? 'Targeted Practice Setup' : 'Setup Your Practice'}>
+    <Modal isOpen={isOpen} onClose={onClose} title="Practice Setup" size="md">
       <div className="space-y-6">
-        {variant === 'default' && (
-          <div className="flex justify-center">
-            <SegmentedControl
-              ref={tabRef}
-              options={tabOptions}
-              selectedValue={setupTab}
-              onSelect={(value) => setSetupTab(value as 'generate' | 'upload')}
-              accessKeyChars={['G', 'U']}
-            />
-          </div>
-        )}
+        <SegmentedControl
+          options={tabOptions}
+          selectedValue={setupTab}
+          onSelect={(value) => setSetupTab(value as 'generate' | 'upload')}
+          className="mb-4"
+        />
 
-        {(setupTab === 'generate' || variant === 'targeted') && (
+        {setupTab === 'generate' && (
           <div className="space-y-4 animate-fade-in-up">
-            {variant === 'default' && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Practice Mode</label>
-                <SegmentedControl
-                  options={modeOptions}
-                  selectedValue={selectedMode}
-                  onSelect={(value) => setSelectedMode(value as PracticeMode)}
-                />
-              </div>
-            )}
-            {variant === 'default' && selectedMode === 'code' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Mode</label>
+              <SegmentedControl
+                options={modeOptions}
+                selectedValue={selectedMode}
+                onSelect={(value) => setSelectedMode(value as PracticeMode)}
+              />
+            </div>
+
+            {selectedMode === 'code' && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Language</label>
                 <Select
                   ref={languageRef}
                   value={selectedLanguage.id}
-                  onChange={handleLanguageChange}
+                  onChange={(e) => {
+                    const lang = generateLanguages.find(l => l.id === e.target.value) || generateLanguages[0];
+                    setSelectedLanguage(lang);
+                  }}
                   options={generateLanguages.map(l => ({ value: l.id, label: l.name }))}
                 />
               </div>
             )}
+
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Snippet Length</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Length</label>
               <SegmentedControl
                 ref={lengthRef}
                 options={lengthOptions}
@@ -286,24 +161,57 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
                 onSelect={(value) => setSelectedLength(value as SnippetLength)}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Difficulty Level</label>
-              <SegmentedControl
-                ref={levelRef}
-                options={levelOptions}
-                selectedValue={selectedLevel}
-                onSelect={(value) => setSelectedLevel(value as SnippetLevel)}
-              />
-            </div>
-            <div className="flex justify-center pt-4">
-              <Button ref={startRef} onClick={handleStartGenerate} className="w-1/2" disabled={isLoadingSnippet}>
-                {isLoadingSnippet ? 'Generating...' : 'Start Typing'}
+
+            {selectedMode === 'code' ? (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Difficulty Level</label>
+                <SegmentedControl
+                  ref={levelRef}
+                  options={levelOptions}
+                  selectedValue={selectedLevel}
+                  onSelect={(value) => setSelectedLevel(value as SnippetLevel)}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Content Selection</label>
+                <div className="flex gap-4">
+                  {(['characters', 'numbers', 'symbols'] as ContentType[]).map((type) => (
+                    <label key={type} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedContentTypes.includes(type)}
+                        onChange={() => {
+                          setSelectedContentTypes(prev => {
+                            if (prev.includes(type)) {
+                              if (prev.length === 1) return prev;
+                              return prev.filter(t => t !== type);
+                            } else {
+                              return [...prev, type];
+                            }
+                          });
+                        }}
+                        className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-300 focus:ring focus:ring-primary-200 focus:ring-opacity-50"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">{type}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button ref={backRef} variant="secondary" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button ref={generateBtnRef} onClick={handleStartGenerate} disabled={isLoadingSnippet}>
+                {isLoadingSnippet ? 'Generating...' : 'Start Practice'}
               </Button>
             </div>
           </div>
         )}
 
-        {variant === 'default' && setupTab === 'upload' && (
+        {setupTab === 'upload' && (
           <div className="space-y-4 animate-fade-in-up">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Language</label>

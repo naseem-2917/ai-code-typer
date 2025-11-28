@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
-import { Language, SnippetLength, SnippetLevel, FontSize, Page, PracticeStats, PracticeQueueItem, SavedContextState, PracticeMode } from '../types';
+import { Language, SnippetLength, SnippetLevel, FontSize, Page, PracticeStats, PracticeQueueItem, SavedContextState, PracticeMode, ContentType } from '../types';
 import { SUPPORTED_LANGUAGES } from '../constants';
 import { generateCodeSnippet, generateTargetedCodeSnippet, generateGeneralSnippet } from '../services/geminiService';
 import { updateDailyPracticeTime } from '../services/dataService';
@@ -58,7 +58,7 @@ interface AppContextType {
   snippet: string;
   isLoadingSnippet: boolean;
   snippetError: string | null;
-  fetchNewSnippet: (options?: { length?: SnippetLength, level?: SnippetLevel, mode?: PracticeMode }) => void;
+  fetchNewSnippet: (options?: { length?: SnippetLength, level?: SnippetLevel, mode?: PracticeMode, contentTypes?: ContentType[] }) => void;
   startCustomSession: (code: string, mode?: PracticeMode) => void;
   startTargetedSession: (keys: string[], options: { length: SnippetLength, level: SnippetLevel }) => void;
   isCustomSession: boolean;
@@ -269,38 +269,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [focusRequestCallback]);
 
-  const clearPracticeQueue = () => {
-    setPracticeQueue([]);
-    setCurrentQueueIndex(-1);
-  };
-
-  const fetchNewSnippet = useCallback(async (options?: { length?: SnippetLength, level?: SnippetLevel, mode?: PracticeMode }) => {
+  const fetchNewSnippet = useCallback(async (options?: { length?: SnippetLength, level?: SnippetLevel, mode?: PracticeMode, contentTypes?: ContentType[] }) => {
     if (isLoadingSnippet) return;
-
-    clearPracticeQueue();
-    setIsLoadingSnippet(true);
-    setSnippet('');
-    setSnippetError(null);
-    setIsCustomSession(false);
-    setCurrentTargetedKeys([]);
 
     const length = options?.length || snippetLength;
     const level = options?.level || snippetLevel;
+    const mode = options?.mode || practiceMode;
+    const contentTypes = options?.contentTypes;
 
-    setSnippetLength(length);
-    setSnippetLevel(level);
-
-    if (options?.mode) {
-      setPracticeMode(options.mode);
-    }
-
-    // Use the mode from options if provided, otherwise use the current state
-    const currentMode = options?.mode || practiceMode;
+    setIsLoadingSnippet(true);
+    setSnippetError(null);
+    setSnippet('');
+    setIsCustomSession(false);
+    setCurrentTargetedKeys([]);
 
     try {
       let newSnippet = '';
-      if (currentMode === 'general') {
-        newSnippet = await generateGeneralSnippet(length, level);
+      if (mode === 'general') {
+        newSnippet = await generateGeneralSnippet(length, level, contentTypes);
       } else {
         newSnippet = await generateCodeSnippet(selectedLanguage, length, level);
       }
@@ -323,6 +309,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (mode) {
       setPracticeMode(mode);
     }
+  };
+
+  const clearPracticeQueue = () => {
+    setPracticeQueue([]);
+    setCurrentQueueIndex(-1);
   };
 
   const startTargetedSession = useCallback(async (keys: string[], options: { length: SnippetLength, level: SnippetLevel }) => {
