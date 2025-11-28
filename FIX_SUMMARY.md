@@ -27,10 +27,10 @@
 - **Problem**: 
     - `package.json` contained invalid/non-existent versions of Vite (`^7.1.12`) and React (`^19.2.0`), and duplicate entries.
     - `vite.config.ts` contained markdown syntax errors.
-    - `@google/genai` version `^0.1.3` was causing ETARGET errors.
+    - `@google/genai` version instability.
 - **Fix**:
     - Cleaned up `package.json` to use stable, compatible versions (Vite 5.x, React 18.x).
-    - Updated `@google/genai` to `^0.2.1`.
+    - Reverted `@google/genai` to `^0.1.3` per user request.
     - Removed markdown code blocks from `vite.config.ts`.
     - Verified `.github/workflows/deploy.yml` correctly uses `npm run build`.
 
