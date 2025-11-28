@@ -285,7 +285,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSnippet('');
     setIsCustomSession(false);
     setCurrentTargetedKeys([]);
-    setSessionResetKey(prev => prev + 1);
 
     try {
       let newSnippet = '';
@@ -295,6 +294,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         newSnippet = await generateCodeSnippet(selectedLanguage, length, level);
       }
       setSnippet(convertSpacesToTabs(newSnippet));
+      setSessionResetKey(prev => prev + 1);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch a new code snippet. Please try again.';
       setSnippetError(errorMessage);
@@ -330,10 +330,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSnippetError(null);
     setIsCustomSession(false);
     setCurrentTargetedKeys(keys);
-    setSessionResetKey(prev => prev + 1);
     try {
       const newSnippet = await generateTargetedCodeSnippet(selectedLanguage, keys, options.length, options.level);
       setSnippet(convertSpacesToTabs(newSnippet));
+      setSessionResetKey(prev => prev + 1);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch a targeted snippet. Please try again.';
       setSnippetError(errorMessage);
