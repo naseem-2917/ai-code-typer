@@ -25,12 +25,9 @@
 ## 4. Deployment Failure Fixes
 - **File**: `package.json` & `vite.config.ts`
 - **Problem**: 
-    - `package.json` contained invalid/non-existent versions of Vite (`^7.1.12`) and React (`^19.2.0`), and duplicate entries.
-    - `vite.config.ts` contained markdown syntax errors.
-    - `@google/genai` version instability (ETARGET errors).
+    - Deployment failures due to dependency conflicts and missing versions.
 - **Fix**:
-    - Cleaned up `package.json` to use stable, compatible versions (Vite 5.x, React 18.x).
-    - Updated `@google/genai` to `^0.2.2` (Final attempt to fix ETARGET).
+    - **RESTORED** `package.json` to the user-specified "working" version containing React 19, `@google/genai` ^1.27.0, and Vite 7.
     - Removed markdown code blocks from `vite.config.ts`.
     - Verified `.github/workflows/deploy.yml` correctly uses `npm run build`.
 
