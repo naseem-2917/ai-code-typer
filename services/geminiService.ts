@@ -144,25 +144,37 @@ export const generateGeneralSnippet = async (
   level: SnippetLevel,
   contentTypes: ContentType[] = ['characters']
 ): Promise<string> => {
+  const includeCharacters = contentTypes.includes('characters');
   const includeNumbers = contentTypes.includes('numbers');
   const includeSymbols = contentTypes.includes('symbols');
 
-  let contentInstruction = "- Common words and sentences";
+  let contentInstruction = "";
+  if (includeCharacters) {
+    contentInstruction += "- Common English words and sentences\n";
+  } else {
+    contentInstruction += "- DO NOT include common English sentences or paragraphs. Focus ONLY on the requested types below.\n";
+  }
+
   if (includeNumbers) {
-    contentInstruction += "\n- Numbers (e.g., 123, 4.56, dates, quantities)";
+    contentInstruction += "- Numbers (e.g., 123, 4.56, dates, quantities, phone numbers)\n";
   }
   if (includeSymbols) {
-    contentInstruction += "\n- Basic symbols (e.g., !, @, #, $, %, &, *, (, ), -, +, =, [, ], {, }, ;, :, ', \", ,, ., ?, /)";
+    contentInstruction += "- Basic symbols (e.g., !, @, #, $, %, &, *, (, ), -, +, =, [, ], {, }, ;, :, ', \", ,, ., ?, /)\n";
   }
 
   const prompt = `Generate a random text snippet for typing practice.
 The snippet should be ${lengthMap[length]} long.
 The difficulty level should be ${levelMap[level]}.
-The text should be general English text, and it MUST include a mix of:
+The text MUST strictly follow these content rules:
 ${contentInstruction}
-It should NOT be a code snippet. Just plain text with varied characters for practice based on the requested content types.`;
 
-  const systemInstruction = "You are a text generation engine for a general typing practice app. Your task is to provide a clean, raw text snippet based on the user's content selection (characters, numbers, and symbols). ABSOLUTELY NO markdown, headers, or conversational text should be included.";
+If only numbers or symbols are requested, generate a sequence of them (like data entries, math problems, or random patterns) rather than English sentences.
+It should NOT be a code snippet. Just plain text.`;
+
+  const systemInstruction = `You are a text generation engine for a general typing practice app. 
+Your task is to provide a clean, raw text snippet based on the user's content selection.
+ABSOLUTELY NO markdown, headers, or conversational text should be included.
+IMPORTANT: The text must be formatted naturally, breaking into new lines (using '\\n') after every 5-10 words (or data items) to simulate a normal paragraph or list structure. Do not produce a single long line.`;
 
   return generateSnippet(prompt, systemInstruction);
 };
