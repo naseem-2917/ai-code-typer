@@ -534,66 +534,48 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSnippet(contextState.snippet);
     setSelectedLanguage(contextState.selectedLanguage);
     setIsCustomSession(contextState.isCustomSession);
-    setCurrentTargetedKeys(contextState.currentTargetedKeys);
-    setPracticeQueue(contextState.practiceQueue);
-    setCurrentQueueIndex(contextState.currentQueueIndex);
-  };
+    fetchNewSnippet();
+  }
+}, [practiceQueue, currentQueueIndex, loadNextSnippetInQueue, fetchNewSnippet]);
 
-  const handleStartFromSetup = useCallback((length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => {
-    closeSetupModal();
-    if (customCode) {
-      startCustomSession(customCode, mode);
-    } else {
-      fetchNewSnippet({ length: length || snippetLength, level: level || snippetLevel, mode: mode || practiceMode, contentTypes });
-    }
-  }, [closeSetupModal, startCustomSession, fetchNewSnippet, snippetLength, snippetLevel, practiceMode]);
+const handlePracticeSame = useCallback(() => {
+  setSessionResetKey(prev => prev + 1);
+}, []);
 
-  const handleNextSnippet = useCallback(() => {
-    if (practiceQueue.length > 0 && currentQueueIndex < practiceQueue.length - 1) {
-      loadNextSnippetInQueue();
-    } else {
-      fetchNewSnippet();
-    }
-  }, [practiceQueue, currentQueueIndex, loadNextSnippetInQueue, fetchNewSnippet]);
+const handleSetupNew = useCallback(() => {
+  openSetupModal();
+  setSessionResetKey(prev => prev + 1); // Force remount to clear local state
+}, [openSetupModal]);
 
-  const handlePracticeSame = useCallback(() => {
-    setSessionResetKey(prev => prev + 1);
-  }, []);
+const value: AppContextType = {
+  theme, toggleTheme,
+  selectedLanguage, setSelectedLanguage,
+  snippet, isLoadingSnippet, snippetError, fetchNewSnippet, startCustomSession, startTargetedSession, isCustomSession, isMultiFileSession: practiceQueue.length > 0,
+  snippetLength, setSnippetLength,
+  snippetLevel, setSnippetLevel,
+  blockOnErrorThreshold, setBlockOnErrorThreshold,
+  fontSize, increaseFontSize, decreaseFontSize,
+  showKeyboard, toggleKeyboard,
+  showHandGuide, toggleHandGuide,
+  page, navigateTo, getPreviousPage,
+  isSetupModalOpen, openSetupModal, closeSetupModal,
+  isInitialSetupComplete,
+  setupTab, setSetupTab,
+  practiceHistory, addPracticeResult,
+  keyErrorStats, keyAttemptStats,
+  wpmGoal, accuracyGoal, timeGoal, dailyPracticeTime, setGoals,
+  isAccessKeyMenuVisible, showAccessKeyMenu, hideAccessKeyMenu,
+  currentTargetedKeys, setCurrentTargetedKeys,
+  lastPracticeAction, setLastPracticeAction,
+  setRequestFocusOnCodeCallback, requestFocusOnCode,
+  practiceQueue, currentQueueIndex, startMultiFileSession, loadNextSnippetInQueue,
+  alertMessage, showAlert,
+  reloadDataFromStorage,
+  restorePracticeSession,
+  practiceMode, setPracticeMode,
+  sessionResetKey,
+  handleStartFromSetup, handleNextSnippet, handlePracticeSame, handleSetupNew,
+};
 
-  const handleSetupNew = useCallback(() => {
-    openSetupModal();
-    setSessionResetKey(prev => prev + 1); // Force remount to clear local state
-  }, [openSetupModal]);
-
-  const value: AppContextType = {
-    theme, toggleTheme,
-    selectedLanguage, setSelectedLanguage,
-    snippet, isLoadingSnippet, snippetError, fetchNewSnippet, startCustomSession, startTargetedSession, isCustomSession, isMultiFileSession: practiceQueue.length > 0,
-    snippetLength, setSnippetLength,
-    snippetLevel, setSnippetLevel,
-    blockOnErrorThreshold, setBlockOnErrorThreshold,
-    fontSize, increaseFontSize, decreaseFontSize,
-    showKeyboard, toggleKeyboard,
-    showHandGuide, toggleHandGuide,
-    page, navigateTo, getPreviousPage,
-    isSetupModalOpen, openSetupModal, closeSetupModal,
-    isInitialSetupComplete,
-    setupTab, setSetupTab,
-    practiceHistory, addPracticeResult,
-    keyErrorStats, keyAttemptStats,
-    wpmGoal, accuracyGoal, timeGoal, dailyPracticeTime, setGoals,
-    isAccessKeyMenuVisible, showAccessKeyMenu, hideAccessKeyMenu,
-    currentTargetedKeys, setCurrentTargetedKeys,
-    lastPracticeAction, setLastPracticeAction,
-    setRequestFocusOnCodeCallback, requestFocusOnCode,
-    practiceQueue, currentQueueIndex, startMultiFileSession, loadNextSnippetInQueue,
-    alertMessage, showAlert,
-    reloadDataFromStorage,
-    restorePracticeSession,
-    practiceMode, setPracticeMode,
-    sessionResetKey,
-    handleStartFromSetup, handleNextSnippet, handlePracticeSame, handleSetupNew,
-  };
-
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
