@@ -113,6 +113,10 @@ interface AppContextType {
   practiceMode: PracticeMode;
   setPracticeMode: (mode: PracticeMode) => void;
   sessionResetKey: number;
+  handleStartFromSetup: (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => void;
+  handleNextSnippet: () => void;
+  handlePracticeSame: () => void;
+  handleSetupNew: () => void;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -534,6 +538,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCurrentQueueIndex(contextState.currentQueueIndex);
   };
 
+  const handleStartFromSetup = useCallback((length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => {
+    closeSetupModal();
+    if (customCode) {
+      startCustomSession(customCode, mode);
+    } else {
+      fetchNewSnippet({ length: length || snippetLength, level: level || snippetLevel, mode: mode || practiceMode, contentTypes });
+    }
+  }, [closeSetupModal, startCustomSession, fetchNewSnippet, snippetLength, snippetLevel, practiceMode]);
+
+  const handleNextSnippet = useCallback(() => {
+    if (practiceQueue.length > 0 && currentQueueIndex < practiceQueue.length - 1) {
+      loadNextSnippetInQueue();
+    } else {
+      fetchNewSnippet();
+    }
+  }, [practiceQueue, currentQueueIndex, loadNextSnippetInQueue, fetchNewSnippet]);
+
+  const handlePracticeSame = useCallback(() => {
+    setSessionResetKey(prev => prev + 1);
+  }, []);
+
+  const handleSetupNew = useCallback(() => {
+    openSetupModal();
+    setSessionResetKey(prev => prev + 1); // Force remount to clear local state
+  }, [openSetupModal]);
+
   const value: AppContextType = {
     theme, toggleTheme,
     selectedLanguage, setSelectedLanguage,
@@ -561,6 +591,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     restorePracticeSession,
     practiceMode, setPracticeMode,
     sessionResetKey,
+    handleStartFromSetup, handleNextSnippet, handlePracticeSame, handleSetupNew,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
