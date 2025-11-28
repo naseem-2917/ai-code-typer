@@ -93,7 +93,7 @@ const Header: React.FC = () => {
             </Button>
             <h1 className="text-xl font-bold text-primary-600 dark:text-primary-400">
               <span className='hidden lg:inline'>AI Code Typer</span>
-              <span className='lg:hidden'>ACT</span>
+              <span className='lg:hidden hidden sm:inline'>ACT</span>
             </h1>
             <nav className="hidden md:flex items-center gap-1 sm:gap-2">
               <NavButton page="home" label="Home" icon={<HomeIcon className="w-5 h-5" />} accessKeyChar="H" onClick={() => navigateTo('home')} />
@@ -146,7 +146,7 @@ const Header: React.FC = () => {
       </div>
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 absolute w-full left-0 shadow-lg">
+        <div className="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 absolute w-full left-0 shadow-lg z-50">
           <div className="flex flex-col p-4 space-y-2">
             <NavButton
               page="home"
