@@ -518,16 +518,52 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setWpmGoal(parseInt(localStorage.getItem('wpmGoal') || '20', 10));
     setAccuracyGoal(parseInt(localStorage.getItem('accuracyGoal') || '95', 10));
     setTimeGoal(parseInt(localStorage.getItem('timeGoal') || '15', 10));
-
     const today = new Date().toISOString().split('T')[0];
     const storedDate = localStorage.getItem('dailyPracticeDate');
     if (storedDate === today) {
       setDailyPracticeTime(Number(localStorage.getItem('dailyPracticeTime') || '0'));
     } else {
       setDailyPracticeTime(0);
-      openSetupModal();
-      setSessionResetKey(prev => prev + 1); // Force remount to clear local state
-    }, [openSetupModal]);
+    }
+
+    setSetupTab((localStorage.getItem('setupTab') as 'generate' | 'upload') || 'generate');
+  }, []);
+
+  const restorePracticeSession = useCallback((contextState: SavedContextState) => {
+    setSnippet(contextState.snippet);
+    setSelectedLanguage(contextState.selectedLanguage);
+    setIsCustomSession(contextState.isCustomSession);
+    setCurrentTargetedKeys(contextState.currentTargetedKeys);
+    setPracticeQueue(contextState.practiceQueue);
+    setCurrentQueueIndex(contextState.currentQueueIndex);
+  }, []);
+
+  const handleStartFromSetup = useCallback(async (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => {
+    if (customCode) {
+      startCustomSession(customCode, mode);
+      closeSetupModal();
+    } else {
+      await fetchNewSnippet({ length: length || snippetLength, level: level || snippetLevel, mode: mode || practiceMode, contentTypes });
+      closeSetupModal();
+    }
+  }, [closeSetupModal, startCustomSession, fetchNewSnippet, snippetLength, snippetLevel, practiceMode]);
+
+  const handleNextSnippet = useCallback(() => {
+    if (practiceQueue.length > 0 && currentQueueIndex < practiceQueue.length - 1) {
+      loadNextSnippetInQueue();
+    } else {
+      fetchNewSnippet();
+    }
+  }, [practiceQueue, currentQueueIndex, loadNextSnippetInQueue, fetchNewSnippet]);
+
+  const handlePracticeSame = useCallback(() => {
+    setSessionResetKey(prev => prev + 1);
+  }, []);
+
+  const handleSetupNew = useCallback(() => {
+    openSetupModal();
+    setSessionResetKey(prev => prev + 1); // Force remount to clear local state
+  }, [openSetupModal]);
 
   const value: AppContextType = {
     theme, toggleTheme,
