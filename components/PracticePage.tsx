@@ -97,6 +97,7 @@ const PracticePage: React.FC = () => {
         practiceQueue, currentQueueIndex, loadNextSnippetInQueue,
         isSetupModalOpen, openSetupModal, closeSetupModal, isInitialSetupComplete,
         getPreviousPage, restorePracticeSession,
+        handleNextSnippet, handleStartFromSetup, handlePracticeSame, handleSetupNew, isMultiFileSession
     } = context;
 
     const [isResultsModalOpen, setIsResultsModalOpen] = useState(false);
@@ -369,44 +370,26 @@ const PracticePage: React.FC = () => {
                 setIsSessionEndedEarly(true);
                 setIsResultsModalOpen(true);
             }
-        }, 100);
-    }, [game, hasSubmitted, snippet, selectedLanguage.name, addPracticeResult]);
-
-    const handlePracticeSame = () => {
-        resetGame();
-        setLastPracticeAction('practice_same');
-    };
-
-    const handleSetupNew = () => {
-        setIsTargetedResultsModalOpen(false);
-        loadNextSnippetInQueue();
-    };
-
-    const handleModalClose = useCallback(() => {
-        closeSetupModal();
-        if (!isInitialSetupComplete) {
-            const prevPage = getPreviousPage();
-            navigateTo(prevPage || 'home');
-        } else {
-            requestFocusOnCode();
-        }
-    }, [closeSetupModal, isInitialSetupComplete, getPreviousPage, navigateTo, requestFocusOnCode]);
+        }, 0);
+    }, [game, hasSubmitted, snippet, selectedLanguage, addPracticeResult]);
 
     const nextChar = snippet ? snippet[game.currentIndex] : '';
 
     return (
-        <div ref={gameContainerRef} className="flex flex-col gap-4 sm:gap-6 h-full focus:outline-none" tabIndex={-1}>
-            {isCapsLockOn && (
-                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 bg-yellow-400 text-yellow-900 px-4 py-2 rounded-md shadow-lg flex items-center gap-2 animate-fade-in-up">
-                    <WarningIcon className="w-5 h-5" />
-                    <span className="font-semibold">Caps Lock is On</span>
-                </div>
-            )}
+        <div className="flex flex-col h-[calc(100vh-4rem)] p-4 gap-4" ref={gameContainerRef}>
+            {
+                isCapsLockOn && (
+                    <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 bg-yellow-400 text-yellow-900 px-4 py-2 rounded-md shadow-lg flex items-center gap-2 animate-fade-in-up">
+                        <WarningIcon className="w-5 h-5" />
+                        <span className="font-semibold">Caps Lock is On</span>
+                    </div>
+                )
+            }
             <div className="flex-shrink-0">
                 <StatsDisplay wpm={game.wpm} accuracy={game.accuracy} errors={game.errors} duration={game.duration} />
             </div>
 
-            <div className="flex-grow min-h-0 flex flex-row gap-6 overflow-hidden">
+            <div className="flex-grow min-h-0 flex flex-col md:flex-row gap-4 md:gap-6 overflow-hidden">
                 <div
                     ref={codeContainerRef}
                     className={`relative focus:outline-none flex-grow min-h-0 ${game.isError ? 'animate-shake' : ''}`}
@@ -439,8 +422,8 @@ const PracticePage: React.FC = () => {
                 <PracticeQueueSidebar />
             </div>
 
-            <div className="flex items-center justify-between gap-4 flex-shrink-0">
-                <div className="flex items-center gap-2">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 flex-shrink-0">
+                <div className="flex flex-wrap justify-center gap-2 w-full md:w-auto">
                     <Button variant="secondary" onClick={openSetupModal} title="New Snippet (Alt+N)" accessKeyChar="N" disabled={isSetupModalOpen}>New Snippet</Button>
                     <Button variant="secondary" size="icon" onClick={game.isPaused ? game.resumeGame : game.pauseGame} title={game.isPaused ? "Resume (or start typing)" : "Pause (Alt+S)"} accessKeyChar='S' disabled={isSetupModalOpen}>
                         {game.isPaused ? <PlayIcon className="w-5 h-5" /> : <PauseIcon className="w-5 h-5" />}
@@ -450,7 +433,7 @@ const PracticePage: React.FC = () => {
                     </Button>
                     <Button variant="secondary" onClick={handleEndSession} title="End Session (Alt+E)" accessKeyChar="E" disabled={isSetupModalOpen}>End Session</Button>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap justify-center gap-2 w-full md:w-auto">
                     <Dropdown
                         ref={blockOnErrorRef}
                         trigger={
@@ -475,11 +458,13 @@ const PracticePage: React.FC = () => {
                 </div>
             </div>
 
-            {showKeyboard && (
-                <div className="flex-shrink-0">
-                    <Keyboard nextKey={nextChar} />
-                </div>
-            )}
+            {
+                showKeyboard && (
+                    <div className="flex-shrink-0">
+                        <Keyboard nextKey={nextChar} />
+                    </div>
+                )
+            }
 
             <ResultsModal
                 isOpen={isResultsModalOpen}
@@ -510,11 +495,11 @@ const PracticePage: React.FC = () => {
 
             <PracticeSetupModal
                 isOpen={isSetupModalOpen}
-                onClose={handleModalClose}
+                onClose={closeSetupModal}
                 onStart={handleStartFromSetup}
                 variant="default"
             />
-        </div>
+        </div >
     );
 };
 
