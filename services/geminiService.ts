@@ -24,6 +24,7 @@ const lengthMap = {
   long: 'around 15-20 lines',
 };
 
+// NOTE: levelMap is used even for general typing in the prompt, focusing the difficulty of the text
 const levelMap = {
   easy: 'basic syntax and concepts, like variable declaration and simple loops',
   medium: 'intermediate concepts, like functions, classes, or common library usage',
@@ -38,6 +39,7 @@ const generateSnippet = async (prompt: string, customSystemInstruction?: string)
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       if (!apiKey) {
+        // CRITICAL CHECK: Throws user-friendly error if key is missing/invalid
         throw new Error("API Key is missing or invalid. Check your configuration.");
       }
 
@@ -105,7 +107,7 @@ The code must be syntactically correct for the requested language.`;
   throw new Error("An unknown error occurred while generating the snippet.");
 };
 
-// This is the exported function your app uses
+// This is the exported function your app uses for code practice
 export const generateCodeSnippet = async (
   language: Language,
   length: SnippetLength,
@@ -118,7 +120,7 @@ The difficulty level should be ${levelMap[level]}.`;
   return generateSnippet(prompt);
 };
 
-// This is the exported function your app uses
+// This is the exported function your app uses for targeted code practice
 export const generateTargetedCodeSnippet = async (
   language: Language,
   keys: string[],
@@ -139,6 +141,7 @@ Crucially, the code must frequently and naturally use the following characters f
   return generateSnippet(prompt);
 };
 
+// This is the exported function your app uses for general text practice
 export const generateGeneralSnippet = async (
   length: SnippetLength,
   level: SnippetLevel,
@@ -149,23 +152,30 @@ export const generateGeneralSnippet = async (
   const includeSymbols = contentTypes.includes('symbols');
 
   let contentInstruction = "";
+
   if (includeCharacters) {
-    contentInstruction += "- Common English words and sentences\n";
-  } else {
-    contentInstruction += "- DO NOT include common English sentences or paragraphs. Focus ONLY on the requested types below.\n";
+    contentInstruction += "- Common English words and sentences.";
+  } else if (contentTypes.length > 0) {
+    // CRITICAL FIX: If Characters are NOT selected, force AI to avoid sentences.
+    contentInstruction += "CRUCIAL: DO NOT use full English sentences or common words. Focus ONLY on generating the selected non-text elements below. ";
   }
 
   if (includeNumbers) {
-    contentInstruction += "- Numbers (e.g., 123, 4.56, dates, quantities, phone numbers)\n";
+    contentInstruction += "\\n- Numbers (e.g., 123, 4.56, dates, quantities, phone numbers).";
   }
   if (includeSymbols) {
-    contentInstruction += "- Basic symbols (e.g., !, @, #, $, %, &, *, (, ), -, +, =, [, ], {, }, ;, :, ', \", ,, ., ?, /)\n";
+    contentInstruction += "\\n- Basic symbols (e.g., !, @, #, $, %, &, *, (, ), -, +, =, [, ], {, }, ;, :, ', \", ,, ., ?, /) and ensure they are used frequently.";
+  }
+
+  // Fallback if nothing is selected (safety measure)
+  if (contentTypes.length === 0) {
+    contentInstruction = "- Common English words and sentences and numbers.";
   }
 
   const prompt = `Generate a random text snippet for typing practice.
 The snippet should be ${lengthMap[length]} long.
 The difficulty level should be ${levelMap[level]}.
-The text MUST strictly follow these content rules:
+The content MUST strictly follow these content rules:
 ${contentInstruction}
 
 If only numbers or symbols are requested, generate a sequence of them (like data entries, math problems, or random patterns) rather than English sentences.
