@@ -62,6 +62,7 @@ interface AppContextType {
   startCustomSession: (code: string, mode?: PracticeMode) => void;
   startTargetedSession: (keys: string[], options: { length: SnippetLength, level: SnippetLevel }) => void;
   isCustomSession: boolean;
+  isMultiFileSession: boolean;
   snippetLength: SnippetLength;
   setSnippetLength: (length: SnippetLength) => void;
   snippetLevel: SnippetLevel;
@@ -567,7 +568,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const value: AppContextType = {
     theme, toggleTheme,
     selectedLanguage, setSelectedLanguage,
-    snippet, isLoadingSnippet, snippetError, fetchNewSnippet, startCustomSession, startTargetedSession, isCustomSession,
+    snippet, isLoadingSnippet, snippetError, fetchNewSnippet, startCustomSession, startTargetedSession, isCustomSession, isMultiFileSession: practiceQueue.length > 0,
     snippetLength, setSnippetLength,
     snippetLevel, setSnippetLevel,
     blockOnErrorThreshold, setBlockOnErrorThreshold,
