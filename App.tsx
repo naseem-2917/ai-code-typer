@@ -13,12 +13,12 @@ const AppContent: React.FC = () => {
   if (!context) {
     throw new Error("AppContext not found. Make sure AppContent is a child of AppProvider.");
   }
-  const { page, navigateTo } = context;
+  const { page, navigateTo, sessionResetKey } = context;
 
   const renderPage = () => {
     switch (page) {
       case 'practice':
-        return <PracticePage />;
+        return <PracticePage key={sessionResetKey} />;
       case 'dashboard':
         return <DashboardPage />;
       case 'home':

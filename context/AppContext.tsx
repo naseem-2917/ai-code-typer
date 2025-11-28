@@ -112,6 +112,7 @@ interface AppContextType {
   restorePracticeSession: (contextState: SavedContextState) => void;
   practiceMode: PracticeMode;
   setPracticeMode: (mode: PracticeMode) => void;
+  sessionResetKey: number;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -194,6 +195,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [alertMessage, setAlertMessage] = useState<{ message: string; type: 'warning' | 'info' | 'error' } | null>(null);
   const alertTimeoutRef = useRef<number | null>(null);
+
+  const [sessionResetKey, setSessionResetKey] = useState(0);
 
 
   const isInitialSetupComplete = !!snippet;
@@ -282,6 +285,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSnippet('');
     setIsCustomSession(false);
     setCurrentTargetedKeys([]);
+    setSessionResetKey(prev => prev + 1);
 
     try {
       let newSnippet = '';
@@ -306,6 +310,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSnippet(convertedCode);
     setIsCustomSession(true);
     setCurrentTargetedKeys([]);
+    setSessionResetKey(prev => prev + 1);
     if (mode) {
       setPracticeMode(mode);
     }
@@ -325,6 +330,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSnippetError(null);
     setIsCustomSession(false);
     setCurrentTargetedKeys(keys);
+    setSessionResetKey(prev => prev + 1);
     try {
       const newSnippet = await generateTargetedCodeSnippet(selectedLanguage, keys, options.length, options.level);
       setSnippet(convertSpacesToTabs(newSnippet));
@@ -347,6 +353,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setCurrentTargetedKeys([]);
       setSnippetError(null);
       setIsLoadingSnippet(false);
+      setSessionResetKey(prev => prev + 1);
     }
   }, [practiceQueue]);
 
@@ -398,6 +405,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setCurrentQueueIndex(0);
       setIsCustomSession(true);
       setSnippetError(null);
+      setSessionResetKey(prev => prev + 1);
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to process files.';
@@ -552,6 +560,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     reloadDataFromStorage,
     restorePracticeSession,
     practiceMode, setPracticeMode,
+    sessionResetKey,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

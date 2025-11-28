@@ -37,6 +37,10 @@ const generateSnippet = async (prompt: string, customSystemInstruction?: string)
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      if (!apiKey) {
+        throw new Error("API Key is missing or invalid. Check your configuration.");
+      }
+
       const defaultSystemInstruction = `You are a code generation engine for a typing practice app.
 Your task is to provide a code snippet based on the user's request.
 The snippet MUST be clean, raw code.
