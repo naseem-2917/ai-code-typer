@@ -303,6 +303,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch a new code snippet. Please try again.';
       setSnippetError(errorMessage);
+      setSessionResetKey(prev => prev + 1);
       console.error(err);
     } finally {
       setIsLoadingSnippet(false);
@@ -342,6 +343,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch a targeted snippet. Please try again.';
       setSnippetError(errorMessage);
+      setSessionResetKey(prev => prev + 1);
       console.error(err);
     } finally {
       setIsLoadingSnippet(false);
@@ -415,6 +417,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to process files.';
       setSnippetError(errorMessage);
+      setSessionResetKey(prev => prev + 1);
       console.error(err);
       throw err;
     } finally {

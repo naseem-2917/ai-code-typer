@@ -30,7 +30,7 @@ jobs:
       # API Key Injection and Build
       - name: Build project 🏗️
         env:
-          # Securely injects the key from GitHub Secrets for the Vite build process
+          # Forcefully inject the secret so Vite hardcodes it.
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }} 
         run: npm run build 
 

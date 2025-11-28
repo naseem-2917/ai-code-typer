@@ -426,11 +426,11 @@ const PracticePage: React.FC = () => {
 
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 flex-shrink-0">
                 <div className="flex flex-wrap justify-center gap-2 w-full md:w-auto">
-                    <Button variant="secondary" onClick={() => { resetGame(); openSetupModal(); }} title="New Snippet (Alt+N)" accessKeyChar="N" disabled={isSetupModalOpen}>New Snippet</Button>
+                    <Button variant="secondary" onClick={() => { game.reset(); openSetupModal(); }} title="New Snippet (Alt+N)" accessKeyChar="N" disabled={isSetupModalOpen}>New Snippet</Button>
                     <Button variant="secondary" size="icon" onClick={game.isPaused ? game.resumeGame : game.pauseGame} title={game.isPaused ? "Resume (or start typing)" : "Pause (Alt+S)"} accessKeyChar='S' disabled={isSetupModalOpen}>
                         {game.isPaused ? <PlayIcon className="w-5 h-5" /> : <PauseIcon className="w-5 h-5" />}
                     </Button>
-                    <Button variant="secondary" size="icon" onClick={resetGame} title="Reset (Alt+R)" accessKeyChar="R" disabled={isSetupModalOpen}>
+                    <Button variant="secondary" size="icon" onClick={game.reset} title="Reset (Alt+R)" accessKeyChar="R" disabled={isSetupModalOpen}>
                         <ResetIcon className="w-5 h-5" />
                     </Button>
                     <Button variant="secondary" onClick={handleEndSession} title="End Session (Alt+E)" accessKeyChar="E" disabled={isSetupModalOpen}>End Session</Button>
