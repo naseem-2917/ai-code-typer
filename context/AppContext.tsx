@@ -525,57 +525,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setDailyPracticeTime(Number(localStorage.getItem('dailyPracticeTime') || '0'));
     } else {
       setDailyPracticeTime(0);
-    }
+      openSetupModal();
+      setSessionResetKey(prev => prev + 1); // Force remount to clear local state
+    }, [openSetupModal]);
 
-    setSetupTab((localStorage.getItem('setupTab') as 'generate' | 'upload') || 'generate');
-  }, []);
+  const value: AppContextType = {
+    theme, toggleTheme,
+    selectedLanguage, setSelectedLanguage,
+    snippet, isLoadingSnippet, snippetError, fetchNewSnippet, startCustomSession, startTargetedSession, isCustomSession, isMultiFileSession: practiceQueue.length > 0,
+    snippetLength, setSnippetLength,
+    snippetLevel, setSnippetLevel,
+    blockOnErrorThreshold, setBlockOnErrorThreshold,
+    fontSize, increaseFontSize, decreaseFontSize,
+    showKeyboard, toggleKeyboard,
+    showHandGuide, toggleHandGuide,
+    page, navigateTo, getPreviousPage,
+    isSetupModalOpen, openSetupModal, closeSetupModal,
+    isInitialSetupComplete,
+    setupTab, setSetupTab,
+    practiceHistory, addPracticeResult,
+    keyErrorStats, keyAttemptStats,
+    wpmGoal, accuracyGoal, timeGoal, dailyPracticeTime, setGoals,
+    isAccessKeyMenuVisible, showAccessKeyMenu, hideAccessKeyMenu,
+    currentTargetedKeys, setCurrentTargetedKeys,
+    lastPracticeAction, setLastPracticeAction,
+    setRequestFocusOnCodeCallback, requestFocusOnCode,
+    practiceQueue, currentQueueIndex, startMultiFileSession, loadNextSnippetInQueue,
+    alertMessage, showAlert,
+    reloadDataFromStorage,
+    restorePracticeSession,
+    practiceMode, setPracticeMode,
+    sessionResetKey,
+    handleStartFromSetup, handleNextSnippet, handlePracticeSame, handleSetupNew,
+  };
 
-  const restorePracticeSession = (contextState: SavedContextState) => {
-    setSnippet(contextState.snippet);
-    setSelectedLanguage(contextState.selectedLanguage);
-    setIsCustomSession(contextState.isCustomSession);
-    fetchNewSnippet();
-  }
-}, [practiceQueue, currentQueueIndex, loadNextSnippetInQueue, fetchNewSnippet]);
-
-const handlePracticeSame = useCallback(() => {
-  setSessionResetKey(prev => prev + 1);
-}, []);
-
-const handleSetupNew = useCallback(() => {
-  openSetupModal();
-  setSessionResetKey(prev => prev + 1); // Force remount to clear local state
-}, [openSetupModal]);
-
-const value: AppContextType = {
-  theme, toggleTheme,
-  selectedLanguage, setSelectedLanguage,
-  snippet, isLoadingSnippet, snippetError, fetchNewSnippet, startCustomSession, startTargetedSession, isCustomSession, isMultiFileSession: practiceQueue.length > 0,
-  snippetLength, setSnippetLength,
-  snippetLevel, setSnippetLevel,
-  blockOnErrorThreshold, setBlockOnErrorThreshold,
-  fontSize, increaseFontSize, decreaseFontSize,
-  showKeyboard, toggleKeyboard,
-  showHandGuide, toggleHandGuide,
-  page, navigateTo, getPreviousPage,
-  isSetupModalOpen, openSetupModal, closeSetupModal,
-  isInitialSetupComplete,
-  setupTab, setSetupTab,
-  practiceHistory, addPracticeResult,
-  keyErrorStats, keyAttemptStats,
-  wpmGoal, accuracyGoal, timeGoal, dailyPracticeTime, setGoals,
-  isAccessKeyMenuVisible, showAccessKeyMenu, hideAccessKeyMenu,
-  currentTargetedKeys, setCurrentTargetedKeys,
-  lastPracticeAction, setLastPracticeAction,
-  setRequestFocusOnCodeCallback, requestFocusOnCode,
-  practiceQueue, currentQueueIndex, startMultiFileSession, loadNextSnippetInQueue,
-  alertMessage, showAlert,
-  reloadDataFromStorage,
-  restorePracticeSession,
-  practiceMode, setPracticeMode,
-  sessionResetKey,
-  handleStartFromSetup, handleNextSnippet, handlePracticeSame, handleSetupNew,
-};
-
-return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
