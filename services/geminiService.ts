@@ -31,21 +31,23 @@ const levelMap = {
 };
 
 // This is the internal helper function with RETRY LOGIC
-const generateSnippet = async (prompt: string): Promise<string> => {
+const generateSnippet = async (prompt: string, customSystemInstruction?: string): Promise<string> => {
   const maxRetries = 3;
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      const defaultSystemInstruction = `You are a code generation engine for a typing practice app.
+Your task is to provide a code snippet based on the user's request.
+The snippet MUST be clean, raw code.
+ABSOLUTELY NO explanations, comments, markdown backticks (\`\`\`), or any text other than the code itself.
+The code must be syntactically correct for the requested language.`;
+
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
-          systemInstruction: `You are a code generation engine for a typing practice app.
-Your task is to provide a code snippet based on the user's request.
-The snippet MUST be clean, raw code.
-ABSOLUTELY NO explanations, comments, markdown backticks (\`\`\`), or any text other than the code itself.
-The code must be syntactically correct for the requested language.`
+          systemInstruction: customSystemInstruction || defaultSystemInstruction
         }
       });
 
@@ -156,5 +158,7 @@ The text should be general English text, and it MUST include a mix of:
 ${contentInstruction}
 It should NOT be a code snippet. Just plain text with varied characters for practice based on the requested content types.`;
 
-  return generateSnippet(prompt);
+  const systemInstruction = "You are a text generation engine for a general typing practice app. Your task is to provide a clean, raw text snippet based on the user's content selection (characters, numbers, and symbols). ABSOLUTELY NO markdown, headers, or conversational text should be included.";
+
+  return generateSnippet(prompt, systemInstruction);
 };
