@@ -296,9 +296,9 @@ const PracticePage: React.FC = () => {
                 return;
             }
 
-            const isTypingElement = document.activeElement === hiddenInputRef.current || 
-                                    document.activeElement === codeContainerRef.current ||
-                                    document.activeElement === document.body;
+            const isTypingElement = document.activeElement === hiddenInputRef.current ||
+                document.activeElement === codeContainerRef.current ||
+                document.activeElement === document.body;
             if (!isTypingElement) return;
 
             if (e.getModifierState("CapsLock")) {
@@ -541,26 +541,17 @@ const PracticePage: React.FC = () => {
                     </Card>
                 </div>
 
-                {/* Sidebar: Queue & Keyboard */}
+                {/* Sidebar: Queue */}
                 <div className="hidden md:flex flex-col gap-4 w-64 flex-shrink-0">
                     <div className="flex-grow min-h-0 overflow-hidden">
                         <PracticeQueueSidebar />
                     </div>
-                    {showKeyboard && (
-                        <div className="flex-shrink-0">
-                            <Keyboard
-                                activeKey={nextChar}
-                                isShiftActive={/[A-Z!@#$%^&*()_+{}|:"<>?~]/.test(nextChar)}
-                                showHandGuide={showHandGuide}
-                            />
-                        </div>
-                    )}
                 </div>
             </div>
 
-            {/* Mobile Keyboard (below code area) */}
+            {/* Keyboard (below code area) */}
             {showKeyboard && (
-                <div className="md:hidden flex-shrink-0">
+                <div className="flex-shrink-0">
                     <Keyboard
                         activeKey={nextChar}
                         isShiftActive={/[A-Z!@#$%^&*()_+{}|:"<>?~]/.test(nextChar)}
