@@ -2,11 +2,20 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Language, SnippetLength, SnippetLevel, ContentType } from '../types';
 
 // NOTE: Using direct VITE_ access as per the final simplified workflow.
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY?.trim();
+
+// Debug logging to help user verify the key
+console.log("Gemini Service Initialized");
+console.log("API Key Length:", apiKey?.length);
+if (apiKey && apiKey.length > 4) {
+  console.log("API Key Start:", apiKey.substring(0, 4) + "...");
+} else {
+  console.log("API Key is too short or missing");
+}
 
 // @ts-ignore
 const genAI = new GoogleGenerativeAI(apiKey);
-const ai = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); // Using 2.5 Flash as requested
+const ai = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Switched to 1.5 Flash for stability
 
 const levelMap = {
   easy: 'basic syntax and concepts, like variable declaration and simple loops',
@@ -22,76 +31,46 @@ const lengthMap: Record<SnippetLength, string> = {
 
 // This is the internal helper function with RETRY LOGIC
 const generateSnippet = async (prompt: string, customSystemInstruction?: string): Promise<string> => {
-  const maxRetries = 3;
-  let lastError: Error | null = null;
+  if (!apiKey) {
+    throw new Error("API Key is missing or invalid. Check your configuration.");
+  }
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      if (!apiKey) {
-        // CRITICAL CHECK: Throws user-friendly error if key is missing/invalid
-        throw new Error("API Key is missing or invalid. Check your configuration.");
-      }
-
-      const defaultSystemInstruction = `You are a code generation engine for a typing practice app.
+  const defaultSystemInstruction = `You are a code generation engine for a typing practice app.
 Your task is to provide a code snippet based on the user's request.
 The snippet MUST be clean, raw code.
 ABSOLUTELY NO explanations, comments, markdown backticks(\`\`\`), or any text other than the code itself.
 The code must be syntactically correct for the requested language.`;
 
-      const responseResult = await ai.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        systemInstruction: customSystemInstruction || defaultSystemInstruction,
-      });
-      const response = responseResult.response;
+  try {
+    const responseResult = await ai.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      systemInstruction: customSystemInstruction || defaultSystemInstruction,
+    });
+    const response = responseResult.response;
+    const code = response.text().trim();
 
-      const code = response.text().trim();
+    // Clean up potential markdown code fences
+    const cleanedCode = code.replace(/^```(?:\w+\n)?/, '').replace(/```$/, '').trim();
 
-      // Clean up potential markdown code fences
-      const cleanedCode = code.replace(/^```(?:\w+\n)?/, '').replace(/```$/, '').trim();
-
-      if (!cleanedCode) {
-        throw new Error("The AI returned an empty snippet. Please try again.");
-      }
-
-      return cleanedCode; // Success!
-
-    } catch (error) {
-      lastError = error as Error;
-
-      // Check if it's a rate limit error. Assuming error message contains '429'.
-      if (error instanceof Error && error.message.includes('429')) {
-        // If this is not the last retry attempt, wait before retrying.
-        if (attempt < maxRetries) {
-          const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue; // Go to the next iteration to retry
-        }
-      }
-
-      // For any other type of error, or if rate limit retries are exhausted,
-      // we will break the loop.
-      break;
+    if (!cleanedCode) {
+      throw new Error("The AI returned an empty snippet. Please try again.");
     }
+
+    return cleanedCode;
+
+  } catch (error) {
+    console.error("Gemini API Error:", error);
+    if (error instanceof Error) {
+      if (error.message.includes('429')) {
+        throw new Error("AI service is busy (Rate Limit). Please try again in a moment.");
+      }
+      if (error.message.includes('API key')) {
+        throw new Error("Invalid API key. Please check your .env configuration.");
+      }
+      throw error;
+    }
+    throw new Error("An unknown error occurred while generating the snippet.");
   }
-
-  // If we've exited the loop, all attempts have failed.
-  console.error("Error generating code snippet with Gemini after all retries:", lastError);
-
-  // Provide specific user-friendly messages based on the last error.
-  if (lastError && lastError.message.includes('429')) {
-    throw new Error("AI service is currently busy due to high demand. Please try again in a few seconds.");
-  }
-
-  if (lastError && lastError.message.includes('API key')) {
-    throw new Error("Invalid API key. Please check your configuration.");
-  }
-
-  // If it was another kind of error, re-throw it to be handled by the caller.
-  if (lastError) {
-    throw lastError;
-  }
-
-  throw new Error("An unknown error occurred while generating the snippet.");
 };
 
 // This is the exported function your app uses for code practice

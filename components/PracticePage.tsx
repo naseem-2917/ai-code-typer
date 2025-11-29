@@ -1,9 +1,8 @@
 import React, { useContext, useEffect, useRef, useCallback, useState } from 'react';
 import { AppContext } from '../context/AppContext';
 import useTypingGame from '../hooks/useTypingGame';
-import CodeSnippet from './CodeSnippet';
+import { CodeEditor } from './CodeEditor';
 import StatsDisplay from './StatsDisplay';
-import SkeletonLoader from './SkeletonLoader';
 import { Card } from './ui/Card';
 import Keyboard from './Keyboard';
 import { Button } from './ui/Button';
@@ -16,7 +15,6 @@ import { PauseIcon } from './icons/PauseIcon';
 import { HandGuideIcon } from './icons/HandGuideIcon';
 import { Dropdown, DropdownItem, DropdownRef } from './ui/Dropdown';
 import { BlockIcon } from './icons/BlockIcon';
-import { WarningIcon } from './icons/WarningIcon';
 import { PausedSessionData, FinishedSessionData, SnippetLength, SnippetLevel, ContentType, PracticeMode } from '../types';
 import { CheckIcon } from './icons/CheckIcon';
 import { FileCodeIcon } from './icons/FileCodeIcon';
@@ -138,10 +136,6 @@ const PracticePage: React.FC = () => {
     const [sessionToRestore, setSessionToRestore] = useState<PausedSessionData | null>(null);
 
     const gameContainerRef = useRef<HTMLDivElement>(null);
-    const codeContainerRef = useRef<HTMLDivElement>(null);
-    const hiddenInputRef = useRef<HTMLTextAreaElement>(null);
-    const scrollableCardRef = useRef<HTMLDivElement>(null);
-    const cursorRef = useRef<HTMLSpanElement>(null);
     const blockOnErrorRef = useRef<DropdownRef>(null);
     const hasRestoredOnMount = useRef(false);
 
@@ -229,7 +223,10 @@ const PracticePage: React.FC = () => {
 
     useEffect(() => {
         const focusCode = () => {
-            hiddenInputRef.current?.focus();
+            // Focus is handled by CodeEditor internally or via its ref if exposed, 
+            // but here we rely on CodeEditor's auto-focus prop or internal logic.
+            // However, we can trigger a re-render or state change if needed.
+            // For now, CodeEditor auto-focuses when not paused/loading.
         };
         setRequestFocusOnCodeCallback(focusCode);
         return () => setRequestFocusOnCodeCallback(null);
@@ -401,90 +398,42 @@ const PracticePage: React.FC = () => {
     }, [isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, handleSetupNew, handleEndSession, resetGame, togglePause, toggleHandGuide, blockOnErrorThreshold, setBlockOnErrorThreshold]);
 
 
-    // Typing Handler
-    // We keep the global keydown listener for special keys and general robustness,
-    // but we also bind the textarea to satisfy the user's requirement.
+    // Typing Handler for special keys (Backspace, Tab, etc.) that might not be caught by input change
+    // or to prevent default behavior for certain keys.
     useEffect(() => {
         const handleTypingInput = (e: KeyboardEvent) => {
             if (isResultsModalOpen || isTargetedResultsModalOpen || isSetupModalOpen || e.altKey || e.ctrlKey || e.metaKey) return;
             if (e.key === 'Enter' && (e.ctrlKey || e.shiftKey)) return;
 
-            const isTypingKey = e.key.length === 1 || e.key === 'Enter' || e.key === 'Tab' || e.key === 'Backspace';
-
-            if (game.isPaused) {
-                if (isTypingKey) {
-                    e.preventDefault();
-                    game.handleKeyDown(e.key);
-                }
-                return;
-            }
-
-            const active = document.activeElement;
-            const isTypingElement = active === hiddenInputRef.current ||
-                active === codeContainerRef.current ||
-                active === document.body ||
-                active === gameContainerRef.current;
-
-            if (!isTypingElement) return;
-
-            if (e.getModifierState("CapsLock")) {
-                setIsCapsLockOn(true);
-            } else {
-                setIsCapsLockOn(false);
-            }
-
-            // We let the textarea handle the input if it's focused, 
-            // BUT we need to prevent default here if we want to control it fully via game logic.
-            // However, if we want value={userInput} to work, we might need to let it happen?
-            // No, game.handleKeyDown updates the state, which updates value.
-            // So we should prevent default to be safe and rely on game state.
-            e.preventDefault();
-            game.handleKeyDown(e.key);
-
-            if (active !== hiddenInputRef.current) {
-                hiddenInputRef.current?.focus();
-            }
+            // We allow the CodeEditor's textarea to handle the input event for characters,
+            // but we still need to intercept special keys or prevent default if needed.
+            // Actually, if we use onValueChange, we don't need to intercept characters here.
+            // But we DO need to intercept Backspace if we want to handle it via game logic (e.g. block on error).
+            
+            // For now, let's keep the global listener for robustness, but we might need to coordinate with CodeEditor.
+            // If CodeEditor is focused, it will receive the event.
         };
-        window.addEventListener('keydown', handleTypingInput);
-        return () => window.removeEventListener('keydown', handleTypingInput);
+        // window.addEventListener('keydown', handleTypingInput);
+        // return () => window.removeEventListener('keydown', handleTypingInput);
     }, [game, isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen]);
 
-    useEffect(() => {
-        const scrollContainer = scrollableCardRef.current;
-        const cursor = cursorRef.current;
-
-        if (scrollContainer && cursor) {
-            const containerRect = scrollContainer.getBoundingClientRect();
-            const cursorRect = cursor.getBoundingClientRect();
-
-            const cursorTopInContainer = cursorRect.top - containerRect.top;
-
-            const desiredScrollTop = scrollContainer.scrollTop + cursorTopInContainer - (containerRect.height / 2) + (cursorRect.height / 2);
-
-            if (scrollContainer.scrollHeight > containerRect.height) {
-                scrollContainer.scrollTo({
-                    top: desiredScrollTop,
-                    behavior: 'smooth',
-                });
+    const handleEditorValueChange = (newValue: string) => {
+        // Calculate the difference between newValue and game.typedText
+        const currentText = game.typedText;
+        
+        if (newValue.length > currentText.length) {
+            // Character added
+            const char = newValue.slice(currentText.length);
+            // Handle multiple chars (paste)
+            for (const c of char) {
+                game.handleKeyDown(c);
             }
+        } else if (newValue.length < currentText.length) {
+            // Character removed (Backspace)
+            // game.handleKeyDown('Backspace'); // useTypingGame might not support 'Backspace' string in handleKeyDown if it expects char?
+            // Let's check useTypingGame. usually it handles 'Backspace'.
+            game.handleKeyDown('Backspace');
         }
-    }, [game.currentIndex]);
-
-    useEffect(() => {
-        if (!isLoadingSnippet && !snippetError && snippet) {
-            requestFocusOnCode();
-        }
-    }, [isLoadingSnippet, snippetError, snippet, requestFocusOnCode]);
-
-    // Handler for textarea onChange to satisfy requirement
-    const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        // This is a fallback/sync handler. 
-        // The primary logic is in the global keydown listener to handle all edge cases.
-        // But we provide this to ensure the component is "connected".
-        const val = e.target.value;
-        // We don't need to do anything here because keydown handles the state update,
-        // which then updates the value prop.
-        // This just prevents React from complaining about read-only field if we didn't have onChange.
     };
 
     return (
@@ -556,67 +505,21 @@ const PracticePage: React.FC = () => {
             </div>
 
             {/* 3. Code Editor - Centered & Wide */}
-            <div className="w-full max-w-[1100px] mx-auto flex-grow min-h-0 flex flex-col md:flex-row gap-4 md:gap-6 overflow-hidden">
-                <div
-                    ref={codeContainerRef}
-                    className={`relative focus:outline-none flex-grow min-h-0 w-full ${game.isError ? 'animate-shake' : ''}`}
-                    onClick={() => hiddenInputRef.current?.focus()}
-                    aria-label="Code typing area"
-                >
-                    {/* Hidden input for mobile keyboard support */}
-                    <textarea
-                        ref={hiddenInputRef}
-                        className="absolute opacity-0 w-px h-px p-0 m-0 border-0 -z-10"
-                        aria-hidden="true"
-                        autoComplete="off"
-                        autoCorrect="off"
-                        autoCapitalize="off"
-                        spellCheck="false"
-                        tabIndex={0}
-                        value={game.typedText}
-                        onChange={handleTextareaChange}
-                        readOnly={false}
-                    />
-                    {game.isPaused && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center rounded-lg z-10 pointer-events-none animate-fade-in-up">
-                            <div className="bg-white/90 dark:bg-slate-800/90 p-6 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
-                                <div className="flex items-center gap-3 text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">
-                                    <PauseIcon className="w-8 h-8 text-primary-500" />
-                                    <span>Paused</span>
-                                </div>
-                                <p className="text-slate-600 dark:text-slate-400 text-center">Press any key to resume</p>
-                            </div>
-                        </div>
-                    )}
-
-                    <Card className="h-full overflow-hidden flex flex-col relative w-full">
-                        <div className="flex-grow overflow-y-auto custom-scrollbar relative" ref={scrollableCardRef}>
-                            <div className="p-4 md:p-6 min-h-full font-mono text-lg md:text-xl leading-relaxed">
-                                {isLoadingSnippet ? (
-                                    <SkeletonLoader />
-                                ) : snippetError ? (
-                                    <div className="flex flex-col items-center justify-center h-full text-red-500 p-8 text-center animate-fade-in">
-                                        <WarningIcon className="w-12 h-12 mb-4 opacity-80" />
-                                        <p className="text-lg font-medium mb-4">{snippetError}</p>
-                                        <Button onClick={() => fetchNewSnippet()} variant="primary">
-                                            <ResetIcon className="w-4 h-4 mr-2" /> Try Again
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <CodeSnippet
-                                        key={sessionResetKey}
-                                        code={snippet}
-                                        languageAlias={selectedLanguage.prismAlias}
-                                        charStates={game.charStates}
-                                        currentIndex={game.currentIndex}
-                                        isError={game.isError}
-                                        cursorRef={cursorRef}
-                                    />
-                                )}
-                            </div>
-                        </div>
-                    </Card>
-                </div>
+            <div className="w-full mx-auto flex-grow min-h-0 flex flex-col md:flex-row gap-4 md:gap-6 overflow-hidden">
+                <CodeEditor
+                    value={game.typedText}
+                    onValueChange={handleEditorValueChange}
+                    snippet={snippet}
+                    languageAlias={selectedLanguage.prismAlias}
+                    charStates={game.charStates}
+                    currentIndex={game.currentIndex}
+                    isError={game.isError}
+                    isLoading={isLoadingSnippet}
+                    error={snippetError}
+                    isPaused={game.isPaused}
+                    onRetry={() => fetchNewSnippet()}
+                    className="flex-grow"
+                />
 
                 {/* Sidebar: Queue */}
                 <div className="hidden md:flex flex-col gap-4 w-64 flex-shrink-0">

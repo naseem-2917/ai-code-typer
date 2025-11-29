@@ -303,6 +303,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } else {
         newSnippet = await generateCodeSnippet(selectedLanguage, length, level);
       }
+
+      if (!newSnippet || newSnippet.trim().length === 0) {
+        throw new Error("Received empty snippet from AI");
+      }
+
       setSnippet(convertSpacesToTabs(newSnippet));
       setSessionResetKey(prev => prev + 1);
       return true;
@@ -310,7 +315,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch a new code snippet. Please try again.';
       setSnippetError(errorMessage);
       setSessionResetKey(prev => prev + 1);
-      console.error(err);
+      console.error("Fetch Snippet Error:", err);
       return false;
     } finally {
       setIsLoadingSnippet(false);
