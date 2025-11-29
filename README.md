@@ -53,3 +53,4 @@ This application is automatically deployed to **GitHub Pages** using a GitHub Ac
 
 -   **Continuous Deployment:** Any changes pushed to the `main` branch trigger an automatic build and update of the live site.
 -   **Secure API Key Management:** The Gemini API key is managed securely using **GitHub Secrets**. It is injected as an environment variable only during the build process on the remote server, ensuring the key is never exposed in the public repository or client-side code.
+<!-- Triggering new deployment for API key fix -->
