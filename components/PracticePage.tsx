@@ -17,7 +17,7 @@ import { HandGuideIcon } from './icons/HandGuideIcon';
 import { Dropdown, DropdownItem, DropdownRef } from './ui/Dropdown';
 import { BlockIcon } from './icons/BlockIcon';
 import { WarningIcon } from './icons/WarningIcon';
-import { PausedSessionData, FinishedSessionData, SnippetLength, SnippetLevel, ContentType } from '../types';
+import { PausedSessionData, FinishedSessionData, SnippetLength, SnippetLevel, ContentType, PracticeMode } from '../types';
 import { CheckIcon } from './icons/CheckIcon';
 import { FileCodeIcon } from './icons/FileCodeIcon';
 import { XIcon } from './icons/XIcon';
@@ -28,6 +28,21 @@ const blockOnErrorOptions = [
     { label: 'After 2 Errors', value: 2 },
     { label: 'After 3 Errors', value: 3 },
 ];
+
+const ShortcutLabel: React.FC<{ label: string, char: string, isVisible: boolean }> = ({ label, char, isVisible }) => {
+    if (!isVisible) return <span>{label}</span>;
+
+    const index = label.toLowerCase().indexOf(char.toLowerCase());
+    if (index === -1) return <span>{label} <span className="text-xs bg-slate-200 dark:bg-slate-700 px-1 rounded ml-1">{char.toUpperCase()}</span></span>;
+
+    return (
+        <span>
+            {label.slice(0, index)}
+            <span className="underline decoration-2 decoration-primary-500 font-bold">{label.slice(index, index + 1)}</span>
+            {label.slice(index + 1)}
+        </span>
+    );
+};
 
 const PracticeQueueSidebar: React.FC = () => {
     const context = useContext(AppContext);
@@ -97,10 +112,22 @@ const PracticePage: React.FC = () => {
         setRequestFocusOnCodeCallback, requestFocusOnCode,
         practiceQueue, currentQueueIndex, loadNextSnippetInQueue,
         isSetupModalOpen, openSetupModal, closeSetupModal, isInitialSetupComplete,
-        getPreviousPage, restorePracticeSession,
-        handleStartFromSetup, isMultiFileSession,
-        sessionResetKey
+        getPreviousPage,
+        isMultiFileSession,
+        sessionResetKey,
+        isAccessKeyMenuVisible
     } = context;
+
+    const handleStartFromSetup = useCallback(async (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => {
+        if (customCode) {
+            startCustomSession(customCode, mode);
+            closeSetupModal();
+        } else {
+            await fetchNewSnippet({ length: length || undefined, level: level || undefined, mode: mode || undefined, contentTypes: contentTypes || undefined });
+            closeSetupModal();
+        }
+        setTimeout(() => requestFocusOnCode(), 100);
+    }, [startCustomSession, closeSetupModal, fetchNewSnippet, requestFocusOnCode]);
 
     const [isResultsModalOpen, setIsResultsModalOpen] = useState(false);
     const [isTargetedResultsModalOpen, setIsTargetedResultsModalOpen] = useState(false);
@@ -126,12 +153,14 @@ const PracticePage: React.FC = () => {
         onResume: onResumeCallback
     });
 
-    // Force game reset when sessionResetKey changes (e.g. on new snippet or error)
+    const nextChar = snippet[game.currentIndex] || '';
+
+    // Force game reset when sessionResetKey changes
     useEffect(() => {
         game.reset();
     }, [sessionResetKey, game]);
 
-    // Effect for restoring session state from localStorage ONCE on mount
+    // Restore session state on mount
     useEffect(() => {
         const sessionResultJSON = localStorage.getItem('sessionResultToShow');
         if (sessionResultJSON) {
@@ -152,27 +181,12 @@ const PracticePage: React.FC = () => {
             return;
         }
 
-        const continuedSessionJSON = localStorage.getItem('continuedSession');
-        if (continuedSessionJSON) {
-            hasRestoredOnMount.current = true;
-            localStorage.removeItem('continuedSession');
-            try {
-                const savedSession = JSON.parse(continuedSessionJSON) as PausedSessionData;
-                restorePracticeSession(savedSession.context);
-                setSessionToRestore(savedSession);
-            } catch (e) { console.error("Failed to parse continued session", e); }
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // Effect for handling initial setup modal if no session was restored
-    useEffect(() => {
         if (!hasRestoredOnMount.current && !isInitialSetupComplete && !isLoadingSnippet && !snippetError) {
             openSetupModal();
         }
     }, [isInitialSetupComplete, isLoadingSnippet, openSetupModal, snippetError]);
 
-    // Effect to apply restored game state once the context (snippet) is ready
+    // Apply restored game state
     useEffect(() => {
         if (sessionToRestore && snippet === sessionToRestore.context.snippet) {
             game.restoreState(sessionToRestore.game);
@@ -180,7 +194,7 @@ const PracticePage: React.FC = () => {
         }
     }, [sessionToRestore, snippet, game]);
 
-    // Effect for SAVING session state to localStorage on unmount/navigation
+    // Save session state on unmount
     useEffect(() => {
         return () => {
             if (!game.isFinished && game.typedText.length > 0) {
@@ -215,7 +229,6 @@ const PracticePage: React.FC = () => {
 
     useEffect(() => {
         const focusCode = () => {
-            // Focus the hidden textarea for mobile keyboard support
             hiddenInputRef.current?.focus();
         };
         setRequestFocusOnCodeCallback(focusCode);
@@ -265,81 +278,6 @@ const PracticePage: React.FC = () => {
     useEffect(() => {
         setHasSubmitted(false);
     }, [snippet]);
-
-    useEffect(() => {
-        const handleFocusShortcut = (e: KeyboardEvent) => {
-            if (isResultsModalOpen || isTargetedResultsModalOpen || isSetupModalOpen || e.altKey) return;
-
-            if (e.key === 'Enter' && (e.ctrlKey || e.shiftKey)) {
-                e.preventDefault();
-                hiddenInputRef.current?.focus();
-            }
-        };
-        window.addEventListener('keydown', handleFocusShortcut);
-        return () => window.removeEventListener('keydown', handleFocusShortcut);
-    }, [isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen]);
-
-    useEffect(() => {
-        const handleTypingInput = (e: KeyboardEvent) => {
-            if (isResultsModalOpen || isTargetedResultsModalOpen || isSetupModalOpen || e.altKey) return;
-            if (e.key === 'Enter' && (e.ctrlKey || e.shiftKey)) return;
-
-            const isTypingKey = e.key.length === 1 || e.key === 'Enter' || e.key === 'Tab' || e.key === 'Backspace';
-
-            if (game.isPaused) {
-                if (isTypingKey && !e.ctrlKey && !e.metaKey) {
-                    e.preventDefault();
-                    game.handleKeyDown(e.key);
-                } else {
-                    game.handleKeyDown(e.key);
-                }
-                return;
-            }
-
-            const isTypingElement = document.activeElement === hiddenInputRef.current ||
-                document.activeElement === codeContainerRef.current ||
-                document.activeElement === document.body;
-            if (!isTypingElement) return;
-
-            if (e.getModifierState("CapsLock")) {
-                setIsCapsLockOn(true);
-            } else {
-                setIsCapsLockOn(false);
-            }
-
-            e.preventDefault();
-            game.handleKeyDown(e.key);
-        };
-        window.addEventListener('keydown', handleTypingInput);
-        return () => window.removeEventListener('keydown', handleTypingInput);
-    }, [game, isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen]);
-
-    useEffect(() => {
-        const scrollContainer = scrollableCardRef.current;
-        const cursor = cursorRef.current;
-
-        if (scrollContainer && cursor) {
-            const containerRect = scrollContainer.getBoundingClientRect();
-            const cursorRect = cursor.getBoundingClientRect();
-
-            const cursorTopInContainer = cursorRect.top - containerRect.top;
-
-            const desiredScrollTop = scrollContainer.scrollTop + cursorTopInContainer - (containerRect.height / 2) + (cursorRect.height / 2);
-
-            if (scrollContainer.scrollHeight > containerRect.height) {
-                scrollContainer.scrollTo({
-                    top: desiredScrollTop,
-                    behavior: 'smooth',
-                });
-            }
-        }
-    }, [game.currentIndex]);
-
-    useEffect(() => {
-        if (!isLoadingSnippet && !snippetError && snippet) {
-            requestFocusOnCode();
-        }
-    }, [isLoadingSnippet, snippetError, snippet, requestFocusOnCode]);
 
     const resetGame = useCallback(() => {
         game.reset();
@@ -395,18 +333,13 @@ const PracticePage: React.FC = () => {
         }, 0);
     }, [game, hasSubmitted, snippet, selectedLanguage, addPracticeResult]);
 
-    // --- RE-IMPLEMENTED LOCAL HANDLERS ---
-
     const handleSetupNew = useCallback(() => {
-        game.reset();
+        resetGame();
         openSetupModal();
-    }, [game, openSetupModal]);
+    }, [resetGame, openSetupModal]);
 
     const handlePracticeSame = useCallback(() => {
         game.reset();
-        // No need to fetch new snippet, just reset game state.
-        // sessionResetKey will NOT change here, so CodeSnippet won't remount,
-        // but game.reset() clears the internal state which is what matters for "Same" practice.
     }, [game]);
 
     const handleNextSnippet = useCallback(() => {
@@ -414,55 +347,176 @@ const PracticePage: React.FC = () => {
         if (practiceQueue.length > 0 && currentQueueIndex < practiceQueue.length - 1) {
             loadNextSnippetInQueue();
         } else {
-            fetchNewSnippet();
+            fetchNewSnippet({
+                length: 'medium',
+                level: 'medium',
+                mode: 'code'
+            });
         }
-    }, [game, practiceQueue, currentQueueIndex, loadNextSnippetInQueue, fetchNewSnippet]);
+        setIsResultsModalOpen(false);
+        setIsTargetedResultsModalOpen(false);
+    }, [game, practiceQueue.length, currentQueueIndex, loadNextSnippetInQueue, fetchNewSnippet]);
 
-    // -------------------------------------
 
-    const nextChar = snippet ? snippet[game.currentIndex] : '';
+    // Shortcuts Handler
+    useEffect(() => {
+        const handleShortcuts = (e: KeyboardEvent) => {
+            if (isResultsModalOpen || isTargetedResultsModalOpen || isSetupModalOpen) return;
+
+            if (e.altKey) {
+                switch (e.key.toLowerCase()) {
+                    case 'n':
+                        e.preventDefault();
+                        handleSetupNew();
+                        break;
+                    case 'e':
+                        e.preventDefault();
+                        handleEndSession();
+                        break;
+                    case 'r':
+                        e.preventDefault();
+                        resetGame();
+                        break;
+                    case 'p':
+                        e.preventDefault();
+                        togglePause();
+                        break;
+                    case 'g':
+                        e.preventDefault();
+                        toggleHandGuide();
+                        break;
+                    case 'b':
+                        e.preventDefault();
+                        // Cycle block on error options
+                        const currentIndex = blockOnErrorOptions.findIndex(o => o.value === blockOnErrorThreshold);
+                        const nextIndex = (currentIndex + 1) % blockOnErrorOptions.length;
+                        setBlockOnErrorThreshold(blockOnErrorOptions[nextIndex].value);
+                        break;
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleShortcuts);
+        return () => window.removeEventListener('keydown', handleShortcuts);
+    }, [isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, handleSetupNew, handleEndSession, resetGame, togglePause, toggleHandGuide, blockOnErrorThreshold, setBlockOnErrorThreshold]);
+
+
+    // Typing Handler
+    useEffect(() => {
+        const handleTypingInput = (e: KeyboardEvent) => {
+            if (isResultsModalOpen || isTargetedResultsModalOpen || isSetupModalOpen || e.altKey || e.ctrlKey || e.metaKey) return;
+            if (e.key === 'Enter' && (e.ctrlKey || e.shiftKey)) return;
+
+            const isTypingKey = e.key.length === 1 || e.key === 'Enter' || e.key === 'Tab' || e.key === 'Backspace';
+
+            if (game.isPaused) {
+                // If paused, any typing key (except shortcuts) should resume or be handled by game to resume
+                if (isTypingKey) {
+                    e.preventDefault();
+                    game.handleKeyDown(e.key);
+                }
+                return;
+            }
+
+            const active = document.activeElement;
+            const isTypingElement = active === hiddenInputRef.current ||
+                active === codeContainerRef.current ||
+                active === document.body ||
+                active === gameContainerRef.current;
+
+            if (!isTypingElement) return;
+
+            if (e.getModifierState("CapsLock")) {
+                setIsCapsLockOn(true);
+            } else {
+                setIsCapsLockOn(false);
+            }
+
+            e.preventDefault();
+            game.handleKeyDown(e.key);
+
+            if (active !== hiddenInputRef.current) {
+                hiddenInputRef.current?.focus();
+            }
+        };
+        window.addEventListener('keydown', handleTypingInput);
+        return () => window.removeEventListener('keydown', handleTypingInput);
+    }, [game, isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen]);
+
+    useEffect(() => {
+        const scrollContainer = scrollableCardRef.current;
+        const cursor = cursorRef.current;
+
+        if (scrollContainer && cursor) {
+            const containerRect = scrollContainer.getBoundingClientRect();
+            const cursorRect = cursor.getBoundingClientRect();
+
+            const cursorTopInContainer = cursorRect.top - containerRect.top;
+
+            const desiredScrollTop = scrollContainer.scrollTop + cursorTopInContainer - (containerRect.height / 2) + (cursorRect.height / 2);
+
+            if (scrollContainer.scrollHeight > containerRect.height) {
+                scrollContainer.scrollTo({
+                    top: desiredScrollTop,
+                    behavior: 'smooth',
+                });
+            }
+        }
+    }, [game.currentIndex]);
+
+    useEffect(() => {
+        if (!isLoadingSnippet && !snippetError && snippet) {
+            requestFocusOnCode();
+        }
+    }, [isLoadingSnippet, snippetError, snippet, requestFocusOnCode]);
+
 
     return (
-        <div className="flex flex-col h-[calc(100vh-4rem)] p-4 gap-4" ref={gameContainerRef}>
-            {
-                isCapsLockOn && (
-                    <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 bg-yellow-400 text-yellow-900 px-4 py-2 rounded-md shadow-lg flex items-center gap-2 animate-fade-in-up">
-                        <WarningIcon className="w-5 h-5" />
-                        <span className="font-semibold">Caps Lock is On</span>
-                    </div>
-                )
-            }
-            <div className="flex-shrink-0">
-                <StatsDisplay wpm={game.wpm} accuracy={game.accuracy} errors={game.errors} duration={game.duration} />
+        <div className="flex flex-col h-full max-w-full mx-auto w-full" ref={gameContainerRef}>
+
+            {/* 1. StatsBar - Clean Top Section */}
+            <div className="w-full max-w-[1100px] mx-auto mb-4">
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+                    <StatsDisplay
+                        wpm={game.wpm}
+                        accuracy={game.accuracy}
+                        errors={game.errors}
+                        progress={Math.round((game.currentIndex / snippet.length) * 100)}
+                        timer={game.duration}
+                    />
+                </div>
             </div>
 
-            {/* Action Buttons Toolbar */}
-            <div className="flex-shrink-0 flex flex-col md:flex-row justify-between gap-4">
-                {/* Primary Actions */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full md:w-auto">
-                    <Button onClick={handleSetupNew} variant="outline" className="w-full justify-center" disabled={isSetupModalOpen} title="New Snippet">
-                        <FileCodeIcon className="w-4 h-4 mr-2" /> New
+            {/* 2. ActionBar - Separate Action Buttons */}
+            <div className="w-full max-w-[1100px] mx-auto mb-6">
+                <div className="flex flex-wrap items-center gap-3">
+                    <Button onClick={handleSetupNew} variant="primary" disabled={isSetupModalOpen} title="New Snippet (Alt+N)">
+                        <FileCodeIcon className="w-4 h-4 mr-2" />
+                        <ShortcutLabel label="New" char="N" isVisible={isAccessKeyMenuVisible} />
                     </Button>
-                    <Button onClick={handleEndSession} variant="outline" className="w-full justify-center" disabled={isSetupModalOpen || game.isFinished} title="End Session">
-                        <XIcon className="w-4 h-4 mr-2" /> End
+                    <Button onClick={handleEndSession} variant="outline" disabled={isSetupModalOpen || game.isFinished} title="End Session (Alt+E)">
+                        <XIcon className="w-4 h-4 mr-2" />
+                        <ShortcutLabel label="End" char="E" isVisible={isAccessKeyMenuVisible} />
                     </Button>
-                    <Button onClick={resetGame} variant="outline" className="w-full justify-center" disabled={isSetupModalOpen} title="Reset">
-                        <ResetIcon className="w-4 h-4 mr-2" /> Reset
+                    <Button onClick={resetGame} variant="outline" disabled={isSetupModalOpen} title="Reset (Alt+R)">
+                        <ResetIcon className="w-4 h-4 mr-2" />
+                        <ShortcutLabel label="Reset" char="R" isVisible={isAccessKeyMenuVisible} />
                     </Button>
-                    <Button onClick={togglePause} variant="outline" className="w-full justify-center" disabled={isSetupModalOpen || game.isFinished} title={game.isPaused ? "Resume" : "Pause"}>
+                    <Button onClick={togglePause} variant="outline" disabled={isSetupModalOpen || game.isFinished} title={game.isPaused ? "Resume (Alt+P)" : "Pause (Alt+P)"}>
                         {game.isPaused ? <PlayIcon className="w-4 h-4 mr-2" /> : <PauseIcon className="w-4 h-4 mr-2" />}
-                        {game.isPaused ? "Resume" : "Pause"}
+                        <ShortcutLabel label={game.isPaused ? "Resume" : "Pause"} char="P" isVisible={isAccessKeyMenuVisible} />
                     </Button>
-                </div>
 
-                {/* Secondary Actions */}
-                <div className="flex gap-2 justify-end items-center">
+                    <div className="h-6 w-px bg-slate-300 dark:bg-slate-700 mx-2 hidden sm:block"></div>
+
                     <Dropdown
                         ref={blockOnErrorRef}
                         trigger={
-                            <Button variant="ghost" title="Block on Error Settings">
+                            <Button variant="ghost" title="Block on Error Settings (Alt+B)">
                                 <BlockIcon className="w-5 h-5 mr-2" />
-                                <span className="hidden sm:inline">Block: {blockOnErrorOptions.find(o => o.value === blockOnErrorThreshold)?.label}</span>
+                                <span className="hidden sm:inline">
+                                    <ShortcutLabel label={`Block: ${blockOnErrorOptions.find(o => o.value === blockOnErrorThreshold)?.label}`} char="B" isVisible={isAccessKeyMenuVisible} />
+                                </span>
                             </Button>
                         }
                     >
@@ -476,23 +530,27 @@ const PracticePage: React.FC = () => {
                             </DropdownItem>
                         ))}
                     </Dropdown>
-                    <Button variant="ghost" onClick={() => { toggleHandGuide(); requestFocusOnCode(); }} title="Toggle Hand Guide (Alt+G)" accessKeyChar="G" disabled={isSetupModalOpen}>
-                        <HandGuideIcon className="w-5 h-5 sm:mr-2" /> <span className="hidden sm:inline">Hand Guide</span>
+                    <Button variant="ghost" onClick={() => { toggleHandGuide(); requestFocusOnCode(); }} title="Toggle Hand Guide (Alt+G)" disabled={isSetupModalOpen}>
+                        <HandGuideIcon className="w-5 h-5 sm:mr-2" />
+                        <span className="hidden sm:inline">
+                            <ShortcutLabel label="Hand Guide" char="G" isVisible={isAccessKeyMenuVisible} />
+                        </span>
                     </Button>
                 </div>
             </div>
 
-            <div className="flex-grow min-h-0 flex flex-col md:flex-row gap-4 md:gap-6 overflow-hidden">
+            {/* 3. Code Editor - Centered & Wide */}
+            <div className="w-full max-w-[1100px] mx-auto flex-grow min-h-0 flex flex-col md:flex-row gap-4 md:gap-6 overflow-hidden">
                 <div
                     ref={codeContainerRef}
-                    className={`relative focus:outline-none flex-grow min-h-0 ${game.isError ? 'animate-shake' : ''}`}
+                    className={`relative focus:outline-none flex-grow min-h-0 w-full ${game.isError ? 'animate-shake' : ''}`}
                     onClick={() => hiddenInputRef.current?.focus()}
                     aria-label="Code typing area"
                 >
                     {/* Hidden input for mobile keyboard support */}
                     <textarea
                         ref={hiddenInputRef}
-                        className="absolute opacity-0 w-0 h-0 p-0 m-0 border-0 -z-10"
+                        className="absolute opacity-0 w-px h-px p-0 m-0 border-0 -z-10"
                         aria-hidden="true"
                         autoComplete="off"
                         autoCorrect="off"
@@ -512,7 +570,7 @@ const PracticePage: React.FC = () => {
                         </div>
                     )}
 
-                    <Card className="h-full overflow-hidden flex flex-col relative">
+                    <Card className="h-full overflow-hidden flex flex-col relative w-full">
                         <div className="flex-grow overflow-y-auto custom-scrollbar relative" ref={scrollableCardRef}>
                             <div className="p-4 md:p-6 min-h-full font-mono text-lg md:text-xl leading-relaxed">
                                 {isLoadingSnippet ? (
@@ -551,7 +609,7 @@ const PracticePage: React.FC = () => {
 
             {/* Keyboard (below code area) */}
             {showKeyboard && (
-                <div className="flex-shrink-0">
+                <div className="flex-shrink-0 w-full max-w-[1100px] mx-auto mt-4">
                     <Keyboard
                         activeKey={nextChar}
                         isShiftActive={/[A-Z!@#$%^&*()_+{}|:"<>?~]/.test(nextChar)}
@@ -570,9 +628,6 @@ const PracticePage: React.FC = () => {
                 isOpen={isResultsModalOpen}
                 onClose={() => {
                     setIsResultsModalOpen(false);
-                    // If session ended early, we might want to reset or just stay on the same snippet.
-                    // If it was a full run, maybe load next?
-                    // For now, just close modal. User can choose "New" or "Reset".
                     requestFocusOnCode();
                 }}
                 stats={lastStats}

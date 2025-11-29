@@ -110,7 +110,7 @@ interface AppContextType {
   alertMessage: { message: string; type: 'warning' | 'info' | 'error' } | null;
   showAlert: (message: string, type: 'warning' | 'info' | 'error', duration?: number) => void;
   reloadDataFromStorage: () => void;
-  restorePracticeSession: (contextState: SavedContextState) => void;
+
   practiceMode: PracticeMode;
   setPracticeMode: (mode: PracticeMode) => void;
   sessionResetKey: number;
@@ -147,8 +147,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [snippetLevel, setSnippetLevel] = useState<SnippetLevel>('medium');
   const [blockOnErrorThreshold, setBlockOnErrorThreshold] = useState<number>(2);
 
-  const [fontSize, setFontSize] = useState<FontSize>('md');
-  const [showKeyboard, setShowKeyboard] = useState(true);
+  const [fontSize, setFontSize] = useState<FontSize>('medium');
+  const [showKeyboard, setShowKeyboard] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768; // Default to true only on desktop
+    }
+    return true;
+  });
   const [showHandGuide, setShowHandGuide] = useState(true);
 
   const [page, setPage] = useState<Page>('home');
@@ -534,14 +539,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSetupTab((localStorage.getItem('setupTab') as 'generate' | 'upload') || 'generate');
   }, []);
 
-  const restorePracticeSession = useCallback((contextState: SavedContextState) => {
-    setSnippet(contextState.snippet);
-    setSelectedLanguage(contextState.selectedLanguage);
-    setIsCustomSession(contextState.isCustomSession);
-    setCurrentTargetedKeys(contextState.currentTargetedKeys);
-    setPracticeQueue(contextState.practiceQueue);
-    setCurrentQueueIndex(contextState.currentQueueIndex);
-  }, []);
+
 
   const handleStartFromSetup = useCallback(async (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => {
     if (customCode) {
@@ -596,7 +594,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     practiceQueue, currentQueueIndex, startMultiFileSession, loadNextSnippetInQueue,
     alertMessage, showAlert,
     reloadDataFromStorage,
-    restorePracticeSession,
+
     practiceMode, setPracticeMode,
     sessionResetKey,
     handleStartFromSetup, handleNextSnippet, handlePracticeSame, handleSetupNew,
