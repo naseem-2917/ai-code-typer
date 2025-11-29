@@ -126,6 +126,11 @@ const PracticePage: React.FC = () => {
         onResume: onResumeCallback
     });
 
+    // Force game reset when sessionResetKey changes (e.g. on new snippet or error)
+    useEffect(() => {
+        game.reset();
+    }, [sessionResetKey, game]);
+
     // Effect for restoring session state from localStorage ONCE on mount
     useEffect(() => {
         const sessionResultJSON = localStorage.getItem('sessionResultToShow');
