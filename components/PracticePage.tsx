@@ -98,7 +98,7 @@ const PracticePage: React.FC = () => {
         practiceQueue, currentQueueIndex, loadNextSnippetInQueue,
         isSetupModalOpen, openSetupModal, closeSetupModal, isInitialSetupComplete,
         getPreviousPage, restorePracticeSession,
-        handleNextSnippet, handleStartFromSetup, handlePracticeSame, handleSetupNew, isMultiFileSession,
+        handleStartFromSetup, isMultiFileSession,
         sessionResetKey
     } = context;
 
@@ -392,6 +392,31 @@ const PracticePage: React.FC = () => {
             }
         }, 0);
     }, [game, hasSubmitted, snippet, selectedLanguage, addPracticeResult]);
+
+    // --- RE-IMPLEMENTED LOCAL HANDLERS ---
+
+    const handleSetupNew = useCallback(() => {
+        game.reset();
+        openSetupModal();
+    }, [game, openSetupModal]);
+
+    const handlePracticeSame = useCallback(() => {
+        game.reset();
+        // No need to fetch new snippet, just reset game state.
+        // sessionResetKey will NOT change here, so CodeSnippet won't remount,
+        // but game.reset() clears the internal state which is what matters for "Same" practice.
+    }, [game]);
+
+    const handleNextSnippet = useCallback(() => {
+        game.reset();
+        if (practiceQueue.length > 0 && currentQueueIndex < practiceQueue.length - 1) {
+            loadNextSnippetInQueue();
+        } else {
+            fetchNewSnippet();
+        }
+    }, [game, practiceQueue, currentQueueIndex, loadNextSnippetInQueue, fetchNewSnippet]);
+
+    // -------------------------------------
 
     const nextChar = snippet ? snippet[game.currentIndex] : '';
 
