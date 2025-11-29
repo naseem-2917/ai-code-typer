@@ -1,34 +1,22 @@
-// FIX: Add a triple-slash directive to include Vite's client types, which resolves errors related to 'import.meta.env'.
-/// <reference types="vite/client" />
-
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Language, SnippetLength, SnippetLevel, ContentType } from '../types';
 
-// --------------------- CRITICAL DUAL-ENV FIX START ---------------------
-// FIX: This ensures the app uses the secure VITE key on the live site 
-// and falls back to process.env.API_KEY in Google AI Studio/local environment.
-const isViteEnv = typeof import.meta !== 'undefined' && typeof import.meta.env !== 'undefined';
-
-const apiKey =
-  isViteEnv
-    ? import.meta.env.VITE_GEMINI_API_KEY
-    : process.env.API_KEY;
-
-const ai = new GoogleGenAI({ apiKey });
-
-// --------------------- CRITICAL DUAL-ENV FIX END ---------------------
-
-const lengthMap = {
-  short: 'around 4-6 lines',
-  medium: 'around 8-12 lines',
-  long: 'around 15-20 lines',
-};
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+// @ts-ignore
+const genAI = new GoogleGenerativeAI(apiKey);
+const ai = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
 
 // NOTE: levelMap is used even for general typing in the prompt, focusing the difficulty of the text
 const levelMap = {
   easy: 'basic syntax and concepts, like variable declaration and simple loops',
   medium: 'intermediate concepts, like functions, classes, or common library usage',
   hard: 'advanced or complex topics, like asynchronous programming, data structures, or algorithms',
+};
+
+const lengthMap: Record<SnippetLength, string> = {
+  short: '5-10 lines',
+  medium: '15-20 lines',
+  long: '25-30 lines',
 };
 
 // This is the internal helper function with RETRY LOGIC
@@ -49,15 +37,13 @@ The snippet MUST be clean, raw code.
 ABSOLUTELY NO explanations, comments, markdown backticks(\`\`\`), or any text other than the code itself.
 The code must be syntactically correct for the requested language.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          systemInstruction: customSystemInstruction || defaultSystemInstruction
-        }
+      const responseResult = await ai.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        systemInstruction: customSystemInstruction || defaultSystemInstruction,
       });
+      const response = responseResult.response;
 
-      const code = response.text.trim();
+      const code = response.text().trim();
 
       // Clean up potential markdown code fences
       const cleanedCode = code.replace(/^```(?:\w+\n)?/, '').replace(/```$/, '').trim();
