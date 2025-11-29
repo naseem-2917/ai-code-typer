@@ -58,7 +58,7 @@ interface AppContextType {
   snippet: string;
   isLoadingSnippet: boolean;
   snippetError: string | null;
-  fetchNewSnippet: (options?: { length?: SnippetLength, level?: SnippetLevel, mode?: PracticeMode, contentTypes?: ContentType[] }) => void;
+  fetchNewSnippet: (options?: { length?: SnippetLength, level?: SnippetLevel, mode?: PracticeMode, contentTypes?: ContentType[] }) => Promise<boolean>;
   startCustomSession: (code: string, mode?: PracticeMode) => void;
   startTargetedSession: (keys: string[], options: { length: SnippetLength, level: SnippetLevel }) => void;
   isCustomSession: boolean;
@@ -277,8 +277,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [focusRequestCallback]);
 
-  const fetchNewSnippet = useCallback(async (options?: { length?: SnippetLength, level?: SnippetLevel, mode?: PracticeMode, contentTypes?: ContentType[] }) => {
-    if (isLoadingSnippet) return;
+  const fetchNewSnippet = useCallback(async (options?: { length?: SnippetLength, level?: SnippetLevel, mode?: PracticeMode, contentTypes?: ContentType[] }): Promise<boolean> => {
+    if (isLoadingSnippet) return false;
 
     const length = options?.length || snippetLength;
     const level = options?.level || snippetLevel;
@@ -300,11 +300,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
       setSnippet(convertSpacesToTabs(newSnippet));
       setSessionResetKey(prev => prev + 1);
+      return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch a new code snippet. Please try again.';
       setSnippetError(errorMessage);
       setSessionResetKey(prev => prev + 1);
       console.error(err);
+      return false;
     } finally {
       setIsLoadingSnippet(false);
     }
@@ -546,8 +548,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       startCustomSession(customCode, mode);
       closeSetupModal();
     } else {
-      await fetchNewSnippet({ length: length || snippetLength, level: level || snippetLevel, mode: mode || practiceMode, contentTypes });
-      closeSetupModal();
+      const success = await fetchNewSnippet({ length: length || snippetLength, level: level || snippetLevel, mode: mode || practiceMode, contentTypes });
+      if (success) {
+        closeSetupModal();
+      }
     }
   }, [closeSetupModal, startCustomSession, fetchNewSnippet, snippetLength, snippetLevel, practiceMode]);
 

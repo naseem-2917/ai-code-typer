@@ -167,10 +167,10 @@ const PracticePage: React.FC = () => {
 
     // Effect for handling initial setup modal if no session was restored
     useEffect(() => {
-        if (!hasRestoredOnMount.current && !isInitialSetupComplete && !isLoadingSnippet) {
+        if (!hasRestoredOnMount.current && !isInitialSetupComplete && !isLoadingSnippet && !snippetError) {
             openSetupModal();
         }
-    }, [isInitialSetupComplete, isLoadingSnippet, openSetupModal]);
+    }, [isInitialSetupComplete, isLoadingSnippet, openSetupModal, snippetError]);
 
     // Effect to apply restored game state once the context (snippet) is ready
     useEffect(() => {
@@ -296,7 +296,9 @@ const PracticePage: React.FC = () => {
                 return;
             }
 
-            const isTypingElement = document.activeElement === hiddenInputRef.current || document.activeElement === codeContainerRef.current;
+            const isTypingElement = document.activeElement === hiddenInputRef.current || 
+                                    document.activeElement === codeContainerRef.current ||
+                                    document.activeElement === document.body;
             if (!isTypingElement) return;
 
             if (e.getModifierState("CapsLock")) {
@@ -500,72 +502,107 @@ const PracticePage: React.FC = () => {
                     />
                     {game.isPaused && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center rounded-lg z-10 pointer-events-none animate-fade-in-up">
-                            <div className="text-center text-white p-6 bg-slate-900/80 backdrop-blur-sm rounded-lg shadow-2xl">
-                                <PauseIcon className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                                <h2 className="text-3xl font-bold tracking-widest text-slate-100">PAUSED</h2>
-                                <p className="text-slate-300 mt-2 text-sm">Start typing to resume</p>
+                            <div className="bg-white/90 dark:bg-slate-800/90 p-6 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
+                                <div className="flex items-center gap-3 text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">
+                                    <PauseIcon className="w-8 h-8 text-primary-500" />
+                                    <span>Paused</span>
+                                </div>
+                                <p className="text-slate-600 dark:text-slate-400 text-center">Press any key to resume</p>
                             </div>
                         </div>
                     )}
-                    <Card ref={scrollableCardRef} className={`p-4 sm:p-6 transition-all duration-300 h-full overflow-auto custom-scrollbar`}>
-                        {(!snippet && isLoadingSnippet) ? <SkeletonLoader /> :
-                            (!snippet && !isLoadingSnippet && snippetError) ? <div className="text-red-500 font-semibold text-center p-8 flex items-center justify-center gap-2"><WarningIcon /> {snippetError}</div> :
-                                <CodeSnippet
-                                    key={sessionResetKey}
-                                    code={snippet}
-                                    languageAlias={selectedLanguage.prismAlias}
-                                    charStates={game.charStates}
-                                    currentIndex={game.currentIndex}
-                                    isError={game.isError}
-                                    cursorRef={cursorRef}
-                                />
-                        }
+
+                    <Card className="h-full overflow-hidden flex flex-col relative">
+                        <div className="flex-grow overflow-y-auto custom-scrollbar relative" ref={scrollableCardRef}>
+                            <div className="p-4 md:p-6 min-h-full font-mono text-lg md:text-xl leading-relaxed">
+                                {isLoadingSnippet ? (
+                                    <SkeletonLoader />
+                                ) : snippetError ? (
+                                    <div className="flex flex-col items-center justify-center h-full text-red-500 p-8 text-center animate-fade-in">
+                                        <WarningIcon className="w-12 h-12 mb-4 opacity-80" />
+                                        <p className="text-lg font-medium mb-4">{snippetError}</p>
+                                        <Button onClick={() => fetchNewSnippet()} variant="primary">
+                                            <ResetIcon className="w-4 h-4 mr-2" /> Try Again
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <CodeSnippet
+                                        key={sessionResetKey}
+                                        code={snippet}
+                                        languageAlias={selectedLanguage.prismAlias}
+                                        charStates={game.charStates}
+                                        currentIndex={game.currentIndex}
+                                        isError={game.isError}
+                                        cursorRef={cursorRef}
+                                    />
+                                )}
+                            </div>
+                        </div>
                     </Card>
+                </div>
+
+                {/* Sidebar: Queue & Keyboard */}
+                <div className="hidden md:flex flex-col gap-4 w-64 flex-shrink-0">
+                    <div className="flex-grow min-h-0 overflow-hidden">
+                        <PracticeQueueSidebar />
+                    </div>
+                    {showKeyboard && (
+                        <div className="flex-shrink-0">
+                            <Keyboard
+                                activeKey={nextChar}
+                                isShiftActive={/[A-Z!@#$%^&*()_+{}|:"<>?~]/.test(nextChar)}
+                                showHandGuide={showHandGuide}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {
-                showKeyboard && (
-                    <div className="flex-shrink-0">
-                        <Keyboard nextKey={nextChar} />
-                    </div>
-                )
-            }
-
-            <ResultsModal
-                isOpen={isResultsModalOpen}
-                onClose={resetGame}
-                onPracticeSame={handlePracticeSame}
-                onNewSnippet={handleSetupNew}
-                onViewProgress={() => { setIsResultsModalOpen(false); navigateTo('dashboard'); }}
-                isCustomSession={isCustomSession}
-                lastPracticeAction={lastPracticeAction}
-                stats={lastStats}
-                isEarlyExit={isSessionEndedEarly}
-                isMultiFileSession={isMultiFileSession}
-                onNextSnippet={handleNextSnippet}
-            />
-
-            <TargetedResultsModal
-                isOpen={isTargetedResultsModalOpen}
-                onClose={() => { setIsTargetedResultsModalOpen(false); navigateTo('dashboard'); }}
-                onPracticeAgain={() => {
-                    setIsTargetedResultsModalOpen(false);
-                    startTargetedSession(currentTargetedKeys, { length: context.snippetLength, level: context.snippetLevel });
-                }}
-                onReturnToDashboard={() => { setIsTargetedResultsModalOpen(false); navigateTo('dashboard'); }}
-                stats={lastStats}
-                sessionErrorMap={lastStats.errorMap}
-                sessionAttemptMap={lastStats.attemptMap}
-            />
+            {/* Mobile Keyboard (below code area) */}
+            {showKeyboard && (
+                <div className="md:hidden flex-shrink-0">
+                    <Keyboard
+                        activeKey={nextChar}
+                        isShiftActive={/[A-Z!@#$%^&*()_+{}|:"<>?~]/.test(nextChar)}
+                        showHandGuide={showHandGuide}
+                    />
+                </div>
+            )}
 
             <PracticeSetupModal
                 isOpen={isSetupModalOpen}
                 onClose={closeSetupModal}
                 onStart={handleStartFromSetup}
-                variant="default"
             />
-        </div >
+
+            <ResultsModal
+                isOpen={isResultsModalOpen}
+                onClose={() => {
+                    setIsResultsModalOpen(false);
+                    // If session ended early, we might want to reset or just stay on the same snippet.
+                    // If it was a full run, maybe load next?
+                    // For now, just close modal. User can choose "New" or "Reset".
+                    requestFocusOnCode();
+                }}
+                stats={lastStats}
+                onPracticeSame={handlePracticeSame}
+                onNextSnippet={handleNextSnippet}
+                isSessionEndedEarly={isSessionEndedEarly}
+            />
+
+            <TargetedResultsModal
+                isOpen={isTargetedResultsModalOpen}
+                onClose={() => {
+                    setIsTargetedResultsModalOpen(false);
+                    requestFocusOnCode();
+                }}
+                stats={lastStats}
+                onPracticeSame={handlePracticeSame}
+                onNextSnippet={handleNextSnippet}
+                currentTargetedKeys={currentTargetedKeys}
+                onPracticeTargeted={(keys) => startTargetedSession(keys, { length: 'medium', level: 'medium' })}
+            />
+        </div>
     );
 };
 
