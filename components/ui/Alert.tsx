@@ -21,12 +21,12 @@ export const Alert: React.FC = () => {
     };
 
     return (
-        <div 
-            className="fixed top-24 inset-x-0 z-[100] flex justify-center pointer-events-none"
+        <div
+            className="fixed top-24 inset-x-0 z-[10000] flex justify-center pointer-events-none"
             role="alert"
         >
             {alertMessage && (
-                <div 
+                <div
                     className={`pointer-events-auto px-4 py-3 rounded-md shadow-lg flex items-center gap-2 animate-fade-in-up ${colors[alertMessage.type]}`}
                 >
                     {icons[alertMessage.type]}

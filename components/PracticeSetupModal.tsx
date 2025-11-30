@@ -49,7 +49,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
   const {
     selectedLanguage, setSelectedLanguage, isLoadingSnippet, setLastPracticeAction,
     setupTab, setSetupTab, snippetLength, setSnippetLength, snippetLevel, setSnippetLevel,
-    practiceMode, setPracticeMode, startMultiFileSession, showAlert
+    practiceMode, setPracticeMode, startMultiFileSession, showAlert, navigateTo
   } = context;
 
   const [selectedLength, setSelectedLength] = useState<SnippetLength>(snippetLength);
@@ -116,12 +116,44 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
         };
         reader.readAsText(file);
       } else {
+        // Pre-validate files to handle partial uploads and navigation logic
+        const readFileContent = (file: File): Promise<{ file: File, isValid: boolean }> => {
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              const text = event.target?.result as string;
+              resolve({ file, isValid: text.trim().length >= 2 });
+            };
+            reader.readAsText(file);
+          });
+        };
+
         try {
-          await startMultiFileSession(files);
-          onClose();
+          const results = await Promise.all(files.map(readFileContent));
+          const validFiles = results.filter(r => r.isValid).map(r => r.file);
+          const invalidFiles = results.filter(r => !r.isValid).map(r => r.file);
+
+          if (validFiles.length === 0) {
+            // Scenario A: No Valid Files
+            showAlert("All selected files are invalid. Code must be at least 2 characters long.", 'error');
+            // Keep modal open
+          } else {
+            // Scenario B: Partial/Full Success
+            if (invalidFiles.length > 0) {
+              const invalidNames = invalidFiles.map(f => f.name).join(', ');
+              showAlert(`Skipped ${invalidFiles.length} invalid file(s) (<2 chars): ${invalidNames}`, 'warning', 6000);
+            }
+
+            // Start session with valid files only
+            await startMultiFileSession(validFiles);
+
+            // CRITICAL: Immediately trigger Start Practice sequence
+            onClose();
+            navigateTo('practice');
+          }
         } catch (error) {
           console.error("Multi-file session start failed:", error);
-          // Do not close modal
+          showAlert("An unexpected error occurred while processing files.", 'error');
         }
       }
     }
@@ -328,12 +360,10 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Language</label>
                 <Select
                   ref={languageRef}
+                  options={generateLanguages.map(l => ({ label: l.name, value: l.id }))}
                   value={selectedLanguage.id}
-                  onChange={(value) => {
-                    const lang = generateLanguages.find(l => l.id === value) || generateLanguages[0];
-                    setSelectedLanguage(lang);
-                  }}
-                  options={generateLanguages.map(l => ({ value: l.id, label: l.name }))}
+                  onChange={handleLanguageChange}
+                  searchable
                 />
               </div>
             )}
@@ -367,47 +397,36 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
                 />
               </div>
             ) : (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Content Selection</label>
-                <div
-                  className="flex justify-center items-center gap-1 bg-slate-200 dark:bg-slate-700 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
-                  ref={contentRef}
-                  role="group"
-                  aria-label="Content Selection"
-                >
-                  {(['characters', 'numbers', 'symbols'] as ContentType[]).map((type) => {
-                    let accessKey = '';
-                    if (type === 'characters') accessKey = 'H';
-                    if (type === 'numbers') accessKey = 'N';
-                    if (type === 'symbols') accessKey = 'Y';
-                    const isSelected = selectedContentTypes.includes(type);
-
-                    return (
-                      <Button
-                        key={type}
-                        variant={isSelected ? 'primary' : 'ghost'}
-                        size="sm"
-                        className={`relative capitalize ${isSelected ? '' : 'text-gray-600 dark:text-gray-300'}`}
-                        onClick={() => toggleContentType(type)}
-                        tabIndex={-1} // Managed by custom navigation
-                      >
-                        {context.isAccessKeyMenuVisible && <AccessKeyLabel label={accessKey} />}
-                        {type}
-                      </Button>
-                    )
-                  })}
+              <div className="space-y-2" ref={contentRef}>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Content Type</label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant={selectedContentTypes.includes('characters') ? 'primary' : 'secondary'}
+                    onClick={() => toggleContentType('characters')}
+                    className="flex-1"
+                    accessKeyChar="H"
+                  >
+                    Characters (a-z)
+                  </Button>
+                  <Button
+                    variant={selectedContentTypes.includes('numbers') ? 'primary' : 'secondary'}
+                    onClick={() => toggleContentType('numbers')}
+                    className="flex-1"
+                    accessKeyChar="N"
+                  >
+                    Numbers (0-9)
+                  </Button>
+                  <Button
+                    variant={selectedContentTypes.includes('symbols') ? 'primary' : 'secondary'}
+                    onClick={() => toggleContentType('symbols')}
+                    className="flex-1"
+                    accessKeyChar="Y"
+                  >
+                    Symbols (!@#)
+                  </Button>
                 </div>
               </div>
             )}
-
-            <div className="flex justify-center gap-2 pt-2" ref={actionButtonsRef}>
-              <Button ref={backRef} variant="secondary" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button ref={generateBtnRef} onClick={handleStartGenerate} disabled={isLoadingSnippet}>
-                {isLoadingSnippet ? 'Generating...' : 'Start Practice'}
-              </Button>
-            </div>
           </div>
         )}
 
@@ -417,43 +436,80 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Language</label>
               <Select
                 ref={languageRef}
+                options={uploadLanguages.map(l => ({ label: l.name, value: l.id }))}
                 value={selectedLanguage.id}
                 onChange={handleLanguageChange}
-                options={uploadLanguages.map(l => ({ value: l.id, label: l.name }))}
+                searchable
               />
             </div>
-            <textarea
-              ref={pasteTextAreaRef}
-              value={pastedCode}
-              onChange={(e) => setPastedCode(e.target.value)}
-              placeholder="Paste your code here..."
-              className="w-full h-32 p-2 font-mono text-sm bg-slate-100 dark:bg-slate-600 dark:text-slate-50 dark:placeholder-slate-400 border border-slate-300 dark:border-slate-400 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 custom-scrollbar"
-              aria-label="Paste code area"
-            />
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-              accept=".js,.jsx,.ts,.tsx,.py,.java,.cpp,.cc,.cxx,.h,.hpp,.go,.rs,.txt,.*"
-              multiple
-            />
-            <div className="flex justify-between items-center flex-wrap gap-2 pt-2">
-              <Button ref={selectFileRef} variant="ghost" onClick={() => fileInputRef.current?.click()}>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Paste Code</label>
+              <textarea
+                ref={pasteTextAreaRef}
+                className="w-full h-32 p-3 border rounded-md dark:bg-slate-800 dark:border-slate-600 dark:text-white font-mono text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none resize-none"
+                placeholder="Paste your code here..."
+                value={pastedCode}
+                onChange={(e) => setPastedCode(e.target.value)}
+              />
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white dark:bg-slate-900 text-gray-500">Or upload file</span>
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept=".txt,.js,.jsx,.ts,.tsx,.py,.java,.cpp,.c,.h,.hpp,.cs,.go,.rs,.php,.rb,.html,.css,.json,.md"
+                onChange={handleFileChange}
+                multiple
+              />
+              <Button
+                ref={selectFileRef}
+                variant="secondary"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full"
+              >
                 <UploadIcon className="w-4 h-4 mr-2" />
                 Select File(s)
               </Button>
-              <div className="flex items-center gap-2" ref={actionButtonsRef}>
-                <Button ref={backRef} variant="secondary" onClick={onClose}>
-                  Back
-                </Button>
-                <Button ref={useCodeRef} onClick={() => handleCustomCodeSubmit(pastedCode)} disabled={!pastedCode.trim()}>
-                  Use This Code
-                </Button>
-              </div>
             </div>
           </div>
         )}
+
+        <div className="flex justify-end gap-3 pt-4 border-t dark:border-slate-700" ref={actionButtonsRef}>
+          <Button ref={backRef} variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          {setupTab === 'generate' ? (
+            <Button
+              ref={generateBtnRef}
+              variant="primary"
+              onClick={handleStartGenerate}
+              isLoading={isLoadingSnippet}
+              accessKeyChar="Enter"
+              accessKeyLabel="↵"
+            >
+              Start Practice
+            </Button>
+          ) : (
+            <Button
+              ref={useCodeRef}
+              variant="primary"
+              onClick={() => handleCustomCodeSubmit(pastedCode)}
+              disabled={!pastedCode.trim()}
+            >
+              Use Code
+            </Button>
+          )}
+        </div>
       </div>
     </Modal>
   );
