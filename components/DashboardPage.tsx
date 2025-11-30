@@ -39,7 +39,7 @@ const formatSessionDuration = (totalSeconds: number) => {
 const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         const sessionData = payload[0].payload;
-        const displayLabel = new Date(label).toLocaleString([], {
+        const displayLabel = new Date(sessionData.timestamp).toLocaleString([], {
             month: 'numeric',
             day: 'numeric',
             year: 'numeric',
@@ -258,9 +258,12 @@ const DashboardPage: React.FC = () => {
         const now = new Date();
         const sortedData = filteredHistory.slice().sort((a, b) => a.timestamp - b.timestamp);
 
-        let domain: [number, number] = [now.getTime() - 24 * 60 * 60 * 1000, now.getTime()];
-        let tickFormatter = (ts: number) => new Date(ts).toLocaleDateString();
+        let domain: [number | string, number | string] = [now.getTime() - 24 * 60 * 60 * 1000, now.getTime()];
+        let tickFormatter = (value: any) => new Date(value).toLocaleDateString();
         let ticks: number[] | undefined = undefined;
+        let xAxisType: 'number' | 'category' = 'number';
+        let xDataKey = 'timestamp';
+        let chartData: any[] = sortedData;
 
         switch (timeFilter) {
             case '24h': {
@@ -298,22 +301,22 @@ const DashboardPage: React.FC = () => {
             case 'all':
             default: {
                 if (sortedData.length > 0) {
-                    const firstDate = sortedData[0].timestamp;
-                    const lastDate = sortedData[sortedData.length - 1].timestamp;
-                    domain = [firstDate, lastDate];
-                    const timeSpan = lastDate - firstDate;
-                    if (timeSpan < 2 * 24 * 60 * 60 * 1000) { // less than 2 days
-                         tickFormatter = (ts) => new Date(ts).toLocaleString([], { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-                    } else {
-                         tickFormatter = (ts) => new Date(ts).toLocaleDateString([], { month: 'numeric', day: 'numeric' });
-                    }
+                    // Use index-based x-axis for equal spacing
+                    chartData = sortedData.map((item, index) => ({ ...item, index: index + 1 }));
+                    xDataKey = 'index';
+                    xAxisType = 'number';
+                    domain = ['dataMin', 'dataMax'];
+                    tickFormatter = (index) => {
+                        const item = chartData.find(d => d.index === index);
+                        return item ? new Date(item.timestamp).toLocaleDateString([], { month: 'numeric', day: 'numeric' }) : '';
+                    };
                 }
-                ticks = undefined; // Let recharts decide for 'all time'
+                ticks = undefined;
                 break;
             }
         }
         
-        return { data: sortedData, domain, tickFormatter, ticks };
+        return { data: chartData, domain, tickFormatter, ticks, xAxisType, xDataKey };
 
     }, [filteredHistory, timeFilter]);
     
@@ -489,8 +492,8 @@ const DashboardPage: React.FC = () => {
                                     <LineChart data={graphConfig.data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
                                         <XAxis
-                                            type="number"
-                                            dataKey="timestamp"
+                                            type={graphConfig.xAxisType}
+                                            dataKey={graphConfig.xDataKey}
                                             domain={graphConfig.domain}
                                             ticks={graphConfig.ticks}
                                             tickFormatter={graphConfig.tickFormatter}

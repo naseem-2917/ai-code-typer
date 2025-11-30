@@ -492,7 +492,7 @@ const PracticePage: React.FC = () => {
 
             {/* 2. ActionBar - Separate Action Buttons */}
             <div className="w-full max-w-[1100px] mx-auto mb-6">
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center justify-center gap-3">
                     <Button onClick={handleSetupNew} variant="primary" disabled={isSetupModalOpen} title="New Snippet (Alt+N)" accessKey="n">
                         <FileCodeIcon className="w-4 h-4 mr-2" />
                         <ShortcutLabel label="New" char="N" isVisible={isAccessKeyMenuVisible} />
