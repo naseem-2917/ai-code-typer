@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { SavableTypingGameState } from '../types';
 
-
 export enum CharState {
   Idle,
   Correct,
   Incorrect,
+  Warning,
 }
 
 interface TypingGameOptions {
@@ -36,7 +36,6 @@ export interface TypingGame {
   restoreState: (savedState: SavableTypingGameState) => void;
 }
 
-
 const useTypingGame = (textToType: string, errorThreshold: number, options: TypingGameOptions = {}): TypingGame => {
   const { onPause, onResume } = options;
   const [startTime, setStartTime] = useState<number | null>(null);
@@ -47,8 +46,13 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
   const [wpm, setWpm] = useState(0);
   const [accuracy, setAccuracy] = useState(100);
   const [errors, setErrors] = useState(0);
-  const [duration, setDuration] = useState(0); // Duration in seconds
+  const [duration, setDuration] = useState(0);
+
+  // Use both State and Ref to track consecutiveErrors
+  // So that real-time blocking doesn't have any delay.
   const [consecutiveErrors, setConsecutiveErrors] = useState(0);
+  const consecutiveErrorsRef = useRef(0);
+
   const [isFinished, setIsFinished] = useState(false);
   const [isError, setIsError] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -63,6 +67,11 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
   useEffect(() => {
     gameStateRef.current = { ...gameStateRef.current, isPaused, isFinished, startTime };
   });
+
+  // Sync state with ref for synchronous access
+  useEffect(() => {
+    consecutiveErrorsRef.current = consecutiveErrors;
+  }, [consecutiveErrors]);
 
   const autoPauseTimerRef = useRef<number | null>(null);
   const errorTimeoutRef = useRef<number | null>(null);
@@ -141,7 +150,10 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
     setAccuracy(100);
     setErrors(0);
     setDuration(0);
+
     setConsecutiveErrors(0);
+    consecutiveErrorsRef.current = 0;
+
     setIsFinished(false);
     setIsError(false);
     setIsPaused(false);
@@ -175,7 +187,6 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
       return;
     }
 
-    // If the key is not a valid typing key, ignore it for timer/resume purposes.
     if (!isPrintable && !isAllowedControlKey) {
       return;
     }
@@ -197,7 +208,10 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
     setIsError(false);
 
     if (key === 'Backspace') {
+      // Backspace clears consecutive errors logic
       setConsecutiveErrors(0);
+      consecutiveErrorsRef.current = 0;
+
       if (currentIndex > 0) {
         setTypedText(prev => prev.slice(0, -1));
         setCharStates(prev => {
@@ -208,39 +222,65 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
       }
     } else {
       const inputChar = key === 'Enter' ? '\n' : (key === 'Tab' ? '\t' : (isPrintable ? key : null));
+
       if (inputChar !== null && currentIndex < textToType.length) {
         const expectedChar = textToType[currentIndex];
         const isCorrect = inputChar === expectedChar;
 
         if (!isCorrect) {
+          // --- ERROR LOGIC ---
           errorMapRef.current[expectedChar] = (errorMapRef.current[expectedChar] || 0) + 1;
-          const newConsecutiveErrors = consecutiveErrors + 1;
           setErrors(prev => prev + 1);
-          if (errorThreshold > 0 && newConsecutiveErrors >= errorThreshold) {
-            setConsecutiveErrors(newConsecutiveErrors);
+
+          // Calculate new consecutive errors count immediately
+          const currentConsecutive = consecutiveErrorsRef.current + 1;
+          setConsecutiveErrors(currentConsecutive);
+          consecutiveErrorsRef.current = currentConsecutive;
+
+          // BLOCKING LOGIC
+          const isBlockingEnabled = errorThreshold > 0;
+          // If threshold is 1, block on 1st error. If 2, block on 2nd error.
+          const shouldBlock = isBlockingEnabled && currentConsecutive >= errorThreshold;
+
+          if (shouldBlock) {
             setIsError(true);
             errorTimeoutRef.current = window.setTimeout(() => setIsError(false), 200);
-            return;
+
+            // Mark visually as incorrect but DO NOT ADVANCE
+            setCharStates(prev => {
+              const newStates = [...prev];
+              newStates[currentIndex] = CharState.Incorrect;
+              return newStates;
+            });
+            return; // STOP HERE
           }
-          setConsecutiveErrors(newConsecutiveErrors);
         } else {
+          // Reset on correct
           setConsecutiveErrors(0);
+          consecutiveErrorsRef.current = 0;
         }
 
+        // --- ADVANCE LOGIC ---
+        // Runs if Correct OR (Incorrect but Blocking Threshold not reached)
         setTypedText(prev => prev + inputChar);
+
         setCharStates(prev => {
           const newStates = [...prev];
-          newStates[currentIndex] = isCorrect ? CharState.Correct : CharState.Incorrect;
+          if (isCorrect) {
+            newStates[currentIndex] = CharState.Correct;
+          } else {
+            newStates[currentIndex] = CharState.Incorrect;
+          }
           return newStates;
         });
 
+        // Finish Check
         if (currentIndex + 1 === textToType.length) {
           clearAutoPauseTimer();
           stopTimer();
 
           const finalAccumulated = accumulatedDurationRef.current + (lastResumeTimeRef.current ? (Date.now() - lastResumeTimeRef.current) : 0);
           const finalDurationInSeconds = finalAccumulated / 1000;
-
           setDuration(finalDurationInSeconds);
 
           const durationInMinutes = finalDurationInSeconds / 60;
@@ -248,14 +288,28 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
           const finalWpm = durationInMinutes > 0 ? Math.round(wordsTyped / durationInMinutes) : 0;
           setWpm(finalWpm);
 
-          const finalAccuracy = Math.max(0, ((textToType.length - (errors + (isCorrect ? 0 : 1))) / textToType.length) * 100);
-          setAccuracy(parseFloat(finalAccuracy.toFixed(2)));
+          setErrors(prevErrors => {
+            const totalErrors = prevErrors + (isCorrect ? 0 : 1);
+            const finalAccuracy = Math.max(0, ((textToType.length - totalErrors) / textToType.length) * 100);
+            setAccuracy(parseFloat(finalAccuracy.toFixed(2)));
+            return prevErrors;
+          });
+
           setIsFinished(true);
         }
+      } else if (inputChar !== null && currentIndex === textToType.length) {
+        // EOF Error
+        const currentConsecutive = consecutiveErrorsRef.current + 1;
+        setConsecutiveErrors(currentConsecutive);
+        consecutiveErrorsRef.current = currentConsecutive;
+
+        setErrors(prev => prev + 1);
+        setIsError(true);
+        errorTimeoutRef.current = window.setTimeout(() => setIsError(false), 200);
       }
     }
   }, [
-    currentIndex, textToType, errors, errorThreshold, consecutiveErrors,
+    currentIndex, textToType, errors, errorThreshold,
     resumeGame, clearAutoPauseTimer, resetIdleTimer, startTimer, stopTimer
   ]);
 
@@ -267,9 +321,6 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
 
       const wordsTyped = typedText.length / 5;
 
-      // FIX: Implemented a condition to prevent WPM from spiking on the first character.
-      // WPM is now only calculated if more than one character has been typed OR
-      // more than one second has passed, ensuring a more stable initial reading.
       if (durationInMinutes > 0 && (typedText.length > 1 || durationInSeconds > 1)) {
         setWpm(Math.round(wordsTyped / durationInMinutes));
       } else {
@@ -313,7 +364,10 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
     setCharStates(savedState.charStates);
     setTypedText(savedState.typedText);
     setErrors(savedState.errors);
+
     setConsecutiveErrors(savedState.consecutiveErrors);
+    consecutiveErrorsRef.current = savedState.consecutiveErrors;
+
     setIsFinished(savedState.isFinished);
 
     accumulatedDurationRef.current = savedState.accumulatedDuration;
@@ -341,4 +395,3 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
 };
 
 export default useTypingGame;
-

@@ -6,12 +6,12 @@ import { AppContext } from '../context/AppContext';
 declare const Prism: any;
 
 interface CodeSnippetProps {
-  code: string;
-  languageAlias: string;
-  charStates?: CharState[];
-  currentIndex?: number;
-  isError?: boolean;
-  cursorRef?: React.RefObject<HTMLSpanElement>;
+    code: string;
+    languageAlias: string;
+    charStates?: CharState[];
+    currentIndex?: number;
+    isError?: boolean;
+    cursorRef?: React.RefObject<HTMLSpanElement>;
 }
 
 interface HighlightedChar {
@@ -32,7 +32,7 @@ const CodeSnippet: React.FC<CodeSnippetProps> = ({ code, charStates, currentInde
     const { fontSize } = context;
 
     const isInteractive = charStates !== undefined && currentIndex !== undefined;
-    
+
     const fontSizeClass = {
         sm: 'text-sm',
         md: 'text-base',
@@ -83,7 +83,7 @@ const CodeSnippet: React.FC<CodeSnippetProps> = ({ code, charStates, currentInde
             } catch (e) {
                 console.error("Prism tokenization failed, falling back to plain text.", e);
                 // Clear any partial results and fall back
-                highlightedChars.length = 0; 
+                highlightedChars.length = 0;
                 highlightedChars.push(...code.split('').map((char, index) => ({ char, classNames: [], originalIndex: index })));
             }
         } else {
@@ -118,7 +118,7 @@ const CodeSnippet: React.FC<CodeSnippetProps> = ({ code, charStates, currentInde
     const renderChar = (charInfo: HighlightedChar) => {
         const index = charInfo.originalIndex;
         const isCurrentChar = isInteractive && index === currentIndex;
-        
+
         let charSpecificClassName;
 
         if (isInteractive) {
@@ -130,17 +130,20 @@ const CodeSnippet: React.FC<CodeSnippetProps> = ({ code, charStates, currentInde
                     case CharState.Incorrect:
                         charSpecificClassName = 'text-red-500 bg-red-500/20 rounded-sm';
                         break;
+                    case CharState.Warning:
+                        charSpecificClassName = 'text-yellow-600 dark:text-yellow-400 bg-yellow-500/20 rounded-sm';
+                        break;
                     default:
                         charSpecificClassName = 'text-gray-400';
                         break;
                 }
             } else {
-                 charSpecificClassName = 'text-gray-600 dark:text-gray-400';
+                charSpecificClassName = 'text-gray-600 dark:text-gray-400';
             }
         } else {
             charSpecificClassName = charInfo.classNames.join(' ');
         }
-        
+
         // Use a different, less intrusive color for untyped text in interactive mode
         if (isInteractive && index > currentIndex!) {
             charSpecificClassName = 'text-gray-600 dark:text-gray-400';
@@ -154,6 +157,10 @@ const CodeSnippet: React.FC<CodeSnippetProps> = ({ code, charStates, currentInde
                 <span className={`${charSpecificClassName} ${isInteractive && isCurrentChar && isError ? 'bg-red-500/20 rounded-sm' : ''}`}>
                     {charInfo.char === '\n' ? '' : charInfo.char}
                 </span>
+                {/* End of Line Error Indicator */}
+                {isInteractive && isCurrentChar && isError && charInfo.char === '\n' && (
+                    <span className="absolute top-0 left-0 text-red-500 select-none pointer-events-none">↵</span>
+                )}
             </span>
         );
     };
@@ -161,11 +168,11 @@ const CodeSnippet: React.FC<CodeSnippetProps> = ({ code, charStates, currentInde
     return (
         <div className={`font-mono leading-relaxed tracking-wide ${fontSizeClass} [tab-size:4]`}>
             {logicalLines.map(({ chars, lineNumber }, lineIndex) => {
-                 const isBlankLine = chars.length === 1 && chars[0].char === '\n';
-                 const isLastLine = lineIndex === logicalLines.length - 1;
-                 const showCursorAtEnd = isLastLine && isInteractive && currentIndex === code.length && code.length > 0;
-                 
-                 return (
+                const isBlankLine = chars.length === 1 && chars[0].char === '\n';
+                const isLastLine = lineIndex === logicalLines.length - 1;
+                const showCursorAtEnd = isLastLine && isInteractive && currentIndex === code.length && code.length > 0;
+
+                return (
                     <div key={lineIndex} className="flex">
                         <div className="text-right pr-4 text-gray-500 dark:text-gray-400 select-none flex-shrink-0 w-10 sm:w-12" aria-hidden="true">
                             {lineNumber}
@@ -178,7 +185,12 @@ const CodeSnippet: React.FC<CodeSnippetProps> = ({ code, charStates, currentInde
                             {showCursorAtEnd && (
                                 <span ref={cursorRef} className="relative inline-block w-0">
                                     {'\u200b'}
-                                    <span className="absolute top-0 left-0 w-0.5 h-full bg-primary-400 animate-blink rounded-full"></span>
+                                    {/* EOF Error Indicator */}
+                                    {isError ? (
+                                        <span className="absolute top-0 left-0 w-2 h-full bg-red-500/50 animate-pulse rounded-sm"></span>
+                                    ) : (
+                                        <span className="absolute top-0 left-0 w-0.5 h-full bg-primary-400 animate-blink rounded-full"></span>
+                                    )}
                                 </span>
                             )}
                         </div>

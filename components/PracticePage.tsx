@@ -96,9 +96,8 @@ const PracticePage: React.FC = () => {
         setRequestFocusOnCodeCallback, requestFocusOnCode,
         practiceQueue, currentQueueIndex, loadNextSnippetInQueue,
         isSetupModalOpen, openSetupModal, closeSetupModal, isInitialSetupComplete,
-        getPreviousPage, restorePracticeSession,
+        restorePracticeSession,
         sessionResetKey,
-        isAccessKeyMenuVisible
     } = context;
 
     const handleStartFromSetup = useCallback(async (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => {
@@ -133,11 +132,8 @@ const PracticePage: React.FC = () => {
     });
 
     // ---------------------------------------------------------
-    // 🔥 CRITICAL FIX: STABLE GAME REF PATTERN
+    // ✅ GLOBAL TYPING HANDLER
     // ---------------------------------------------------------
-    // We use a Ref to hold the latest game object. This allows us to
-    // access the latest game state inside the event listener without
-    // adding 'game' to the dependency array, preventing re-renders/resets.
     const gameRef = useRef(game);
     useLayoutEffect(() => {
         gameRef.current = game;
@@ -200,7 +196,6 @@ const PracticePage: React.FC = () => {
     // Save session state on unmount
     useEffect(() => {
         return () => {
-            // Access ref current to avoid stale closure issues in cleanup
             const currentGame = gameRef.current;
             if (!currentGame.isFinished && currentGame.typedText.length > 0) {
                 const continuedSession: PausedSessionData = {
@@ -216,8 +211,6 @@ const PracticePage: React.FC = () => {
                     timestamp: Date.now(),
                 };
                 localStorage.setItem('continuedSession', JSON.stringify(continuedSession));
-            } else if (currentGame.isFinished && hasSubmitted) {
-                // Logic handled in separate state based effect, but good to have fallback
             }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -386,7 +379,6 @@ const PracticePage: React.FC = () => {
                         break;
                     case 'b':
                         e.preventDefault();
-                        // Cycle block on error options
                         const currentIndex = blockOnErrorOptions.findIndex(o => o.value === blockOnErrorThreshold);
                         const nextIndex = (currentIndex + 1) % blockOnErrorOptions.length;
                         setBlockOnErrorThreshold(blockOnErrorOptions[nextIndex].value);
@@ -399,43 +391,34 @@ const PracticePage: React.FC = () => {
         return () => window.removeEventListener('keydown', handleShortcuts);
     }, [isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, handleSetupNew, handleEndSession, resetGame, togglePause, toggleHandGuide, blockOnErrorThreshold, setBlockOnErrorThreshold]);
 
-    // Helper for mobile detection
     const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
 
-    // ---------------------------------------------------------
-    // ✅ GLOBAL TYPING HANDLER (FIXED)
-    // ---------------------------------------------------------
     useEffect(() => {
         const handleTypingInput = (e: KeyboardEvent) => {
-            const currentGame = gameRef.current; // Access latest game via ref
+            const currentGame = gameRef.current;
 
-            // 1. Modal/Modifier Check
             if (isResultsModalOpen || isTargetedResultsModalOpen || isSetupModalOpen || e.altKey || e.ctrlKey || e.metaKey) {
                 return;
             }
 
             const key = e.key;
 
-            // 2. Tab Focus Fix
             if (key === 'Tab') {
                 e.preventDefault();
             }
 
-            // 3. CapsLock Check
             if (e.getModifierState("CapsLock")) {
                 setIsCapsLockOn(true);
             } else {
                 setIsCapsLockOn(false);
             }
 
-            // 4. Valid Key Check
             const isPrintable = key.length === 1;
             const isSpecialKey = ['Backspace', 'Enter', 'Tab'].includes(key);
 
             if (isPrintable || isSpecialKey) {
                 e.preventDefault();
 
-                // Mobile Tab Support (Space -> Tab)
                 let keyToProcess = key;
                 if (isMobile() && key === ' ') {
                     const nextChar = snippet[currentGame.currentIndex];
@@ -444,7 +427,7 @@ const PracticePage: React.FC = () => {
                     }
                 }
 
-                currentGame.handleKeyDown(keyToProcess); // Call method on the Ref
+                currentGame.handleKeyDown(keyToProcess);
                 requestFocusOnCode();
             }
         };
@@ -452,12 +435,10 @@ const PracticePage: React.FC = () => {
         window.addEventListener('keydown', handleTypingInput);
         return () => window.removeEventListener('keydown', handleTypingInput);
     }, [isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, requestFocusOnCode, snippet]);
-    // Note: 'game' is NOT in the dependency array. This keeps the listener stable.
 
     const handleEditorValueChange = (newValue: string) => {
         const currentText = gameRef.current.typedText;
 
-        // 1. Bulk Typing (Paste)
         if (newValue.length > currentText.length + 1) {
             const newChars = newValue.slice(currentText.length);
             for (const c of newChars) {
@@ -465,30 +446,26 @@ const PracticePage: React.FC = () => {
             }
             requestFocusOnCode();
         }
-        // 2. Single Character (Mobile Fix)
         else if (newValue.length === currentText.length + 1) {
             let char = newValue.slice(-1);
-
-            // Mobile Tab Support (Space -> Tab)
             if (isMobile() && char === ' ') {
                 const nextChar = snippet[gameRef.current.currentIndex];
                 if (nextChar === '\t') {
                     char = 'Tab';
                 }
             }
-
             gameRef.current.handleKeyDown(char);
             requestFocusOnCode();
         }
-        // 3. Backspace (Mobile Fix)
         else if (newValue.length === currentText.length - 1) {
             gameRef.current.handleKeyDown('Backspace');
             requestFocusOnCode();
         }
     };
 
+    // UI FIX: Changed min-h-screen to h-screen and added overflow-hidden to prevent page scrolling
     return (
-        <div className="flex flex-col min-h-[100dvh] max-w-full mx-auto w-full pb-20 md:pb-0" ref={gameContainerRef}>
+        <div className="flex flex-col h-[100dvh] max-w-full mx-auto w-full overflow-hidden" ref={gameContainerRef}>
             {isCapsLockOn && (
                 <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 bg-yellow-400 text-yellow-900 px-4 py-2 rounded-md shadow-lg flex items-center gap-2 animate-fade-in-up">
                     <WarningIcon className="w-5 h-5" />
@@ -496,7 +473,8 @@ const PracticePage: React.FC = () => {
                 </div>
             )}
 
-            <div className="w-full max-w-[1100px] mx-auto mb-4 pt-4">
+            {/* Header / Stats - flex-shrink-0 prevents it from shrinking */}
+            <div className="w-full max-w-[1100px] mx-auto mb-2 pt-2 flex-shrink-0 px-4">
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
                     <StatsDisplay
                         wpm={game.wpm}
@@ -508,22 +486,22 @@ const PracticePage: React.FC = () => {
                 </div>
             </div>
 
-            {/* 2. ActionBar - Separate Action Buttons */}
-            <div className="w-full max-w-[1100px] mx-auto mb-6">
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                    <Button onClick={handleSetupNew} variant="primary" disabled={isSetupModalOpen} title="New Snippet (Alt+N)" accessKey="n">
+            {/* Action Bar - flex-shrink-0 */}
+            <div className="w-full max-w-[1100px] mx-auto mb-2 flex-shrink-0 px-4">
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                    <Button onClick={handleSetupNew} variant="primary" disabled={isSetupModalOpen} title="New Snippet (Alt+N)" accessKey="n" size="sm">
                         <FileCodeIcon className="w-4 h-4 mr-2" />
                         New
                     </Button>
-                    <Button onClick={handleEndSession} variant="outline" disabled={isSetupModalOpen || game.isFinished} title="End Session (Alt+E)" accessKey="e">
+                    <Button onClick={handleEndSession} variant="outline" disabled={isSetupModalOpen || game.isFinished} title="End Session (Alt+E)" accessKey="e" size="sm">
                         <XIcon className="w-4 h-4 mr-2" />
                         End
                     </Button>
-                    <Button onClick={resetGame} variant="outline" disabled={isSetupModalOpen} title="Reset (Alt+R)" accessKey="r">
+                    <Button onClick={resetGame} variant="outline" disabled={isSetupModalOpen} title="Reset (Alt+R)" accessKey="r" size="sm">
                         <ResetIcon className="w-4 h-4 mr-2" />
                         Reset
                     </Button>
-                    <Button onClick={togglePause} variant="outline" disabled={isSetupModalOpen || game.isFinished} title={game.isPaused ? "Resume (Alt+P)" : "Pause (Alt+P)"} accessKey="p">
+                    <Button onClick={togglePause} variant="outline" disabled={isSetupModalOpen || game.isFinished} title={game.isPaused ? "Resume (Alt+P)" : "Pause (Alt+P)"} accessKey="p" size="sm">
                         {game.isPaused ? <PlayIcon className="w-4 h-4 mr-2" /> : <PauseIcon className="w-4 h-4 mr-2" />}
                         {game.isPaused ? "Resume" : "Pause"}
                     </Button>
@@ -531,8 +509,8 @@ const PracticePage: React.FC = () => {
                     <Dropdown
                         ref={blockOnErrorRef}
                         trigger={
-                            <Button variant="outline" title="Block on Error Settings (Alt+B)" accessKey="b">
-                                <BlockIcon className="w-5 h-5 mr-2" />
+                            <Button variant="outline" title="Block on Error Settings (Alt+B)" accessKey="b" size="sm">
+                                <BlockIcon className="w-4 h-4 mr-2" />
                                 <span className="hidden sm:inline">
                                     Block: {blockOnErrorOptions.find(o => o.value === blockOnErrorThreshold)?.label}
                                 </span>
@@ -549,8 +527,8 @@ const PracticePage: React.FC = () => {
                             </DropdownItem>
                         ))}
                     </Dropdown>
-                    <Button variant="outline" onClick={() => { toggleHandGuide(); requestFocusOnCode(); }} title="Toggle Hand Guide (Alt+G)" disabled={isSetupModalOpen} accessKey="g">
-                        <HandGuideIcon className="w-5 h-5 sm:mr-2" />
+                    <Button variant="outline" onClick={() => { toggleHandGuide(); requestFocusOnCode(); }} title="Toggle Hand Guide (Alt+G)" disabled={isSetupModalOpen} accessKey="g" size="sm">
+                        <HandGuideIcon className="w-4 h-4 sm:mr-2" />
                         <span className="hidden sm:inline">
                             Hand Guide
                         </span>
@@ -558,8 +536,8 @@ const PracticePage: React.FC = () => {
                 </div>
             </div>
 
-            {/* 3. Code Editor - Centered & Wide */}
-            <div className="w-full mx-auto flex-grow min-h-0 flex flex-col md:flex-row gap-4 md:gap-6 overflow-hidden">
+            {/* Code Editor Area - flex-grow ensures it takes remaining space, min-h-0 allows internal scrolling */}
+            <div className="w-full mx-auto flex-grow min-h-0 flex flex-col md:flex-row gap-4 overflow-hidden px-4">
                 <CodeEditor
                     ref={codeEditorRef}
                     value={game.typedText}
@@ -573,29 +551,29 @@ const PracticePage: React.FC = () => {
                     error={snippetError}
                     isPaused={game.isPaused}
                     onRetry={() => fetchNewSnippet()}
-                    className="flex-grow"
+                    className="flex-grow h-full overflow-y-auto" // Ensure vertical scroll
                 />
 
                 {/* Sidebar: Queue */}
                 {practiceQueue.length > 1 && (
-                    <div className="hidden md:flex flex-col gap-4 w-64 flex-shrink-0">
-                        <div className="flex-grow min-h-0 overflow-hidden">
-                            <PracticeQueueSidebar />
-                        </div>
+                    <div className="hidden md:flex flex-col gap-4 w-64 flex-shrink-0 h-full overflow-hidden">
+                        <PracticeQueueSidebar />
                     </div>
                 )}
             </div>
 
-            {/* Keyboard (below code area) */}
-            {showKeyboard && (
-                <div className="flex-shrink-0 w-full max-w-[1100px] mx-auto mt-4">
-                    <Keyboard
-                        activeKey={nextChar}
-                        isShiftActive={/[A-Z!@#$%^&*()_+{}|:"<>?~]/.test(nextChar)}
-                        showHandGuide={showHandGuide}
-                    />
-                </div>
-            )}
+            {/* Keyboard - flex-shrink-0 keeps it at bottom */}
+            {
+                showKeyboard && (
+                    <div className="flex-shrink-0 w-full max-w-[1100px] mx-auto mt-2 mb-2 px-2">
+                        <Keyboard
+                            activeKey={nextChar}
+                            isShiftActive={/[A-Z!@#$%^&*()_+{}|:"<>?~]/.test(nextChar)}
+                            showHandGuide={showHandGuide}
+                        />
+                    </div>
+                )
+            }
 
             <PracticeSetupModal
                 isOpen={isSetupModalOpen}
@@ -634,7 +612,7 @@ const PracticePage: React.FC = () => {
                 currentTargetedKeys={currentTargetedKeys}
                 onPracticeTargeted={(keys) => startTargetedSession(keys, { length: 'medium', level: 'medium' })}
             />
-        </div>
+        </div >
     );
 };
 

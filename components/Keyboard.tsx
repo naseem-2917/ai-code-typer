@@ -3,9 +3,9 @@ import { AppContext } from '../context/AppContext';
 
 interface KeyboardProps {
     nextKey: string;
-    activeKey?: string; // Add activeKey prop
-    isShiftActive?: boolean; // Add isShiftActive prop
-    showHandGuide?: boolean; // Add showHandGuide prop
+    activeKey?: string;
+    isShiftActive?: boolean;
+    showHandGuide?: boolean;
 }
 
 const keyRows = [
@@ -132,28 +132,17 @@ const fingerColorClasses: { [key: string]: string } = {
 
 const Keyboard: React.FC<KeyboardProps> = ({ nextKey, activeKey, isShiftActive: propIsShiftActive, showHandGuide: propShowHandGuide }) => {
     const context = useContext(AppContext);
-    // Fallback to context if props are not provided (for backward compatibility)
     const showHandGuide = propShowHandGuide ?? context?.showHandGuide ?? true;
 
-    // Determine active key and shift state
-    // If nextKey is provided (old usage), use it. If activeKey is provided (new usage), use it.
     const targetKey = activeKey ?? nextKey;
-    
+
     const isShifted = propIsShiftActive ?? (/[A-Z!@#$%^&*()_+{}|:"<>?~]/.test(targetKey) || Object.keys(shiftMap).includes(targetKey));
     const currentRows = isShifted ? shiftKeyRows : keyRows;
-    
-    // Fix: Correctly map special keys for highlighting
+
     let keyToHighlight = targetKey;
     if (targetKey === ' ') keyToHighlight = ' ';
     if (targetKey === '\n') keyToHighlight = 'Enter';
     if (targetKey === '\t') keyToHighlight = 'Tab';
-    
-    // Handle shift mapping for special chars
-    if (shiftMap[targetKey]) {
-        // If it's a shifted char like '!', we want to highlight '1' (or '!' if it exists in the row)
-        // But our rows have the shifted chars, so we just need to match the char.
-        // However, we need to ensure Shift is highlighted.
-    }
 
     let shiftToHighlight: 'left' | 'right' | 'none' = 'none';
     if (isShifted) {
@@ -168,10 +157,10 @@ const Keyboard: React.FC<KeyboardProps> = ({ nextKey, activeKey, isShiftActive: 
     };
 
     return (
-        <div className="w-full max-w-4xl mx-auto p-2 sm:p-4 bg-slate-200 dark:bg-slate-800 rounded-lg shadow-lg">
-            <div className="flex flex-col gap-1 sm:gap-2">
+        <div className="w-full max-w-4xl mx-auto p-1 sm:p-2 bg-slate-200 dark:bg-slate-800 rounded-lg shadow-lg">
+            <div className="flex flex-col gap-1">
                 {currentRows.map((row, rowIndex) => (
-                    <div key={rowIndex} className="flex gap-1 sm:gap-2 w-full justify-center">
+                    <div key={rowIndex} className="flex gap-1 w-full justify-center">
                         {row.map((key, keyIndex) => {
                             let isHighlighted = keyToHighlight === key;
 
@@ -191,16 +180,15 @@ const Keyboard: React.FC<KeyboardProps> = ({ nextKey, activeKey, isShiftActive: 
                                 ? getKeyColorClass(keyIdentifier)
                                 : 'bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm';
 
-                            // Stronger highlight class
-                            const highlightClass = 'bg-primary-600 dark:bg-primary-500 text-white shadow-lg scale-105 ring-2 ring-primary-300 dark:ring-primary-700 z-10';
+                            const highlightClass = 'bg-[#3A3A3A] text-white dark:bg-[#E5E5E5] dark:text-black shadow-lg scale-105 ring-2 ring-primary-300 dark:ring-primary-700 z-10';
 
                             if (isSpacebar) {
                                 return (
                                     <div
                                         key={`${rowIndex}-${keyIndex}`}
-                                        className={`h-12 rounded-md transition-all duration-100 ${keyWidths[key]} ${isHighlighted
-                                                ? highlightClass + ' animate-pulse'
-                                                : showHandGuide ? fingerColorClasses['thumb'] : colorClass
+                                        className={`h-8 sm:h-10 md:h-12 rounded-md transition-all duration-100 flex-shrink-0 ${keyWidths[key]} ${isHighlighted
+                                            ? highlightClass + ' animate-pulse'
+                                            : showHandGuide ? fingerColorClasses['thumb'] : colorClass
                                             }`}
                                     />
                                 );
@@ -210,10 +198,10 @@ const Keyboard: React.FC<KeyboardProps> = ({ nextKey, activeKey, isShiftActive: 
                                 <div
                                     key={`${rowIndex}-${keyIndex}`}
                                     className={`
-                                        h-12 flex-1 flex items-center justify-center 
+                                        h-8 sm:h-10 md:h-12 flex-1 flex items-center justify-center 
                                         rounded-md font-sans text-sm sm:text-base font-medium
-                                        transition-all duration-100 select-none
-                                        ${keyWidths[key] || 'min-w-[2rem] sm:min-w-[2.5rem]'}
+                                        transition-all duration-100 select-none flex-shrink-0
+                                        ${keyWidths[key] || 'min-w-[1.5rem] sm:min-w-[2rem] md:min-w-[2.5rem]'}
                                         ${isHighlighted
                                             ? highlightClass
                                             : colorClass

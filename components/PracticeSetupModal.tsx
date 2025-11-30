@@ -85,6 +85,13 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
     }
   }, [isOpen, snippetLength, snippetLevel, practiceMode]);
 
+  // Auto-focus on paste textarea when tab changes
+  useEffect(() => {
+    if (isOpen && setupTab === 'upload') {
+      setTimeout(() => pasteTextAreaRef.current?.focus(), 50);
+    }
+  }, [isOpen, setupTab]);
+
   const handleStartGenerate = () => {
     // MANDATORY RESET: Clear any previous session state before starting
     setLastPracticeAction('generate');
