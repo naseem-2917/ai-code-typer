@@ -13,7 +13,7 @@ interface PracticeSetupModalProps {
   isOpen: boolean;
   onClose: () => void;
   onStart: (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => void;
-  variant: 'default' | 'targeted';
+  variant?: 'default' | 'targeted';
 }
 
 const lengthOptions: { label: string, value: SnippetLength }[] = [
@@ -184,9 +184,13 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
       if (!isOpen) return;
 
       // Start Practice
-      if ((e.ctrlKey || e.shiftKey) && e.key === 'Enter') {
+      if ((e.ctrlKey || e.shiftKey || e.altKey) && e.key === 'Enter') {
         e.preventDefault();
-        if (!isLoadingSnippet && setupTab === 'generate') handleStartGenerate();
+        if (setupTab === 'generate') {
+          if (!isLoadingSnippet) handleStartGenerate();
+        } else {
+          if (pastedCode.trim()) handleCustomCodeSubmit(pastedCode);
+        }
         return;
       }
 
@@ -336,7 +340,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isLoadingSnippet, selectedMode, setupTab, selectedLength, selectedLevel, selectedContentTypes]);
+  }, [isOpen, isLoadingSnippet, selectedMode, setupTab, selectedLength, selectedLevel, selectedContentTypes, pastedCode, handleStartGenerate, handleCustomCodeSubmit]);
 
   const handleLanguageChange = (value: string) => {
     const langId = value;
@@ -423,8 +427,8 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
                   <button
                     onClick={() => toggleContentType('characters')}
                     className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${selectedContentTypes.includes('characters')
-                        ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 bg-transparent'
+                      ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 bg-transparent'
                       }`}
                   >
                     Characters (a-z)
@@ -432,8 +436,8 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
                   <button
                     onClick={() => toggleContentType('numbers')}
                     className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${selectedContentTypes.includes('numbers')
-                        ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 bg-transparent'
+                      ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 bg-transparent'
                       }`}
                   >
                     Numbers (0-9)
@@ -441,8 +445,8 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
                   <button
                     onClick={() => toggleContentType('symbols')}
                     className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${selectedContentTypes.includes('symbols')
-                        ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 bg-transparent'
+                      ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 bg-transparent'
                       }`}
                   >
                     Symbols (!@#)

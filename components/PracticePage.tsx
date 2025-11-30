@@ -399,6 +399,9 @@ const PracticePage: React.FC = () => {
         return () => window.removeEventListener('keydown', handleShortcuts);
     }, [isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, handleSetupNew, handleEndSession, resetGame, togglePause, toggleHandGuide, blockOnErrorThreshold, setBlockOnErrorThreshold]);
 
+    // Helper for mobile detection
+    const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
+
     // ---------------------------------------------------------
     // ✅ GLOBAL TYPING HANDLER (FIXED)
     // ---------------------------------------------------------
@@ -431,14 +434,24 @@ const PracticePage: React.FC = () => {
 
             if (isPrintable || isSpecialKey) {
                 e.preventDefault();
-                currentGame.handleKeyDown(key); // Call method on the Ref
+
+                // Mobile Tab Support (Space -> Tab)
+                let keyToProcess = key;
+                if (isMobile() && key === ' ') {
+                    const nextChar = snippet[currentGame.currentIndex];
+                    if (nextChar === '\t') {
+                        keyToProcess = 'Tab';
+                    }
+                }
+
+                currentGame.handleKeyDown(keyToProcess); // Call method on the Ref
                 requestFocusOnCode();
             }
         };
 
         window.addEventListener('keydown', handleTypingInput);
         return () => window.removeEventListener('keydown', handleTypingInput);
-    }, [isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, requestFocusOnCode]);
+    }, [isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, requestFocusOnCode, snippet]);
     // Note: 'game' is NOT in the dependency array. This keeps the listener stable.
 
     const handleEditorValueChange = (newValue: string) => {
@@ -454,7 +467,16 @@ const PracticePage: React.FC = () => {
         }
         // 2. Single Character (Mobile Fix)
         else if (newValue.length === currentText.length + 1) {
-            const char = newValue.slice(-1);
+            let char = newValue.slice(-1);
+
+            // Mobile Tab Support (Space -> Tab)
+            if (isMobile() && char === ' ') {
+                const nextChar = snippet[gameRef.current.currentIndex];
+                if (nextChar === '\t') {
+                    char = 'Tab';
+                }
+            }
+
             gameRef.current.handleKeyDown(char);
             requestFocusOnCode();
         }
@@ -466,7 +488,7 @@ const PracticePage: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full max-w-full mx-auto w-full" ref={gameContainerRef}>
+        <div className="flex flex-col min-h-[100dvh] max-w-full mx-auto w-full pb-20 md:pb-0" ref={gameContainerRef}>
             {isCapsLockOn && (
                 <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 bg-yellow-400 text-yellow-900 px-4 py-2 rounded-md shadow-lg flex items-center gap-2 animate-fade-in-up">
                     <WarningIcon className="w-5 h-5" />
@@ -474,7 +496,7 @@ const PracticePage: React.FC = () => {
                 </div>
             )}
 
-            <div className="w-full max-w-[1100px] mx-auto mb-4">
+            <div className="w-full max-w-[1100px] mx-auto mb-4 pt-4">
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
                     <StatsDisplay
                         wpm={game.wpm}

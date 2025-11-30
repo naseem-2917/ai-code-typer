@@ -3,6 +3,9 @@ import { AppContext } from '../context/AppContext';
 
 interface KeyboardProps {
     nextKey: string;
+    activeKey?: string; // Add activeKey prop
+    isShiftActive?: boolean; // Add isShiftActive prop
+    showHandGuide?: boolean; // Add showHandGuide prop
 }
 
 const keyRows = [
@@ -127,18 +130,34 @@ const fingerColorClasses: { [key: string]: string } = {
     'special': 'bg-slate-300 dark:bg-slate-600'
 };
 
-const Keyboard: React.FC<KeyboardProps> = ({ nextKey }) => {
+const Keyboard: React.FC<KeyboardProps> = ({ nextKey, activeKey, isShiftActive: propIsShiftActive, showHandGuide: propShowHandGuide }) => {
     const context = useContext(AppContext);
-    if (!context) throw new Error("AppContext not found");
-    const { showHandGuide } = context;
+    // Fallback to context if props are not provided (for backward compatibility)
+    const showHandGuide = propShowHandGuide ?? context?.showHandGuide ?? true;
 
-    const isShifted = /[A-Z]/.test(nextKey) || Object.keys(shiftMap).includes(nextKey);
+    // Determine active key and shift state
+    // If nextKey is provided (old usage), use it. If activeKey is provided (new usage), use it.
+    const targetKey = activeKey ?? nextKey;
+    
+    const isShifted = propIsShiftActive ?? (/[A-Z!@#$%^&*()_+{}|:"<>?~]/.test(targetKey) || Object.keys(shiftMap).includes(targetKey));
     const currentRows = isShifted ? shiftKeyRows : keyRows;
-    const keyToHighlight = specialKeys[nextKey] || nextKey;
+    
+    // Fix: Correctly map special keys for highlighting
+    let keyToHighlight = targetKey;
+    if (targetKey === ' ') keyToHighlight = ' ';
+    if (targetKey === '\n') keyToHighlight = 'Enter';
+    if (targetKey === '\t') keyToHighlight = 'Tab';
+    
+    // Handle shift mapping for special chars
+    if (shiftMap[targetKey]) {
+        // If it's a shifted char like '!', we want to highlight '1' (or '!' if it exists in the row)
+        // But our rows have the shifted chars, so we just need to match the char.
+        // However, we need to ensure Shift is highlighted.
+    }
 
     let shiftToHighlight: 'left' | 'right' | 'none' = 'none';
     if (isShifted) {
-        const baseKey = shiftMap[nextKey] || nextKey.toLowerCase();
+        const baseKey = shiftMap[targetKey] || targetKey.toLowerCase();
         if (leftHandBaseKeys.has(baseKey)) shiftToHighlight = 'right';
         else if (rightHandBaseKeys.has(baseKey)) shiftToHighlight = 'left';
     }
@@ -172,12 +191,15 @@ const Keyboard: React.FC<KeyboardProps> = ({ nextKey }) => {
                                 ? getKeyColorClass(keyIdentifier)
                                 : 'bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm';
 
+                            // Stronger highlight class
+                            const highlightClass = 'bg-primary-600 dark:bg-primary-500 text-white shadow-lg scale-105 ring-2 ring-primary-300 dark:ring-primary-700 z-10';
+
                             if (isSpacebar) {
                                 return (
                                     <div
                                         key={`${rowIndex}-${keyIndex}`}
                                         className={`h-12 rounded-md transition-all duration-100 ${keyWidths[key]} ${isHighlighted
-                                                ? 'key-highlight shadow-lg scale-105 animate-key-glow'
+                                                ? highlightClass + ' animate-pulse'
                                                 : showHandGuide ? fingerColorClasses['thumb'] : colorClass
                                             }`}
                                     />
@@ -193,7 +215,7 @@ const Keyboard: React.FC<KeyboardProps> = ({ nextKey }) => {
                                         transition-all duration-100 select-none
                                         ${keyWidths[key] || 'min-w-[2rem] sm:min-w-[2.5rem]'}
                                         ${isHighlighted
-                                            ? 'key-highlight shadow-lg scale-110 -translate-y-1 animate-key-glow'
+                                            ? highlightClass
                                             : colorClass
                                         }
                                     `}

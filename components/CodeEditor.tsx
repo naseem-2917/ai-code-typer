@@ -78,13 +78,32 @@ export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(({
             const containerRect = scrollContainer.getBoundingClientRect();
             const cursorRect = cursor.getBoundingClientRect();
             const cursorTopInContainer = cursorRect.top - containerRect.top;
-            const desiredScrollTop = scrollContainer.scrollTop + cursorTopInContainer - (containerRect.height / 2) + (cursorRect.height / 2);
 
-            if (scrollContainer.scrollHeight > containerRect.height) {
-                scrollContainer.scrollTo({
-                    top: desiredScrollTop,
-                    behavior: 'smooth',
-                });
+            const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
+            if (isMobile) {
+                // Mobile: Scroll line by line to keep context stable
+                // We check if the cursor is below the top 1/3rd of the screen or above the top
+                const lineHeight = cursorRect.height || 24; // Fallback line height
+                const threshold = containerRect.height / 3;
+
+                if (cursorTopInContainer > threshold || cursorTopInContainer < 0) {
+                    const desiredScrollTop = scrollContainer.scrollTop + cursorTopInContainer - lineHeight;
+                    scrollContainer.scrollTo({
+                        top: desiredScrollTop,
+                        behavior: 'smooth',
+                    });
+                }
+            } else {
+                // Desktop: Center the cursor
+                const desiredScrollTop = scrollContainer.scrollTop + cursorTopInContainer - (containerRect.height / 2) + (cursorRect.height / 2);
+
+                if (scrollContainer.scrollHeight > containerRect.height) {
+                    scrollContainer.scrollTo({
+                        top: desiredScrollTop,
+                        behavior: 'smooth',
+                    });
+                }
             }
         }
     }, [currentIndex]);
