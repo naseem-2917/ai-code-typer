@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useRef, useCallback, useState } from 'react';
+import React, { useContext, useEffect, useRef, useCallback, useState, useLayoutEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import useTypingGame from '../hooks/useTypingGame';
 import { CodeEditor, CodeEditorHandle } from './CodeEditor';
@@ -19,6 +19,7 @@ import { PausedSessionData, FinishedSessionData, SnippetLength, SnippetLevel, Co
 import { CheckIcon } from './icons/CheckIcon';
 import { FileCodeIcon } from './icons/FileCodeIcon';
 import { XIcon } from './icons/XIcon';
+import { WarningIcon } from './icons/WarningIcon';
 
 const blockOnErrorOptions = [
     { label: 'Off', value: 0 },
@@ -110,8 +111,7 @@ const PracticePage: React.FC = () => {
         setRequestFocusOnCodeCallback, requestFocusOnCode,
         practiceQueue, currentQueueIndex, loadNextSnippetInQueue,
         isSetupModalOpen, openSetupModal, closeSetupModal, isInitialSetupComplete,
-        getPreviousPage,
-        isMultiFileSession,
+        getPreviousPage, restorePracticeSession,
         sessionResetKey,
         isAccessKeyMenuVisible
     } = context;
@@ -148,12 +148,24 @@ const PracticePage: React.FC = () => {
         onResume: onResumeCallback
     });
 
+    // ---------------------------------------------------------
+    // 🔥 CRITICAL FIX: STABLE GAME REF PATTERN
+    // ---------------------------------------------------------
+    // We use a Ref to hold the latest game object. This allows us to
+    // access the latest game state inside the event listener without
+    // adding 'game' to the dependency array, preventing re-renders/resets.
+    const gameRef = useRef(game);
+    useLayoutEffect(() => {
+        gameRef.current = game;
+    }, [game]);
+    // ---------------------------------------------------------
+
     const nextChar = snippet[game.currentIndex] || '';
 
     // Force game reset when sessionResetKey changes
     useEffect(() => {
-        game.reset();
-    }, [sessionResetKey, game]);
+        gameRef.current.reset();
+    }, [sessionResetKey]);
 
     // Restore session state on mount
     useEffect(() => {
@@ -176,25 +188,39 @@ const PracticePage: React.FC = () => {
             return;
         }
 
+        const continuedSessionJSON = localStorage.getItem('continuedSession');
+        if (continuedSessionJSON) {
+            hasRestoredOnMount.current = true;
+            localStorage.removeItem('continuedSession');
+            try {
+                const savedSession = JSON.parse(continuedSessionJSON) as PausedSessionData;
+                restorePracticeSession(savedSession.context);
+                setSessionToRestore(savedSession);
+            } catch (e) { console.error("Failed to parse continued session", e); }
+        }
+
         if (!hasRestoredOnMount.current && !isInitialSetupComplete && !isLoadingSnippet && !snippetError) {
             openSetupModal();
         }
-    }, [isInitialSetupComplete, isLoadingSnippet, openSetupModal, snippetError]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Apply restored game state
     useEffect(() => {
         if (sessionToRestore && snippet === sessionToRestore.context.snippet) {
-            game.restoreState(sessionToRestore.game);
+            gameRef.current.restoreState(sessionToRestore.game);
             setSessionToRestore(null);
         }
-    }, [sessionToRestore, snippet, game]);
+    }, [sessionToRestore, snippet]);
 
     // Save session state on unmount
     useEffect(() => {
         return () => {
-            if (!game.isFinished && game.typedText.length > 0) {
+            // Access ref current to avoid stale closure issues in cleanup
+            const currentGame = gameRef.current;
+            if (!currentGame.isFinished && currentGame.typedText.length > 0) {
                 const continuedSession: PausedSessionData = {
-                    game: game.getSavableState(),
+                    game: currentGame.getSavableState(),
                     context: {
                         snippet,
                         selectedLanguage,
@@ -206,20 +232,12 @@ const PracticePage: React.FC = () => {
                     timestamp: Date.now(),
                 };
                 localStorage.setItem('continuedSession', JSON.stringify(continuedSession));
-            } else if (game.isFinished && hasSubmitted) {
-                const sessionResult: FinishedSessionData = {
-                    stats: lastStats,
-                    isEarlyExit: isSessionEndedEarly,
-                    isCustomSession,
-                    lastPracticeAction,
-                    isMultiFileSession: practiceQueue.length > 1 && currentQueueIndex < practiceQueue.length - 1,
-                    currentTargetedKeys,
-                };
-                localStorage.setItem('sessionResultToShow', JSON.stringify(sessionResult));
+            } else if (currentGame.isFinished && hasSubmitted) {
+                // Logic handled in separate state based effect, but good to have fallback
             }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [game, hasSubmitted, lastStats, isSessionEndedEarly, lastPracticeAction, isCustomSession, snippet, selectedLanguage, currentTargetedKeys, practiceQueue, currentQueueIndex]);
+    }, [hasSubmitted, isSessionEndedEarly, lastPracticeAction, isCustomSession, snippet, selectedLanguage, currentTargetedKeys, practiceQueue, currentQueueIndex]);
 
 
     useEffect(() => {
@@ -230,6 +248,7 @@ const PracticePage: React.FC = () => {
         return () => setRequestFocusOnCodeCallback(null);
     }, [setRequestFocusOnCodeCallback]);
 
+    // Check for finish
     useEffect(() => {
         if (game.isFinished && !hasSubmitted) {
             setHasSubmitted(true);
@@ -275,45 +294,46 @@ const PracticePage: React.FC = () => {
     }, [snippet]);
 
     const resetGame = useCallback(() => {
-        game.reset();
+        gameRef.current.reset();
         setIsResultsModalOpen(false);
         setIsTargetedResultsModalOpen(false);
         setHasSubmitted(false);
         setIsSessionEndedEarly(false);
         requestFocusOnCode();
-    }, [game, requestFocusOnCode]);
+    }, [requestFocusOnCode]);
 
     const togglePause = useCallback(() => {
-        if (game.isPaused) {
-            game.resumeGame();
+        if (gameRef.current.isPaused) {
+            gameRef.current.resumeGame();
         } else {
-            game.pauseGame();
+            gameRef.current.pauseGame();
         }
         requestFocusOnCode();
-    }, [game, requestFocusOnCode]);
+    }, [requestFocusOnCode]);
 
     const handleEndSession = useCallback(() => {
-        if (game.isFinished || hasSubmitted) return;
+        if (gameRef.current.isFinished || hasSubmitted) return;
 
-        game.pauseGame();
+        gameRef.current.pauseGame();
 
         setTimeout(() => {
-            if (game.typedText.length > 1) {
+            const currentGame = gameRef.current;
+            if (currentGame.typedText.length > 1) {
                 setHasSubmitted(true);
                 const currentSnippetLines = (snippet.match(/\n/g) || []).length + 1;
-                const typedLinesRatio = game.currentIndex / snippet.length;
+                const typedLinesRatio = currentGame.currentIndex / snippet.length;
                 const linesTyped = Math.round(currentSnippetLines * typedLinesRatio);
 
                 const stats = {
-                    wpm: game.wpm,
-                    accuracy: game.accuracy,
-                    errors: game.errors,
+                    wpm: currentGame.wpm,
+                    accuracy: currentGame.accuracy,
+                    errors: currentGame.errors,
                     language: selectedLanguage.name,
                     timestamp: Date.now(),
-                    duration: game.duration,
+                    duration: currentGame.duration,
                     linesTyped,
-                    errorMap: game.errorMap,
-                    attemptMap: game.attemptMap,
+                    errorMap: currentGame.errorMap,
+                    attemptMap: currentGame.attemptMap,
                 };
                 addPracticeResult(stats as any);
                 setLastStats(stats as any);
@@ -326,7 +346,7 @@ const PracticePage: React.FC = () => {
                 setIsResultsModalOpen(true);
             }
         }, 0);
-    }, [game, hasSubmitted, snippet, selectedLanguage, addPracticeResult]);
+    }, [hasSubmitted, snippet, selectedLanguage, addPracticeResult]);
 
     const handleSetupNew = useCallback(() => {
         resetGame();
@@ -334,11 +354,11 @@ const PracticePage: React.FC = () => {
     }, [resetGame, openSetupModal]);
 
     const handlePracticeSame = useCallback(() => {
-        game.reset();
-    }, [game]);
+        gameRef.current.reset();
+    }, []);
 
     const handleNextSnippet = useCallback(() => {
-        game.reset();
+        gameRef.current.reset();
         if (practiceQueue.length > 0 && currentQueueIndex < practiceQueue.length - 1) {
             loadNextSnippetInQueue();
         } else {
@@ -350,7 +370,7 @@ const PracticePage: React.FC = () => {
         }
         setIsResultsModalOpen(false);
         setIsTargetedResultsModalOpen(false);
-    }, [game, practiceQueue.length, currentQueueIndex, loadNextSnippetInQueue, fetchNewSnippet]);
+    }, [practiceQueue.length, currentQueueIndex, loadNextSnippetInQueue, fetchNewSnippet]);
 
 
     // Shortcuts Handler
@@ -395,61 +415,77 @@ const PracticePage: React.FC = () => {
         return () => window.removeEventListener('keydown', handleShortcuts);
     }, [isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, handleSetupNew, handleEndSession, resetGame, togglePause, toggleHandGuide, blockOnErrorThreshold, setBlockOnErrorThreshold]);
 
-    // Global Typing Handler
+    // ---------------------------------------------------------
+    // ✅ GLOBAL TYPING HANDLER (FIXED)
+    // ---------------------------------------------------------
     useEffect(() => {
         const handleTypingInput = (e: KeyboardEvent) => {
-            // Ignore if modals are open or modifiers are pressed (except Shift)
+            const currentGame = gameRef.current; // Access latest game via ref
+
+            // 1. Modal/Modifier Check
             if (isResultsModalOpen || isTargetedResultsModalOpen || isSetupModalOpen || e.altKey || e.ctrlKey || e.metaKey) {
                 return;
             }
 
             const key = e.key;
 
-            // Prevent default for Tab to avoid losing focus
+            // 2. Tab Focus Fix
             if (key === 'Tab') {
                 e.preventDefault();
             }
 
-            // List of keys we want to capture
+            // 3. CapsLock Check
+            if (e.getModifierState("CapsLock")) {
+                setIsCapsLockOn(true);
+            } else {
+                setIsCapsLockOn(false);
+            }
+
+            // 4. Valid Key Check
             const isPrintable = key.length === 1;
             const isSpecialKey = ['Backspace', 'Enter', 'Tab'].includes(key);
 
             if (isPrintable || isSpecialKey) {
                 e.preventDefault();
-                game.handleKeyDown(key);
+                currentGame.handleKeyDown(key); // Call method on the Ref
                 requestFocusOnCode();
             }
         };
 
         window.addEventListener('keydown', handleTypingInput);
         return () => window.removeEventListener('keydown', handleTypingInput);
-    }, [game, isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, requestFocusOnCode]);
+    }, [isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, requestFocusOnCode]);
+    // Note: 'game' is NOT in the dependency array. This keeps the listener stable.
 
     const handleEditorValueChange = (newValue: string) => {
         // Only handle bulk text insertion (pasting)
-        // Single character additions are handled by the global keydown listener to prevent double typing.
-        const currentText = game.typedText;
+        const currentText = gameRef.current.typedText;
 
         if (newValue.length > currentText.length + 1) {
-            // Bulk insertion (Paste)
             const newChars = newValue.slice(currentText.length);
             for (const c of newChars) {
-                game.handleKeyDown(c);
+                gameRef.current.handleKeyDown(c);
             }
             requestFocusOnCode();
         }
-        // We do NOT handle Backspace or single char additions here anymore.
     };
 
     return (
         <div className="flex flex-col h-full max-w-full mx-auto w-full" ref={gameContainerRef}>
+            {isCapsLockOn && (
+                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 bg-yellow-400 text-yellow-900 px-4 py-2 rounded-md shadow-lg flex items-center gap-2 animate-fade-in-up">
+                    <WarningIcon className="w-5 h-5" />
+                    <span className="font-semibold">Caps Lock is On</span>
+                </div>
+            )}
+
             <div className="w-full max-w-[1100px] mx-auto mb-4">
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
                     <StatsDisplay
                         wpm={game.wpm}
                         accuracy={game.accuracy}
                         errors={game.errors}
-                        progress={Math.round((game.currentIndex / snippet.length) * 100)}
+                        progress={snippet.length > 0 ? Math.round((game.currentIndex / snippet.length) * 100) : 0}
                         timer={game.duration}
                     />
                 </div>
