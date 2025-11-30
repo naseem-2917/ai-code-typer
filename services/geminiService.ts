@@ -6,7 +6,7 @@ const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
 // @ts-ignore
 const genAI = new GoogleGenerativeAI(apiKey);
-const ai = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); // Using 2.5 Flash as defined in your source
+const ai = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 const levelMap = {
   easy: 'basic syntax and concepts, like variable declaration and simple loops',
@@ -20,7 +20,7 @@ const lengthMap: Record<SnippetLength, string> = {
   long: '25-30 lines',
 };
 
-// This is the internal helper function with RETRY LOGIC
+// Internal helper with RETRY LOGIC
 const generateSnippet = async (prompt: string, customSystemInstruction?: string): Promise<string> => {
   const maxRetries = 3;
   let lastError: Error | null = null;
@@ -28,7 +28,6 @@ const generateSnippet = async (prompt: string, customSystemInstruction?: string)
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       if (!apiKey) {
-        // CRITICAL CHECK: Throws user-friendly error if key is missing/invalid
         throw new Error("API Key is missing or invalid. Check your configuration.");
       }
 
@@ -53,48 +52,35 @@ The code must be syntactically correct for the requested language.`;
         throw new Error("The AI returned an empty snippet. Please try again.");
       }
 
-      return cleanedCode; // Success!
+      return cleanedCode;
 
     } catch (error) {
       lastError = error as Error;
-
-      // Check if it's a rate limit error. Assuming error message contains '429'.
       if (error instanceof Error && error.message.includes('429')) {
-        // If this is not the last retry attempt, wait before retrying.
         if (attempt < maxRetries) {
-          const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+          const delay = Math.pow(2, attempt) * 1000;
           await new Promise(resolve => setTimeout(resolve, delay));
-          continue; // Go to the next iteration to retry
+          continue;
         }
       }
-
-      // For any other type of error, or if rate limit retries are exhausted,
-      // we will break the loop.
       break;
     }
   }
 
-  // If we've exited the loop, all attempts have failed.
-  console.error("Error generating code snippet with Gemini after all retries:", lastError);
+  console.error("Error generating snippet:", lastError);
 
-  // Provide specific user-friendly messages based on the last error.
   if (lastError && lastError.message.includes('429')) {
-    throw new Error("AI service is currently busy due to high demand. Please try again in a few seconds.");
+    throw new Error("AI service is busy. Please try again shortly.");
   }
-
   if (lastError && lastError.message.includes('API key')) {
-    throw new Error("Invalid API key. Please check your configuration.");
+    throw new Error("Invalid API key.");
   }
+  if (lastError) throw lastError;
 
-  // If it was another kind of error, re-throw it to be handled by the caller.
-  if (lastError) {
-    throw lastError;
-  }
-
-  throw new Error("An unknown error occurred while generating the snippet.");
+  throw new Error("Unknown error generating snippet.");
 };
 
-// This is the exported function your app uses for code practice
+// Exported: Code Practice
 export const generateCodeSnippet = async (
   language: Language,
   length: SnippetLength,
@@ -107,7 +93,7 @@ The difficulty level should be ${levelMap[level]}.`;
   return generateSnippet(prompt);
 };
 
-// This is the exported function your app uses for targeted code practice
+// Exported: Targeted Practice
 export const generateTargetedCodeSnippet = async (
   language: Language,
   keys: string[],
@@ -123,53 +109,87 @@ export const generateTargetedCodeSnippet = async (
 
   const prompt = `Generate a code snippet in ${language.name}.
 The snippet must be ${lengthMap[length]} long and of ${levelMap[level]} difficulty.
-Crucially, the code must frequently and naturally use the following characters for typing practice: [${sanitizedKeys}]. Make them appear as part of valid syntax (variable names, operators, strings, etc.).`;
+Crucially, the code must frequently and naturally use the following characters for typing practice: [${sanitizedKeys}]. Make them appear as part of valid syntax.`;
 
   return generateSnippet(prompt);
 };
 
-// This is the exported function your app uses for general text practice
+// Exported: General Practice (COMPLETELY FIXED LOGIC)
 export const generateGeneralSnippet = async (
   length: SnippetLength,
   level: SnippetLevel,
   contentTypes: ContentType[] = ['characters']
 ): Promise<string> => {
-  const includeCharacters = contentTypes.includes('characters');
-  const includeNumbers = contentTypes.includes('numbers');
-  const includeSymbols = contentTypes.includes('symbols');
+  const hasChar = contentTypes.includes('characters');
+  const hasNum = contentTypes.includes('numbers');
+  const hasSym = contentTypes.includes('symbols');
 
-  let contentInstruction = "";
+  let instruction = "";
 
-  if (includeCharacters) {
-    contentInstruction += "- Common English words and sentences.";
-  } else if (contentTypes.length > 0) {
-    // CRITICAL FIX: If Characters are NOT selected, force AI to avoid sentences.
-    contentInstruction += "CRUCIAL: DO NOT use full English sentences or common words. Focus ONLY on generating the selected non-text elements below. ";
+  // 1. ALL SELECTED (Char + Num + Sym)
+  if (hasChar && hasNum && hasSym) {
+    instruction = `Generate a text that heavily mixes words, numbers, and symbols.
+    - CRITICAL REQUIREMENT: Every single sentence or line MUST contain at least one number AND one symbol.
+    - Style: Technical data logs, complex passwords, inventory lists, or code-like pseudo text.
+    - Example format: "User_ID: #4928 @ 10:45PM (Status: 99% Verified!)"`;
+  } 
+  // 2. Char + Num
+  else if (hasChar && hasNum) {
+    instruction = `Generate a text containing words and numbers. 
+    - Style: Addresses, historical dates, scientific facts with measurements, or financial summaries.
+    - CRITICAL REQUIREMENT: Frequent use of digits mixed with sentences. Do NOT use complex symbols like @#$%^ (only basic punctuation like . , is allowed).
+    - Example format: "On July 4th, 1776, approximately 2.5 million people lived there."`;
+  } 
+  // 3. Char + Sym
+  else if (hasChar && hasSym) {
+    instruction = `Generate a text containing words and symbols.
+    - Style: Dialogues with heavy punctuation, code comments, or expressive writing.
+    - CRITICAL REQUIREMENT: Frequent use of brackets (), [], {}, punctuation !?.,:; and symbols @#&. Do NOT use numbers 0-9.
+    - Example format: "Hello (world)! Waiting for response... [OK] -> {verified}."`;
+  } 
+  // 4. Num + Sym (NO CHARACTERS)
+  else if (hasNum && hasSym) {
+    instruction = `Generate a sequence of Numbers and Symbols ONLY.
+    - ABSOLUTELY FORBIDDEN: DO NOT INCLUDE ANY ALPHABET CHARACTERS (A-Z, a-z).
+    - Style: Math equations, currency calculations, or abstract data strings.
+    - Example format: "123+456=$579; (80% * 10) = #800 // 99.9"`;
+  } 
+  // 5. Num ONLY
+  else if (hasNum) {
+    instruction = `Generate a sequence of Numbers ONLY.
+    - ABSOLUTELY FORBIDDEN: DO NOT INCLUDE LETTERS OR SYMBOLS (except decimal points).
+    - Style: Phone numbers, years, zip codes, or raw data streams.
+    - Example format: "1990 2023 8837 1.45 00392 998 112"`;
+  } 
+  // 6. Sym ONLY
+  else if (hasSym) {
+    instruction = `Generate a sequence of Symbols ONLY.
+    - ABSOLUTELY FORBIDDEN: DO NOT INCLUDE LETTERS OR NUMBERS.
+    - Style: Random symbol patterns for pinky finger practice.
+    - Example format: "!@# $ %^ &*() _+ {} [] : ; < > ?"`;
+  } 
+  // 7. Char ONLY (Default)
+  else {
+    instruction = `Generate standard English paragraphs.
+    - Style: Informative, story-telling, or essays.
+    - Requirement: Standard grammar and punctuation. Minimize numbers and complex symbols.`;
   }
 
-  if (includeNumbers) {
-    contentInstruction += "\\n- Numbers (e.g., 123, 4.56, dates, quantities, phone numbers).";
-  }
-  if (includeSymbols) {
-    contentInstruction += "\\n- Basic symbols (e.g., !, @, #, $, %, &, *, (, ), -, +, =, [, ], {, }, ;, :, ', \", ,, ., ?, /) and ensure they are used frequently.";
-  }
+  // Adjust complexity based on level
+  let difficultyInstruction = "";
+  if (level === 'easy') difficultyInstruction = "Use simple, repetitive patterns and lower density of complex items.";
+  if (level === 'medium') difficultyInstruction = "Use varied patterns and moderate density of selected elements.";
+  if (level === 'hard') difficultyInstruction = "Maximize the density, randomness, and complexity of the selected elements. Make it challenging.";
 
-  // Fallback if nothing is selected (safety measure)
-  if (contentTypes.length === 0) {
-    contentInstruction = "- Common English words and sentences and numbers.";
-  }
+  const prompt = `Generate a random typing practice snippet.
+The length should be roughly ${lengthMap[length]}.
+${instruction}
+${difficultyInstruction}`;
 
-  const prompt = `Generate a random text snippet for typing practice.
-The snippet should be ${lengthMap[length]} long.
-The content MUST strictly follow these content rules:
-${contentInstruction}`;
-
-  // NOTE: Level map is REMOVED from the General Snippet prompt as it's irrelevant for plain text difficulty.
-
-  const systemInstruction = `You are a text generation engine for a general typing practice app. 
-Your task is to provide a clean, raw text snippet based on the user's content selection.
-ABSOLUTELY NO markdown, headers, or conversational text should be included.
-IMPORTANT: The text must be formatted naturally, breaking into new lines (using '\\n') after every 5-10 words (or data items) to simulate a normal paragraph or list structure. Do not produce a single long line.`;
+  const systemInstruction = `You are a text generation engine for a typing practice app. 
+Your task is to provide a clean, raw text snippet based strictly on the user's content selection.
+ABSOLUTELY NO markdown, headers, conversational text, or backticks.
+IMPORTANT: Format the text naturally with line breaks ('\\n') every 8-12 words/items to fit a screen, do not create one giant line.`;
 
   return generateSnippet(prompt, systemInstruction);
 };

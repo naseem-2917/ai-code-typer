@@ -4,7 +4,6 @@ import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { Select } from './ui/Select';
-import { AccessKeyLabel } from './ui/AccessKeyLabel';
 import { UploadIcon } from './icons/UploadIcon';
 import { SnippetLength, SnippetLevel, Language, PracticeMode, ContentType } from '../types';
 import { SUPPORTED_LANGUAGES } from '../constants';
@@ -50,14 +49,18 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
   const {
     selectedLanguage, setSelectedLanguage, isLoadingSnippet, setLastPracticeAction,
     setupTab, setSetupTab, snippetLength, setSnippetLength, snippetLevel, setSnippetLevel,
-    practiceMode, setPracticeMode, startMultiFileSession, showAlert, navigateTo
+    practiceMode, setPracticeMode, startMultiFileSession, showAlert, navigateTo,
+    // Fix: Correctly destructure generalContentTypes from context
+    generalContentTypes, setGeneralContentTypes
   } = context;
 
   const [selectedLength, setSelectedLength] = useState<SnippetLength>(snippetLength);
   const [selectedLevel, setSelectedLevel] = useState<SnippetLevel>(snippetLevel);
   const [selectedMode, setSelectedMode] = useState<PracticeMode>(practiceMode);
   const [pastedCode, setPastedCode] = useState('');
-  const [selectedContentTypes, setSelectedContentTypes] = useState<ContentType[]>(['characters']);
+
+  // Fix: Initialize state with the value from Context (Memory)
+  const [selectedContentTypes, setSelectedContentTypes] = useState<ContentType[]>(generalContentTypes);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pasteTextAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -68,22 +71,23 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
   const lengthRef = useRef<HTMLDivElement>(null);
   const levelRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const languageRef = useRef<any>(null); // Select component ref
+  const languageRef = useRef<any>(null);
   const generateBtnRef = useRef<HTMLButtonElement>(null);
   const selectFileRef = useRef<HTMLButtonElement>(null);
   const useCodeRef = useRef<HTMLButtonElement>(null);
   const backRef = useRef<HTMLButtonElement>(null);
   const actionButtonsRef = useRef<HTMLDivElement>(null);
 
+  // Fix: Sync local state with global state when modal opens
   useEffect(() => {
     if (isOpen) {
       setSelectedLength(snippetLength);
       setSelectedLevel(snippetLevel);
       setSelectedMode(practiceMode);
-      // Reset content types if needed, or keep default
+      setSelectedContentTypes(generalContentTypes);
       setTimeout(() => generateBtnRef.current?.focus(), 50);
     }
-  }, [isOpen, snippetLength, snippetLevel, practiceMode]);
+  }, [isOpen, snippetLength, snippetLevel, practiceMode, generalContentTypes]);
 
   // Auto-focus on paste textarea when tab changes
   useEffect(() => {
@@ -98,7 +102,11 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
     setPracticeMode(selectedMode);
     setSnippetLength(selectedLength);
     setSnippetLevel(selectedLevel);
-    // Explicitly reset session key to force remount
+
+    // Fix: Save the user's selection to Context Memory
+    setGeneralContentTypes(selectedContentTypes);
+
+    // Pass specific settings to onStart
     onStart(selectedLength, selectedLevel, null, selectedMode, selectedContentTypes);
   };
 
@@ -107,13 +115,13 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
       showAlert("Code must be at least 2 characters long.", 'error');
       return;
     }
-    // MANDATORY RESET: Clear any previous session state before starting
     setLastPracticeAction('upload');
 
     if (selectedMode === 'general') {
       setSelectedLanguage(generalLanguage);
     }
 
+    // For custom code, content types don't matter, pass undefined or empty array
     onStart(null, null, code, selectedMode);
   };
 
@@ -129,7 +137,6 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
         };
         reader.readAsText(file);
       } else {
-        // Pre-validate files to handle partial uploads and navigation logic
         const readFileContent = (file: File): Promise<{ file: File, isValid: boolean }> => {
           return new Promise((resolve) => {
             const reader = new FileReader();
@@ -147,23 +154,18 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
           const invalidFiles = results.filter(r => !r.isValid).map(r => r.file);
 
           if (validFiles.length === 0) {
-            // Scenario A: No Valid Files
             showAlert("All selected files are invalid. Code must be at least 2 characters long.", 'error');
-            // Keep modal open
           } else {
-            // Scenario B: Partial/Full Success
             if (invalidFiles.length > 0) {
               const invalidNames = invalidFiles.map(f => f.name).join(', ');
               showAlert(`Skipped ${invalidFiles.length} invalid file(s) (<2 chars): ${invalidNames}`, 'warning', 6000);
             }
 
-            // Start session with valid files only
             if (selectedMode === 'general') {
               setSelectedLanguage(generalLanguage);
             }
             await startMultiFileSession(validFiles);
 
-            // CRITICAL: Immediately trigger Start Practice sequence
             onClose();
             navigateTo('practice');
           }
@@ -178,6 +180,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
   const toggleContentType = (type: ContentType) => {
     setSelectedContentTypes(prev => {
       if (prev.includes(type)) {
+        // Prevent deselecting the last item
         if (prev.length === 1) return prev;
         return prev.filter(t => t !== type);
       } else {
@@ -186,11 +189,11 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
     });
   };
 
+  // Keyboard Navigation Logic
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
 
-      // Start Practice
       if ((e.ctrlKey || e.shiftKey || e.altKey) && e.key === 'Enter') {
         e.preventDefault();
         if (setupTab === 'generate') {
@@ -201,11 +204,8 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
         return;
       }
 
-      // Horizontal Navigation
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         const current = document.activeElement;
-
-        // Action Buttons
         const primaryBtn = setupTab === 'generate' ? generateBtnRef.current : useCodeRef.current;
         if (current === primaryBtn || current === backRef.current) {
           e.preventDefault();
@@ -214,7 +214,6 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
           return;
         }
 
-        // Content Selection Buttons
         if (contentRef.current?.contains(current)) {
           e.preventDefault();
           const buttons = Array.from(contentRef.current.querySelectorAll('button'));
@@ -228,21 +227,16 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
         }
       }
 
-      // Enter Key for Content Selection
       if (e.key === 'Enter' && contentRef.current?.contains(document.activeElement)) {
         e.preventDefault();
         (document.activeElement as HTMLElement).click();
         return;
       }
 
-      // Vertical Navigation
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         const order: { ref: React.RefObject<HTMLElement>, type: 'segmented' | 'select' | 'input' | 'button' | 'container' }[] = [];
 
-        // Build navigation order based on current state
         order.push({ ref: tabsRef as any, type: 'segmented' });
-
-        // Mode selector is always visible now
         order.push({ ref: modeRef as any, type: 'segmented' });
 
         if (setupTab === 'generate') {
@@ -257,7 +251,6 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
           }
           order.push({ ref: actionButtonsRef as any, type: 'container' });
         } else {
-          // Custom Text Tab
           if (selectedMode === 'code') {
             order.push({ ref: languageRef as any, type: 'select' });
           }
@@ -269,7 +262,6 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
         const currentElement = document.activeElement;
         const currentIndex = order.findIndex(item => {
           if (item.type === 'select') {
-            // Accessing exposed method from Select
             return item.ref.current?.getTriggerElement?.() === currentElement;
           }
           if (item.type === 'container' || item.type === 'segmented') {
@@ -291,11 +283,9 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
               const primaryBtn = setupTab === 'generate' ? generateBtnRef.current : useCodeRef.current;
               primaryBtn?.focus();
             } else if (nextItem.ref === contentRef) {
-              // Focus first button in content group
               const firstBtn = nextItem.ref.current?.querySelector('button');
               firstBtn?.focus();
             } else {
-              // Focus first input in container (fallback)
               const firstInput = nextItem.ref.current?.querySelector('input');
               firstInput?.focus();
             }
@@ -306,40 +296,29 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
         return;
       }
 
-      // Alt Shortcuts
       if (e.altKey) {
         const key = e.key.toLowerCase();
         switch (key) {
-          // Tabs
           case 'a': setSetupTab('generate'); break;
           case 'u': setSetupTab('upload'); break;
-
-          // Mode
           case 'c': setSelectedMode('code'); break;
           case 'g': setSelectedMode('general'); break;
-
-          // Length
           case 's': if (setupTab === 'generate') setSelectedLength('short'); break;
           case 'm': if (setupTab === 'generate') setSelectedLength('medium'); break;
           case 'l': if (setupTab === 'generate') setSelectedLength('long'); break;
-
-          // Level (Code Mode)
           case 'i': if (setupTab === 'generate' && selectedMode === 'code') setSelectedLevel('medium'); break;
           case 'h':
             if (setupTab === 'generate') {
               if (selectedMode === 'code') setSelectedLevel('hard');
-              else toggleContentType('characters'); // 'h' for cHaracters
+              else toggleContentType('characters');
             }
             break;
           case 'y':
             if (setupTab === 'generate') {
-              if (selectedMode === 'code') setSelectedLevel('easy'); // 'y' for easY
-              else toggleContentType('symbols'); // 'y' for sYmbols
+              if (selectedMode === 'code') setSelectedLevel('easy');
+              else toggleContentType('symbols');
             }
             break;
-
-          // Content (General Mode)
-          // 'h' and 'y' are handled above
           case 'n': if (setupTab === 'generate' && selectedMode === 'general') toggleContentType('numbers'); break;
         }
       }

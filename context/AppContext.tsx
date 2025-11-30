@@ -113,6 +113,11 @@ interface AppContextType {
 
   practiceMode: PracticeMode;
   setPracticeMode: (mode: PracticeMode) => void;
+
+  // Renamed to generalContentTypes for clarity
+  generalContentTypes: ContentType[];
+  setGeneralContentTypes: (types: ContentType[]) => void;
+
   sessionResetKey: number;
   handleStartFromSetup: (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => void;
   handleNextSnippet: () => void;
@@ -139,6 +144,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
 
   const [practiceMode, setPracticeMode] = useState<PracticeMode>('code');
+
+  // Initialize generalContentTypes from LocalStorage
+  const [generalContentTypes, setGeneralContentTypes] = useState<ContentType[]>(() => {
+    const saved = localStorage.getItem('generalContentTypes');
+    return saved ? JSON.parse(saved) : ['characters'];
+  });
 
   const [snippet, setSnippet] = useState('');
   const [isLoadingSnippet, setIsLoadingSnippet] = useState(false);
@@ -222,6 +233,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('selectedLanguage', selectedLanguage.id);
   }, [selectedLanguage]);
 
+  // Save generalContentTypes to LocalStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('generalContentTypes', JSON.stringify(generalContentTypes));
+  }, [generalContentTypes]);
+
   useEffect(() => {
     localStorage.setItem('practiceHistory', JSON.stringify(practiceHistory));
   }, [practiceHistory]);
@@ -290,7 +306,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const length = options?.length || snippetLength;
     const level = options?.level || snippetLevel;
     const mode = options?.mode || practiceMode;
-    const contentTypes = options?.contentTypes;
+    // Use passed contentTypes or fall back to the state
+    const types = options?.contentTypes || generalContentTypes;
 
     setIsLoadingSnippet(true);
     setSnippetError(null);
@@ -301,7 +318,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       let newSnippet = '';
       if (mode === 'general') {
-        newSnippet = await generateGeneralSnippet(length, level, contentTypes);
+        newSnippet = await generateGeneralSnippet(length, level, types);
       } else {
         newSnippet = await generateCodeSnippet(selectedLanguage, length, level);
       }
@@ -322,7 +339,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } finally {
       setIsLoadingSnippet(false);
     }
-  }, [selectedLanguage, snippetLength, snippetLevel, isLoadingSnippet, practiceMode]);
+  }, [selectedLanguage, snippetLength, snippetLevel, isLoadingSnippet, practiceMode, generalContentTypes]);
 
   const startCustomSession = (code: string, mode?: PracticeMode) => {
     clearPracticeQueue();
@@ -474,7 +491,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const toggleHandGuide = () => setShowHandGuide(prev => !prev);
 
   const addPracticeResult = (stats: PracticeStats) => {
-    // Override language if in General mode
     const finalStats = { ...stats };
     if (practiceMode === 'general') {
       finalStats.language = 'General';
@@ -544,21 +560,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     setSetupTab((localStorage.getItem('setupTab') as 'generate' | 'upload') || 'generate');
+
+    // Reload General Content Types
+    const savedContentTypes = localStorage.getItem('generalContentTypes');
+    setGeneralContentTypes(savedContentTypes ? JSON.parse(savedContentTypes) : ['characters']);
   }, []);
 
-
-
-  const handleStartFromSetup = useCallback(async (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => {
+  const handleStartFromSetup = useCallback(async (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, newContentTypes?: ContentType[]) => {
     if (customCode) {
       startCustomSession(customCode, mode);
       closeSetupModal();
     } else {
-      const success = await fetchNewSnippet({ length: length || snippetLength, level: level || snippetLevel, mode: mode || practiceMode, contentTypes });
+      // Update state if provided
+      if (length) setSnippetLength(length);
+      if (level) setSnippetLevel(level);
+      if (mode) setPracticeMode(mode);
+      // Ensure we update the state with the latest selection for persistence
+      if (newContentTypes) setGeneralContentTypes(newContentTypes);
+
+      const success = await fetchNewSnippet({
+        length: length || snippetLength,
+        level: level || snippetLevel,
+        mode: mode || practiceMode,
+        // Pass explicitly, falling back to state
+        contentTypes: newContentTypes || generalContentTypes
+      });
       if (success) {
         closeSetupModal();
       }
     }
-  }, [closeSetupModal, startCustomSession, fetchNewSnippet, snippetLength, snippetLevel, practiceMode]);
+  }, [closeSetupModal, startCustomSession, fetchNewSnippet, snippetLength, snippetLevel, practiceMode, generalContentTypes]);
 
   const handleNextSnippet = useCallback(() => {
     if (practiceQueue.length > 0 && currentQueueIndex < practiceQueue.length - 1) {
@@ -574,19 +605,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const handleSetupNew = useCallback(() => {
     openSetupModal();
-    setSessionResetKey(prev => prev + 1); // Force remount to clear local state
+    setSessionResetKey(prev => prev + 1);
   }, [openSetupModal]);
 
   const deletePracticeSession = useCallback((timestamp: number) => {
     setPracticeHistory(prev => {
       const sessionToDelete = prev.find(s => s.timestamp === timestamp);
       if (sessionToDelete) {
-        // Check if session is from today to update daily time
         const sessionDate = new Date(sessionToDelete.timestamp).toDateString();
         const todayDate = new Date().toDateString();
         if (sessionDate === todayDate) {
           setDailyPracticeTime(prevTime => Math.max(0, prevTime - sessionToDelete.duration));
-          // Also update localStorage for daily time
           const currentDailyTime = Number(localStorage.getItem('dailyPracticeTime') || '0');
           localStorage.setItem('dailyPracticeTime', String(Math.max(0, currentDailyTime - sessionToDelete.duration)));
         }
@@ -597,15 +626,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const clearPracticeHistory = useCallback(() => {
     setPracticeHistory([]);
-    // Reset daily practice time if we are clearing everything? 
-    // Maybe just keep it simple and only clear history list.
-    // But if we clear history, we probably should clear daily time if it was derived from that history.
-    // However, daily time might track practice not just in history (though currently it is).
-    // Let's reset daily time to 0 for consistency if we wipe everything.
     setDailyPracticeTime(0);
     localStorage.setItem('dailyPracticeTime', '0');
-
-    // Also clear stats derived from history
     setKeyErrorStats({});
     setKeyAttemptStats({});
     localStorage.removeItem('keyErrorStats');
@@ -638,6 +660,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     reloadDataFromStorage,
 
     practiceMode, setPracticeMode,
+    generalContentTypes, setGeneralContentTypes,
     sessionResetKey,
     handleStartFromSetup, handleNextSnippet, handlePracticeSame, handleSetupNew,
     deletePracticeSession, clearPracticeHistory,
