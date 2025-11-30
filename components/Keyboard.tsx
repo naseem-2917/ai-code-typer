@@ -2,36 +2,36 @@ import React, { useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 
 interface KeyboardProps {
-  nextKey: string;
+    nextKey: string;
 }
 
 const keyRows = [
-  ['`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'Backspace'],
-  ['Tab', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\\'],
-  ['CapsLock', 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', "'", 'Enter'],
-  ['Shift', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 'Shift'],
-  [' '], 
+    ['`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'Backspace'],
+    ['Tab', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\\'],
+    ['CapsLock', 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', "'", 'Enter'],
+    ['Shift', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 'Shift'],
+    [' '],
 ];
 
 const shiftKeyRows = [
-  ['~', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', 'Backspace'],
-  ['Tab', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '|'],
-  ['CapsLock', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', 'Enter'],
-  ['Shift', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', 'Shift'],
-  [' '],
+    ['~', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', 'Backspace'],
+    ['Tab', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '|'],
+    ['CapsLock', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', 'Enter'],
+    ['Shift', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', 'Shift'],
+    [' '],
 ];
 
 const specialKeys: { [key: string]: string } = {
-  ' ': ' ', '\n': 'Enter', '\t': 'Tab',
+    ' ': ' ', '\n': 'Enter', '\t': 'Tab',
 };
 
 const leftHandBaseKeys = new Set(['`', '1', '2', '3', '4', '5', 'q', 'w', 'e', 'r', 't', 'a', 's', 'd', 'f', 'g', 'z', 'x', 'c', 'v', 'b']);
 const rightHandBaseKeys = new Set(['6', '7', '8', '9', '0', '-', '=', 'y', 'u', 'i', 'o', 'p', '[', ']', '\\', 'h', 'j', 'k', 'l', ';', "'", 'n', 'm', ',', '.', '/']);
 
 const shiftMap: { [key: string]: string } = {
-  '~': '`', '!': '1', '@': '2', '#': '3', '$': '4', '%': '5',
-  '^': '6', '&': '7', '*': '8', '(': '9', ')': '0', '_': '-', '+': '=',
-  '{': '[', '}': ']', '|': '\\', ':': ';', '"': "'", '<': ',', '>': '.', '?': '/'
+    '~': '`', '!': '1', '@': '2', '#': '3', '$': '4', '%': '5',
+    '^': '6', '&': '7', '*': '8', '(': '9', ')': '0', '_': '-', '+': '=',
+    '{': '[', '}': ']', '|': '\\', ':': ';', '"': "'", '<': ',', '>': '.', '?': '/'
 };
 
 const keyWidths: { [key: string]: string } = {
@@ -109,22 +109,22 @@ const keyToFingerMap: { [key: string]: string } = {
     "'": 'right-pinky', '"': 'right-pinky',
     'Shift_right': 'right-pinky',
     '/': 'right-pinky', '?': 'right-pinky',
-    
+
     // Thumbs
     ' ': 'thumb',
 };
 
 const fingerColorClasses: { [key: string]: string } = {
-  'left-pinky': 'bg-blue-500 text-white',
-  'left-ring': 'bg-green-500 text-white',
-  'left-middle': 'bg-yellow-500 text-black',
-  'left-index': 'bg-red-500 text-white',
-  'thumb': 'bg-purple-500 text-white',
-  'right-index': 'bg-red-500 text-white',
-  'right-middle': 'bg-yellow-500 text-black',
-  'right-ring': 'bg-green-500 text-white',
-  'right-pinky': 'bg-blue-500 text-white',
-  'special': 'bg-slate-300 dark:bg-slate-600'
+    'left-pinky': 'bg-blue-500 text-white',
+    'left-ring': 'bg-green-500 text-white',
+    'left-middle': 'bg-yellow-500 text-black',
+    'left-index': 'bg-red-500 text-white',
+    'thumb': 'bg-purple-500 text-white',
+    'right-index': 'bg-red-500 text-white',
+    'right-middle': 'bg-yellow-500 text-black',
+    'right-ring': 'bg-green-500 text-white',
+    'right-pinky': 'bg-blue-500 text-white',
+    'special': 'bg-slate-300 dark:bg-slate-600'
 };
 
 const Keyboard: React.FC<KeyboardProps> = ({ nextKey }) => {
@@ -155,7 +155,7 @@ const Keyboard: React.FC<KeyboardProps> = ({ nextKey }) => {
                     <div key={rowIndex} className="flex gap-1 sm:gap-2 w-full justify-center">
                         {row.map((key, keyIndex) => {
                             let isHighlighted = keyToHighlight === key;
-                            
+
                             let keyIdentifier = key;
                             if (key === 'Shift') {
                                 const isLeftShift = keyIndex === 0;
@@ -166,21 +166,20 @@ const Keyboard: React.FC<KeyboardProps> = ({ nextKey }) => {
                                     if (!isLeftShift && shiftToHighlight === 'right') isHighlighted = true;
                                 }
                             }
-                            
+
                             const isSpacebar = key === ' ';
                             const colorClass = showHandGuide
                                 ? getKeyColorClass(keyIdentifier)
                                 : 'bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm';
-                            
+
                             if (isSpacebar) {
                                 return (
                                     <div
                                         key={`${rowIndex}-${keyIndex}`}
-                                        className={`h-12 rounded-md transition-all duration-100 ${keyWidths[key]} ${
-                                            isHighlighted
-                                            ? 'key-highlight shadow-lg scale-105 animate-key-glow'
-                                            : showHandGuide ? fingerColorClasses['thumb'] : colorClass
-                                        }`}
+                                        className={`h-12 rounded-md transition-all duration-100 ${keyWidths[key]} ${isHighlighted
+                                                ? 'ring-2 ring-primary-500 bg-primary-100 dark:bg-primary-900 shadow-lg scale-105 animate-pulse'
+                                                : showHandGuide ? fingerColorClasses['thumb'] : colorClass
+                                            }`}
                                     />
                                 );
                             }
@@ -193,9 +192,8 @@ const Keyboard: React.FC<KeyboardProps> = ({ nextKey }) => {
                                         rounded-md font-sans text-sm sm:text-base font-medium
                                         transition-all duration-100 select-none
                                         ${keyWidths[key] || 'min-w-[2rem] sm:min-w-[2.5rem]'}
-                                        ${
-                                            isHighlighted
-                                            ? 'key-highlight shadow-lg scale-110 -translate-y-1 animate-key-glow'
+                                        ${isHighlighted
+                                            ? 'ring-2 ring-primary-500 bg-primary-100 dark:bg-primary-900 shadow-lg scale-110 -translate-y-1 animate-pulse'
                                             : colorClass
                                         }
                                     `}

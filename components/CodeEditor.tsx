@@ -78,7 +78,9 @@ export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(({
             const containerRect = scrollContainer.getBoundingClientRect();
             const cursorRect = cursor.getBoundingClientRect();
             const cursorTopInContainer = cursorRect.top - containerRect.top;
-            const desiredScrollTop = scrollContainer.scrollTop + cursorTopInContainer - (containerRect.height / 2) + (cursorRect.height / 2);
+
+            // Scroll to top third instead of center for better visibility on mobile
+            const desiredScrollTop = scrollContainer.scrollTop + cursorTopInContainer - (containerRect.height / 3);
 
             if (scrollContainer.scrollHeight > containerRect.height) {
                 scrollContainer.scrollTo({
@@ -92,7 +94,7 @@ export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(({
     return (
         <div
             ref={containerRef}
-            className={`relative flex-grow min-h-0 w-full flex flex-col ${isError ? 'animate-shake' : ''} ${className}`}
+            className={`relative flex-grow min-h-0 w-full flex flex-col pb-96 md:pb-0 ${isError ? 'animate-shake' : ''} ${className}`}
             onClick={handleContainerClick}
         >
             {/* Hidden Textarea for Input */}
