@@ -442,14 +442,25 @@ const PracticePage: React.FC = () => {
     // Note: 'game' is NOT in the dependency array. This keeps the listener stable.
 
     const handleEditorValueChange = (newValue: string) => {
-        // Only handle bulk text insertion (pasting)
         const currentText = gameRef.current.typedText;
 
+        // 1. Bulk Typing (Paste)
         if (newValue.length > currentText.length + 1) {
             const newChars = newValue.slice(currentText.length);
             for (const c of newChars) {
                 gameRef.current.handleKeyDown(c);
             }
+            requestFocusOnCode();
+        }
+        // 2. Single Character (Mobile Fix)
+        else if (newValue.length === currentText.length + 1) {
+            const char = newValue.slice(-1);
+            gameRef.current.handleKeyDown(char);
+            requestFocusOnCode();
+        }
+        // 3. Backspace (Mobile Fix)
+        else if (newValue.length === currentText.length - 1) {
+            gameRef.current.handleKeyDown('Backspace');
             requestFocusOnCode();
         }
     };
