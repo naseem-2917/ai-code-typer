@@ -177,7 +177,7 @@ const Keyboard: React.FC<KeyboardProps> = ({ nextKey }) => {
                                     <div
                                         key={`${rowIndex}-${keyIndex}`}
                                         className={`h-12 rounded-md transition-all duration-100 ${keyWidths[key]} ${isHighlighted
-                                                ? 'ring-2 ring-primary-500 bg-primary-100 dark:bg-primary-900 shadow-lg scale-105 animate-pulse'
+                                                ? 'key-highlight shadow-lg scale-105 animate-key-glow'
                                                 : showHandGuide ? fingerColorClasses['thumb'] : colorClass
                                             }`}
                                     />
@@ -193,7 +193,7 @@ const Keyboard: React.FC<KeyboardProps> = ({ nextKey }) => {
                                         transition-all duration-100 select-none
                                         ${keyWidths[key] || 'min-w-[2rem] sm:min-w-[2.5rem]'}
                                         ${isHighlighted
-                                            ? 'ring-2 ring-primary-500 bg-primary-100 dark:bg-primary-900 shadow-lg scale-110 -translate-y-1 animate-pulse'
+                                            ? 'key-highlight shadow-lg scale-110 -translate-y-1 animate-key-glow'
                                             : colorClass
                                         }
                                     `}

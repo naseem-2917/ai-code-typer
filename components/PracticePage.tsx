@@ -429,17 +429,6 @@ const PracticePage: React.FC = () => {
             const isPrintable = key.length === 1;
             const isSpecialKey = ['Backspace', 'Enter', 'Tab'].includes(key);
 
-            // Mobile Tab Support (Space -> Tab)
-            const isMobile = window.matchMedia('(pointer: coarse)').matches;
-            const nextChar = snippet[currentGame.currentIndex];
-
-            if (isMobile && key === ' ' && nextChar === '\t') {
-                e.preventDefault();
-                currentGame.handleKeyDown('Tab');
-                requestFocusOnCode();
-                return;
-            }
-
             if (isPrintable || isSpecialKey) {
                 e.preventDefault();
                 currentGame.handleKeyDown(key); // Call method on the Ref
@@ -449,13 +438,11 @@ const PracticePage: React.FC = () => {
 
         window.addEventListener('keydown', handleTypingInput);
         return () => window.removeEventListener('keydown', handleTypingInput);
-    }, [isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, requestFocusOnCode, snippet]);
+    }, [isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, requestFocusOnCode]);
     // Note: 'game' is NOT in the dependency array. This keeps the listener stable.
 
     const handleEditorValueChange = (newValue: string) => {
         const currentText = gameRef.current.typedText;
-        const nextChar = snippet[gameRef.current.currentIndex];
-        const isMobile = window.matchMedia('(pointer: coarse)').matches;
 
         // 1. Bulk Typing (Paste)
         if (newValue.length > currentText.length + 1) {
@@ -468,13 +455,7 @@ const PracticePage: React.FC = () => {
         // 2. Single Character (Mobile Fix)
         else if (newValue.length === currentText.length + 1) {
             const char = newValue.slice(-1);
-
-            // Mobile Tab Support (Space -> Tab)
-            if (isMobile && char === ' ' && nextChar === '\t') {
-                gameRef.current.handleKeyDown('Tab');
-            } else {
-                gameRef.current.handleKeyDown(char);
-            }
+            gameRef.current.handleKeyDown(char);
             requestFocusOnCode();
         }
         // 3. Backspace (Mobile Fix)
@@ -485,7 +466,7 @@ const PracticePage: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full max-w-full mx-auto w-full min-h-screen pb-[env(safe-area-inset-bottom)]" ref={gameContainerRef}>
+        <div className="flex flex-col h-full max-w-full mx-auto w-full" ref={gameContainerRef}>
             {isCapsLockOn && (
                 <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 bg-yellow-400 text-yellow-900 px-4 py-2 rounded-md shadow-lg flex items-center gap-2 animate-fade-in-up">
                     <WarningIcon className="w-5 h-5" />
