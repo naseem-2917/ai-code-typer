@@ -28,21 +28,6 @@ const blockOnErrorOptions = [
     { label: 'After 3 Errors', value: 3 },
 ];
 
-const ShortcutLabel: React.FC<{ label: string, char: string, isVisible: boolean }> = ({ label, char, isVisible }) => {
-    if (!isVisible) return <span>{label}</span>;
-
-    const index = label.toLowerCase().indexOf(char.toLowerCase());
-    if (index === -1) return <span>{label} <span className="text-xs bg-slate-200 dark:bg-slate-700 px-1 rounded ml-1">{char.toUpperCase()}</span></span>;
-
-    return (
-        <span>
-            {label.slice(0, index)}
-            <span className="underline decoration-2 decoration-primary-500 font-bold">{label.slice(index, index + 1)}</span>
-            {label.slice(index + 1)}
-        </span>
-    );
-};
-
 const PracticeQueueSidebar: React.FC = () => {
     const context = useContext(AppContext);
     if (!context) return null;
@@ -495,19 +480,19 @@ const PracticePage: React.FC = () => {
                 <div className="flex flex-wrap items-center justify-center gap-3">
                     <Button onClick={handleSetupNew} variant="primary" disabled={isSetupModalOpen} title="New Snippet (Alt+N)" accessKey="n">
                         <FileCodeIcon className="w-4 h-4 mr-2" />
-                        <ShortcutLabel label="New" char="N" isVisible={isAccessKeyMenuVisible} />
+                        New
                     </Button>
                     <Button onClick={handleEndSession} variant="outline" disabled={isSetupModalOpen || game.isFinished} title="End Session (Alt+E)" accessKey="e">
                         <XIcon className="w-4 h-4 mr-2" />
-                        <ShortcutLabel label="End" char="E" isVisible={isAccessKeyMenuVisible} />
+                        End
                     </Button>
                     <Button onClick={resetGame} variant="outline" disabled={isSetupModalOpen} title="Reset (Alt+R)" accessKey="r">
                         <ResetIcon className="w-4 h-4 mr-2" />
-                        <ShortcutLabel label="Reset" char="R" isVisible={isAccessKeyMenuVisible} />
+                        Reset
                     </Button>
                     <Button onClick={togglePause} variant="outline" disabled={isSetupModalOpen || game.isFinished} title={game.isPaused ? "Resume (Alt+P)" : "Pause (Alt+P)"} accessKey="p">
                         {game.isPaused ? <PlayIcon className="w-4 h-4 mr-2" /> : <PauseIcon className="w-4 h-4 mr-2" />}
-                        <ShortcutLabel label={game.isPaused ? "Resume" : "Pause"} char="P" isVisible={isAccessKeyMenuVisible} />
+                        {game.isPaused ? "Resume" : "Pause"}
                     </Button>
 
                     <div className="h-6 w-px bg-slate-300 dark:bg-slate-700 mx-2 hidden sm:block"></div>
@@ -518,7 +503,7 @@ const PracticePage: React.FC = () => {
                             <Button variant="ghost" title="Block on Error Settings (Alt+B)" accessKey="b">
                                 <BlockIcon className="w-5 h-5 mr-2" />
                                 <span className="hidden sm:inline">
-                                    <ShortcutLabel label={`Block: ${blockOnErrorOptions.find(o => o.value === blockOnErrorThreshold)?.label}`} char="B" isVisible={isAccessKeyMenuVisible} />
+                                    Block: {blockOnErrorOptions.find(o => o.value === blockOnErrorThreshold)?.label}
                                 </span>
                             </Button>
                         }
@@ -536,7 +521,7 @@ const PracticePage: React.FC = () => {
                     <Button variant="ghost" onClick={() => { toggleHandGuide(); requestFocusOnCode(); }} title="Toggle Hand Guide (Alt+G)" disabled={isSetupModalOpen} accessKey="g">
                         <HandGuideIcon className="w-5 h-5 sm:mr-2" />
                         <span className="hidden sm:inline">
-                            <ShortcutLabel label="Hand Guide" char="G" isVisible={isAccessKeyMenuVisible} />
+                            Hand Guide
                         </span>
                     </Button>
                 </div>

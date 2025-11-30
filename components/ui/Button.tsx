@@ -4,10 +4,11 @@ import { useAccessKey } from '../../hooks/useAccessKey';
 import { AccessKeyLabel } from './AccessKeyLabel';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'outline';
   size?: 'sm' | 'md' | 'lg' | 'icon';
   accessKeyChar?: string;
   accessKeyLabel?: string;
+  accessKey?: string;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
@@ -17,14 +18,18 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
   size = 'md',
   accessKeyChar,
   accessKeyLabel,
+  accessKey, // Destructure accessKey to prevent passing it to DOM element
   ...props
 }, ref) => {
   const context = useContext(AppContext);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  
+
   useImperativeHandle(ref, () => buttonRef.current!);
 
-  useAccessKey(accessKeyChar, () => {
+  // Use accessKey prop as fallback for accessKeyChar
+  const effectiveAccessKey = accessKeyChar || accessKey;
+
+  useAccessKey(effectiveAccessKey, () => {
     buttonRef.current?.click();
   }, { disabled: props.disabled });
 
@@ -34,6 +39,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
     primary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500',
     secondary: 'bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 focus:ring-slate-500',
     ghost: 'hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 focus:ring-slate-500',
+    outline: 'border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 focus:ring-slate-500',
   };
 
   const sizeClasses = {
@@ -49,8 +55,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
       className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
       {...props}
     >
-      {context?.isAccessKeyMenuVisible && accessKeyChar && !props.disabled && (
-        <AccessKeyLabel label={accessKeyLabel || accessKeyChar} />
+      {context?.isAccessKeyMenuVisible && effectiveAccessKey && !props.disabled && (
+        <AccessKeyLabel label={accessKeyLabel || effectiveAccessKey} />
       )}
       {children}
     </button>

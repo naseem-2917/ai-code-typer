@@ -2,7 +2,7 @@ import React from 'react';
 
 export const AccessKeyLabel: React.FC<{ label: string }> = ({ label }) => {
   return (
-    <div className="absolute -top-2 -left-1 bg-slate-100 dark:bg-slate-700 border border-slate-400 dark:border-slate-500 rounded-sm px-1.5 py-0.5 text-xs font-sans font-bold z-20 shadow-md pointer-events-none">
+    <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-black text-white dark:bg-white dark:text-black border border-white dark:border-black rounded-[2px] px-1.5 py-0 text-[10px] leading-tight font-sans font-bold z-50 shadow-sm pointer-events-none uppercase tracking-tighter min-w-[16px] text-center">
       {label}
     </div>
   );
