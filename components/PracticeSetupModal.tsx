@@ -49,7 +49,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
   const {
     selectedLanguage, setSelectedLanguage, isLoadingSnippet, setLastPracticeAction,
     setupTab, setSetupTab, snippetLength, setSnippetLength, snippetLevel, setSnippetLevel,
-    practiceMode, setPracticeMode, startMultiFileSession
+    practiceMode, setPracticeMode, startMultiFileSession, showAlert
   } = context;
 
   const [selectedLength, setSelectedLength] = useState<SnippetLength>(snippetLength);
@@ -95,6 +95,10 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
   };
 
   const handleCustomCodeSubmit = (code: string) => {
+    if (code.trim().length < 2) {
+      showAlert("Code must be at least 2 characters long.", 'error');
+      return;
+    }
     // MANDATORY RESET: Clear any previous session state before starting
     setLastPracticeAction('upload');
     onStart(null, null, code, selectedMode);
@@ -112,8 +116,13 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
         };
         reader.readAsText(file);
       } else {
-        await startMultiFileSession(files);
-        onClose();
+        try {
+          await startMultiFileSession(files);
+          onClose();
+        } catch (error) {
+          console.error("Multi-file session start failed:", error);
+          // Do not close modal
+        }
       }
     }
   };

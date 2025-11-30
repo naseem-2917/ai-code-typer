@@ -117,12 +117,11 @@ const PracticePage: React.FC = () => {
     } = context;
 
     const handleStartFromSetup = useCallback(async (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => {
+        closeSetupModal();
         if (customCode) {
             startCustomSession(customCode, mode);
-            closeSetupModal();
         } else {
             await fetchNewSnippet({ length: length || undefined, level: level || undefined, mode: mode || undefined, contentTypes: contentTypes || undefined });
-            closeSetupModal();
         }
         setTimeout(() => requestFocusOnCode(), 100);
     }, [startCustomSession, closeSetupModal, fetchNewSnippet, requestFocusOnCode]);
@@ -562,11 +561,13 @@ const PracticePage: React.FC = () => {
                 />
 
                 {/* Sidebar: Queue */}
-                <div className="hidden md:flex flex-col gap-4 w-64 flex-shrink-0">
-                    <div className="flex-grow min-h-0 overflow-hidden">
-                        <PracticeQueueSidebar />
+                {practiceQueue.length > 1 && (
+                    <div className="hidden md:flex flex-col gap-4 w-64 flex-shrink-0">
+                        <div className="flex-grow min-h-0 overflow-hidden">
+                            <PracticeQueueSidebar />
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Keyboard (below code area) */}
@@ -593,9 +594,16 @@ const PracticePage: React.FC = () => {
                     requestFocusOnCode();
                 }}
                 stats={lastStats}
+                title={isSessionEndedEarly ? 'Session Ended' : 'Session Complete!'}
                 onPracticeSame={handlePracticeSame}
                 onNextSnippet={handleNextSnippet}
+                onNewSnippet={handleSetupNew}
+                onViewProgress={() => {
+                    setIsResultsModalOpen(false);
+                    navigateTo('dashboard');
+                }}
                 isSessionEndedEarly={isSessionEndedEarly}
+                hasNextSnippet={practiceQueue.length > 1 && currentQueueIndex < practiceQueue.length - 1}
             />
 
             <TargetedResultsModal

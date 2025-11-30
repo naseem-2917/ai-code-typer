@@ -17,22 +17,24 @@ interface ResultsModalProps {
     errors: number;
     duration: number;
   };
+  title?: string;
   isEarlyExit?: boolean;
   isMultiFileSession?: boolean;
   onNextSnippet?: () => void;
+  hasNextSnippet?: boolean;
 }
 
 const formatDuration = (totalSeconds: number): string => {
-    if (isNaN(totalSeconds) || totalSeconds < 0) {
-        return "0:00";
-    }
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = Math.floor(totalSeconds % 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  if (isNaN(totalSeconds) || totalSeconds < 0) {
+    return "0:00";
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-export const ResultsModal: React.FC<ResultsModalProps> = ({ 
-  isOpen, 
+export const ResultsModal: React.FC<ResultsModalProps> = ({
+  isOpen,
   onClose,
   onPracticeSame,
   onNewSnippet,
@@ -40,9 +42,11 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   isCustomSession,
   lastPracticeAction,
   stats,
+  title,
   isEarlyExit = false,
   isMultiFileSession = false,
   onNextSnippet,
+  hasNextSnippet = false,
 }) => {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -55,25 +59,25 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
     const nextSnippetButton = { label: 'Next Snippet', action: onNextSnippet! };
 
     let actionButtons = [];
-    
-    if (isMultiFileSession) {
-        actionButtons.push(nextSnippetButton);
+
+    if (hasNextSnippet && onNextSnippet) {
+      actionButtons.push(nextSnippetButton);
     }
 
     if (isEarlyExit) {
-        actionButtons.push(newSnippetButton, practiceSameButton, viewProgressButton);
+      actionButtons.push(newSnippetButton, practiceSameButton, viewProgressButton);
     } else {
-        if (lastPracticeAction === 'practice_same' && !isMultiFileSession) {
-            actionButtons.push(practiceSameButton, newSnippetButton);
-        } else {
-            actionButtons.push(newSnippetButton, practiceSameButton);
-        }
-        actionButtons.push(viewProgressButton);
+      if (lastPracticeAction === 'practice_same' && !isMultiFileSession) {
+        actionButtons.push(practiceSameButton, newSnippetButton);
+      } else {
+        actionButtons.push(newSnippetButton, practiceSameButton);
+      }
+      actionButtons.push(viewProgressButton);
     }
-    
+
     return actionButtons;
-  }, [isEarlyExit, isMultiFileSession, lastPracticeAction, onNewSnippet, onPracticeSame, onViewProgress, onNextSnippet]);
-  
+  }, [isEarlyExit, isMultiFileSession, lastPracticeAction, onNewSnippet, onPracticeSame, onViewProgress, onNextSnippet, hasNextSnippet]);
+
   useEffect(() => {
     buttonRefs.current = buttonRefs.current.slice(0, buttons.length);
   }, [buttons]);
@@ -95,7 +99,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
       // For Tab/Shift+Tab, we let the browser handle focus changes.
       // The `onFocus` prop on each button will automatically update our `focusedIndex` state.
       if (event.key === 'Tab') {
-          return;
+        return;
       }
 
       // For Arrow keys, we manually control focus.
@@ -118,27 +122,26 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
     };
   }, [isOpen, buttons, focusedIndex]);
 
-  const title = isEarlyExit ? "Session Ended" : "Session Complete!";
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title}>
       <div className="space-y-6">
         {!isEarlyExit ? (
-            <div className="grid grid-cols-2 gap-4 text-center">
-                <Stat label="WPM" value={stats.wpm} />
-                <Stat label="Accuracy" value={`${stats.accuracy}%`} />
-                <Stat label="Errors" value={stats.errors} />
-                <Stat label="Duration" value={formatDuration(stats.duration)} />
-            </div>
+          <div className="grid grid-cols-2 gap-4 text-center">
+            <Stat label="WPM" value={stats.wpm} />
+            <Stat label="Accuracy" value={`${stats.accuracy}%`} />
+            <Stat label="Errors" value={stats.errors} />
+            <Stat label="Duration" value={formatDuration(stats.duration)} />
+          </div>
         ) : (
-            <p className="text-center text-slate-500 dark:text-slate-400 py-4">
-                {stats.wpm > 0 
-                    ? "Your progress for this session has been saved."
-                    : "You ended the session before any progress could be saved."
-                }
-            </p>
+          <p className="text-center text-slate-500 dark:text-slate-400 py-4">
+            {stats.wpm > 0
+              ? "Your progress for this session has been saved."
+              : "You ended the session before any progress could be saved."
+            }
+          </p>
         )}
-        
+
         <div className="flex flex-col gap-3">
           {buttons.map((btn, index) => (
             <Button
