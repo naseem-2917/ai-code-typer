@@ -22,7 +22,11 @@ interface CodeEditorProps {
     className?: string;
 }
 
-export const CodeEditor: React.FC<CodeEditorProps> = ({
+export interface CodeEditorHandle {
+    focus: () => void;
+}
+
+export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(({
     value,
     onValueChange,
     snippet,
@@ -35,11 +39,18 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     isPaused,
     onRetry,
     className = ''
-}) => {
+}, ref) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const cursorRef = useRef<HTMLSpanElement>(null);
     const scrollableCardRef = useRef<HTMLDivElement>(null);
+
+    // Expose focus method
+    React.useImperativeHandle(ref, () => ({
+        focus: () => {
+            textareaRef.current?.focus();
+        }
+    }));
 
     // Auto-focus on mount and when not paused
     useEffect(() => {
@@ -139,4 +150,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             </Card>
         </div>
     );
-};
+});
+
+CodeEditor.displayName = 'CodeEditor';

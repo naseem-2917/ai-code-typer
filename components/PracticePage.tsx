@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useRef, useCallback, useState } from 'react';
 import { AppContext } from '../context/AppContext';
 import useTypingGame from '../hooks/useTypingGame';
-import { CodeEditor } from './CodeEditor';
+import { CodeEditor, CodeEditorHandle } from './CodeEditor';
 import StatsDisplay from './StatsDisplay';
 import { Card } from './ui/Card';
 import Keyboard from './Keyboard';
@@ -137,6 +137,7 @@ const PracticePage: React.FC = () => {
 
     const gameContainerRef = useRef<HTMLDivElement>(null);
     const blockOnErrorRef = useRef<DropdownRef>(null);
+    const codeEditorRef = useRef<CodeEditorHandle>(null);
     const hasRestoredOnMount = useRef(false);
 
     const onPauseCallback = useCallback(() => requestFocusOnCode(), [requestFocusOnCode]);
@@ -223,10 +224,7 @@ const PracticePage: React.FC = () => {
 
     useEffect(() => {
         const focusCode = () => {
-            // Focus is handled by CodeEditor internally or via its ref if exposed, 
-            // but here we rely on CodeEditor's auto-focus prop or internal logic.
-            // However, we can trigger a re-render or state change if needed.
-            // For now, CodeEditor auto-focuses when not paused/loading.
+            codeEditorRef.current?.focus();
         };
         setRequestFocusOnCodeCallback(focusCode);
         return () => setRequestFocusOnCodeCallback(null);
@@ -397,49 +395,54 @@ const PracticePage: React.FC = () => {
         return () => window.removeEventListener('keydown', handleShortcuts);
     }, [isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, handleSetupNew, handleEndSession, resetGame, togglePause, toggleHandGuide, blockOnErrorThreshold, setBlockOnErrorThreshold]);
 
-
-    // Typing Handler for special keys (Backspace, Tab, etc.) that might not be caught by input change
-    // or to prevent default behavior for certain keys.
+    // Global Typing Handler
     useEffect(() => {
         const handleTypingInput = (e: KeyboardEvent) => {
-            if (isResultsModalOpen || isTargetedResultsModalOpen || isSetupModalOpen || e.altKey || e.ctrlKey || e.metaKey) return;
-            if (e.key === 'Enter' && (e.ctrlKey || e.shiftKey)) return;
+            // Ignore if modals are open or modifiers are pressed (except Shift)
+            if (isResultsModalOpen || isTargetedResultsModalOpen || isSetupModalOpen || e.altKey || e.ctrlKey || e.metaKey) {
+                return;
+            }
 
-            // We allow the CodeEditor's textarea to handle the input event for characters,
-            // but we still need to intercept special keys or prevent default if needed.
-            // Actually, if we use onValueChange, we don't need to intercept characters here.
-            // But we DO need to intercept Backspace if we want to handle it via game logic (e.g. block on error).
-            
-            // For now, let's keep the global listener for robustness, but we might need to coordinate with CodeEditor.
-            // If CodeEditor is focused, it will receive the event.
+            const key = e.key;
+
+            // Prevent default for Tab to avoid losing focus
+            if (key === 'Tab') {
+                e.preventDefault();
+            }
+
+            // List of keys we want to capture
+            const isPrintable = key.length === 1;
+            const isSpecialKey = ['Backspace', 'Enter', 'Tab'].includes(key);
+
+            if (isPrintable || isSpecialKey) {
+                e.preventDefault();
+                game.handleKeyDown(key);
+                requestFocusOnCode();
+            }
         };
-        // window.addEventListener('keydown', handleTypingInput);
-        // return () => window.removeEventListener('keydown', handleTypingInput);
-    }, [game, isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen]);
+
+        window.addEventListener('keydown', handleTypingInput);
+        return () => window.removeEventListener('keydown', handleTypingInput);
+    }, [game, isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, requestFocusOnCode]);
 
     const handleEditorValueChange = (newValue: string) => {
-        // Calculate the difference between newValue and game.typedText
+        // Only handle bulk text insertion (pasting)
+        // Single character additions are handled by the global keydown listener to prevent double typing.
         const currentText = game.typedText;
-        
-        if (newValue.length > currentText.length) {
-            // Character added
-            const char = newValue.slice(currentText.length);
-            // Handle multiple chars (paste)
-            for (const c of char) {
+
+        if (newValue.length > currentText.length + 1) {
+            // Bulk insertion (Paste)
+            const newChars = newValue.slice(currentText.length);
+            for (const c of newChars) {
                 game.handleKeyDown(c);
             }
-        } else if (newValue.length < currentText.length) {
-            // Character removed (Backspace)
-            // game.handleKeyDown('Backspace'); // useTypingGame might not support 'Backspace' string in handleKeyDown if it expects char?
-            // Let's check useTypingGame. usually it handles 'Backspace'.
-            game.handleKeyDown('Backspace');
+            requestFocusOnCode();
         }
+        // We do NOT handle Backspace or single char additions here anymore.
     };
 
     return (
         <div className="flex flex-col h-full max-w-full mx-auto w-full" ref={gameContainerRef}>
-
-            {/* 1. StatsBar - Clean Top Section */}
             <div className="w-full max-w-[1100px] mx-auto mb-4">
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
                     <StatsDisplay
@@ -507,6 +510,7 @@ const PracticePage: React.FC = () => {
             {/* 3. Code Editor - Centered & Wide */}
             <div className="w-full mx-auto flex-grow min-h-0 flex flex-col md:flex-row gap-4 md:gap-6 overflow-hidden">
                 <CodeEditor
+                    ref={codeEditorRef}
                     value={game.typedText}
                     onValueChange={handleEditorValueChange}
                     snippet={snippet}
