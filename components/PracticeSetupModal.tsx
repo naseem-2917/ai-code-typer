@@ -30,7 +30,7 @@ const levelOptions: { label: string, value: SnippetLevel }[] = [
 
 const tabOptions = [
   { label: 'Generate with AI', value: 'generate' },
-  { label: 'Use Your Code', value: 'upload' },
+  { label: 'Upload Text', value: 'upload' },
 ];
 
 const modeOptions = [
@@ -39,6 +39,7 @@ const modeOptions = [
 ];
 
 const customLanguage: Language = { id: 'custom', name: 'Custom', prismAlias: 'clike' };
+const generalLanguage: Language = { id: 'general', name: 'General Text', prismAlias: 'text' };
 const generateLanguages = SUPPORTED_LANGUAGES;
 const uploadLanguages = [...SUPPORTED_LANGUAGES, customLanguage];
 
@@ -101,12 +102,17 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
     }
     // MANDATORY RESET: Clear any previous session state before starting
     setLastPracticeAction('upload');
+
+    if (selectedMode === 'general') {
+      setSelectedLanguage(generalLanguage);
+    }
+
     onStart(null, null, code, selectedMode);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const files = Array.from(e.target.files);
+      const files = Array.from(e.target.files) as File[];
       if (files.length === 1) {
         const file = files[0];
         const reader = new FileReader();
@@ -145,6 +151,9 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
             }
 
             // Start session with valid files only
+            if (selectedMode === 'general') {
+              setSelectedLanguage(generalLanguage);
+            }
             await startMultiFileSession(validFiles);
 
             // CRITICAL: Immediately trigger Start Practice sequence
@@ -186,10 +195,11 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
         const current = document.activeElement;
 
         // Action Buttons
-        if (current === generateBtnRef.current || current === backRef.current) {
+        const primaryBtn = setupTab === 'generate' ? generateBtnRef.current : useCodeRef.current;
+        if (current === primaryBtn || current === backRef.current) {
           e.preventDefault();
-          if (current === generateBtnRef.current) backRef.current?.focus();
-          else generateBtnRef.current?.focus();
+          if (current === primaryBtn) backRef.current?.focus();
+          else primaryBtn?.focus();
           return;
         }
 
@@ -221,8 +231,10 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
         // Build navigation order based on current state
         order.push({ ref: tabsRef as any, type: 'segmented' });
 
+        // Mode selector is always visible now
+        order.push({ ref: modeRef as any, type: 'segmented' });
+
         if (setupTab === 'generate') {
-          order.push({ ref: modeRef as any, type: 'segmented' });
           if (selectedMode === 'code') {
             order.push({ ref: languageRef as any, type: 'select' });
           }
@@ -234,7 +246,10 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
           }
           order.push({ ref: actionButtonsRef as any, type: 'container' });
         } else {
-          order.push({ ref: languageRef as any, type: 'select' });
+          // Custom Text Tab
+          if (selectedMode === 'code') {
+            order.push({ ref: languageRef as any, type: 'select' });
+          }
           order.push({ ref: pasteTextAreaRef as any, type: 'input' });
           order.push({ ref: selectFileRef as any, type: 'button' });
           order.push({ ref: actionButtonsRef as any, type: 'container' });
@@ -262,7 +277,8 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
             nextItem.ref.current?.focus();
           } else if (nextItem.type === 'container') {
             if (nextItem.ref === actionButtonsRef) {
-              generateBtnRef.current?.focus();
+              const primaryBtn = setupTab === 'generate' ? generateBtnRef.current : useCodeRef.current;
+              primaryBtn?.focus();
             } else if (nextItem.ref === contentRef) {
               // Focus first button in content group
               const firstBtn = nextItem.ref.current?.querySelector('button');
@@ -288,8 +304,8 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
           case 'u': setSetupTab('upload'); break;
 
           // Mode
-          case 'c': if (setupTab === 'generate') setSelectedMode('code'); break;
-          case 'g': if (setupTab === 'generate') setSelectedMode('general'); break;
+          case 'c': setSelectedMode('code'); break;
+          case 'g': setSelectedMode('general'); break;
 
           // Length
           case 's': if (setupTab === 'generate') setSelectedLength('short'); break;
@@ -297,7 +313,6 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
           case 'l': if (setupTab === 'generate') setSelectedLength('long'); break;
 
           // Level (Code Mode)
-          case 'e': if (setupTab === 'generate' && selectedMode === 'code') setSelectedLevel('easy'); break;
           case 'i': if (setupTab === 'generate' && selectedMode === 'code') setSelectedLevel('medium'); break;
           case 'h':
             if (setupTab === 'generate') {
@@ -305,11 +320,16 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
               else toggleContentType('characters'); // 'h' for cHaracters
             }
             break;
+          case 'y':
+            if (setupTab === 'generate') {
+              if (selectedMode === 'code') setSelectedLevel('easy'); // 'y' for easY
+              else toggleContentType('symbols'); // 'y' for sYmbols
+            }
+            break;
 
           // Content (General Mode)
-          // 'h' is handled above
+          // 'h' and 'y' are handled above
           case 'n': if (setupTab === 'generate' && selectedMode === 'general') toggleContentType('numbers'); break;
-          case 'y': if (setupTab === 'generate' && selectedMode === 'general') toggleContentType('symbols'); break; // 'y' for sYmbols
         }
       }
     };
@@ -339,22 +359,22 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
           accessKeyChars={['A', 'U']}
         />
 
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Mode</label>
+          <SegmentedControl
+            ref={modeRef}
+            options={modeOptions}
+            selectedValue={selectedMode}
+            onSelect={(value) => {
+              setSelectedMode(value as PracticeMode);
+              modeRef.current?.focus();
+            }}
+            accessKeyChars={['C', 'G']}
+          />
+        </div>
+
         {setupTab === 'generate' && (
           <div className="space-y-4 animate-fade-in-up">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Mode</label>
-              <SegmentedControl
-                ref={modeRef}
-                options={modeOptions}
-                selectedValue={selectedMode}
-                onSelect={(value) => {
-                  setSelectedMode(value as PracticeMode);
-                  modeRef.current?.focus();
-                }}
-                accessKeyChars={['C', 'G']}
-              />
-            </div>
-
             {selectedMode === 'code' && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Language</label>
@@ -393,7 +413,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
                     setSelectedLevel(value as SnippetLevel);
                     levelRef.current?.focus();
                   }}
-                  accessKeyChars={['E', 'I', 'H']}
+                  accessKeyChars={['Y', 'I', 'H']}
                 />
               </div>
             ) : (
@@ -432,16 +452,18 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
 
         {setupTab === 'upload' && (
           <div className="space-y-4 animate-fade-in-up">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Language</label>
-              <Select
-                ref={languageRef}
-                options={uploadLanguages.map(l => ({ label: l.name, value: l.id }))}
-                value={selectedLanguage.id}
-                onChange={handleLanguageChange}
-                searchable
-              />
-            </div>
+            {selectedMode === 'code' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Language</label>
+                <Select
+                  ref={languageRef}
+                  options={uploadLanguages.map(l => ({ label: l.name, value: l.id }))}
+                  value={selectedLanguage.id}
+                  onChange={handleLanguageChange}
+                  searchable
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Paste Code</label>
               <textarea
@@ -484,8 +506,13 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
           </div>
         )}
 
-        <div className="flex justify-end gap-3 pt-4 border-t dark:border-slate-700" ref={actionButtonsRef}>
-          <Button ref={backRef} variant="ghost" onClick={onClose}>
+        <div className="flex justify-center gap-3 pt-4 border-t dark:border-slate-700" ref={actionButtonsRef}>
+          <Button
+            ref={backRef}
+            variant="ghost"
+            onClick={onClose}
+            className="hover:bg-slate-200 dark:hover:bg-slate-700 focus:ring-2 focus:ring-primary-500 focus:bg-slate-100 dark:focus:bg-slate-800 transition-colors"
+          >
             Cancel
           </Button>
           {setupTab === 'generate' ? (
@@ -506,7 +533,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
               onClick={() => handleCustomCodeSubmit(pastedCode)}
               disabled={!pastedCode.trim()}
             >
-              Use Code
+              Use This Text
             </Button>
           )}
         </div>
