@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { SavableTypingGameState } from '../types';
-import { genAI } from '@/services/geminiService';
+
 
 export enum CharState {
   Idle,
@@ -341,4 +341,4 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
 };
 
 export default useTypingGame;
-export const ai = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); // Using 1.5 Flash as defined in your source
+
