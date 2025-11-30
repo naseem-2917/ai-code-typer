@@ -495,12 +495,10 @@ const PracticePage: React.FC = () => {
                         {game.isPaused ? "Resume" : "Pause"}
                     </Button>
 
-                    <div className="h-6 w-px bg-slate-300 dark:bg-slate-700 mx-2 hidden sm:block"></div>
-
                     <Dropdown
                         ref={blockOnErrorRef}
                         trigger={
-                            <Button variant="ghost" title="Block on Error Settings (Alt+B)" accessKey="b">
+                            <Button variant="outline" title="Block on Error Settings (Alt+B)" accessKey="b">
                                 <BlockIcon className="w-5 h-5 mr-2" />
                                 <span className="hidden sm:inline">
                                     Block: {blockOnErrorOptions.find(o => o.value === blockOnErrorThreshold)?.label}
@@ -518,7 +516,7 @@ const PracticePage: React.FC = () => {
                             </DropdownItem>
                         ))}
                     </Dropdown>
-                    <Button variant="ghost" onClick={() => { toggleHandGuide(); requestFocusOnCode(); }} title="Toggle Hand Guide (Alt+G)" disabled={isSetupModalOpen} accessKey="g">
+                    <Button variant="outline" onClick={() => { toggleHandGuide(); requestFocusOnCode(); }} title="Toggle Hand Guide (Alt+G)" disabled={isSetupModalOpen} accessKey="g">
                         <HandGuideIcon className="w-5 h-5 sm:mr-2" />
                         <span className="hidden sm:inline">
                             Hand Guide

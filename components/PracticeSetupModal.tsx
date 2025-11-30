@@ -419,31 +419,34 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
             ) : (
               <div className="space-y-2" ref={contentRef}>
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Content Type</label>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant={selectedContentTypes.includes('characters') ? 'primary' : 'secondary'}
+                <div className="flex p-1 gap-1 bg-slate-100 dark:bg-slate-700/50 rounded-lg w-full">
+                  <button
                     onClick={() => toggleContentType('characters')}
-                    className="flex-1"
-                    accessKeyChar="H"
+                    className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${selectedContentTypes.includes('characters')
+                        ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 bg-transparent'
+                      }`}
                   >
                     Characters (a-z)
-                  </Button>
-                  <Button
-                    variant={selectedContentTypes.includes('numbers') ? 'primary' : 'secondary'}
+                  </button>
+                  <button
                     onClick={() => toggleContentType('numbers')}
-                    className="flex-1"
-                    accessKeyChar="N"
+                    className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${selectedContentTypes.includes('numbers')
+                        ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 bg-transparent'
+                      }`}
                   >
                     Numbers (0-9)
-                  </Button>
-                  <Button
-                    variant={selectedContentTypes.includes('symbols') ? 'primary' : 'secondary'}
+                  </button>
+                  <button
                     onClick={() => toggleContentType('symbols')}
-                    className="flex-1"
-                    accessKeyChar="Y"
+                    className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${selectedContentTypes.includes('symbols')
+                        ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 bg-transparent'
+                      }`}
                   >
                     Symbols (!@#)
-                  </Button>
+                  </button>
                 </div>
               </div>
             )}
