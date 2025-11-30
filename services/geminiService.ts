@@ -6,7 +6,7 @@ const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
 // @ts-ignore
 const genAI = new GoogleGenerativeAI(apiKey);
-const ai = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }); // Using 1.5 Pro as defined in your source
+const ai = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); // Using 2.5 Flash as defined in your source
 
 const levelMap = {
   easy: 'basic syntax and concepts, like variable declaration and simple loops',
@@ -163,9 +163,9 @@ export const generateGeneralSnippet = async (
 The snippet should be ${lengthMap[length]} long.
 The content MUST strictly follow these content rules:
 ${contentInstruction}`;
-  
+
   // NOTE: Level map is REMOVED from the General Snippet prompt as it's irrelevant for plain text difficulty.
-  
+
   const systemInstruction = `You are a text generation engine for a general typing practice app. 
 Your task is to provide a clean, raw text snippet based on the user's content selection.
 ABSOLUTELY NO markdown, headers, or conversational text should be included.

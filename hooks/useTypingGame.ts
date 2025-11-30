@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { SavableTypingGameState } from '../types';
+import { genAI } from '@/services/geminiService';
 
 export enum CharState {
   Idle,
@@ -51,7 +52,7 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
   const [isFinished, setIsFinished] = useState(false);
   const [isError, setIsError] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  
+
   const gameStateRef = useRef({
     isPaused: false,
     isFinished: false,
@@ -66,14 +67,14 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
   const autoPauseTimerRef = useRef<number | null>(null);
   const errorTimeoutRef = useRef<number | null>(null);
   const currentIndex = typedText.length;
-  
+
   const timerIntervalRef = useRef<number | null>(null);
   const accumulatedDurationRef = useRef<number>(0);
   const lastResumeTimeRef = useRef<number | null>(null);
 
   const errorMapRef = useRef<Record<string, number>>({});
   const attemptMapRef = useRef<Record<string, number>>({});
-  
+
   const clearAutoPauseTimer = useCallback(() => {
     if (autoPauseTimerRef.current) {
       clearTimeout(autoPauseTimerRef.current);
@@ -91,25 +92,25 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
   const pauseGame = useCallback(() => {
     const { isPaused, isFinished, startTime } = gameStateRef.current;
     if (isPaused || isFinished || !startTime) return;
-    
+
     clearAutoPauseTimer();
     stopTimer();
-    
+
     if (lastResumeTimeRef.current) {
       accumulatedDurationRef.current += Date.now() - lastResumeTimeRef.current;
     }
-    
+
     setIsPaused(true);
     if (onPause) onPause();
   }, [onPause, clearAutoPauseTimer, stopTimer]);
-  
+
   const resetIdleTimer = useCallback(() => {
     clearAutoPauseTimer();
     if (!gameStateRef.current.isFinished) {
       autoPauseTimerRef.current = window.setTimeout(pauseGame, 5000);
     }
   }, [clearAutoPauseTimer, pauseGame]);
-  
+
   const startTimer = useCallback(() => {
     stopTimer();
     lastResumeTimeRef.current = Date.now();
@@ -120,7 +121,7 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
       }
     }, 100);
   }, [stopTimer]);
-  
+
   const resumeGame = useCallback(() => {
     const { isPaused, isFinished } = gameStateRef.current;
     if (!isPaused || isFinished) return;
@@ -144,14 +145,14 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
     setIsFinished(false);
     setIsError(false);
     setIsPaused(false);
-    
+
     accumulatedDurationRef.current = 0;
     lastResumeTimeRef.current = null;
     gameStateRef.current.isTypingStarted = false;
 
     errorMapRef.current = {};
     attemptMapRef.current = {};
-    
+
     const newAttemptMap: Record<string, number> = {};
     for (const char of textToType) {
       newAttemptMap[char] = (newAttemptMap[char] || 0) + 1;
@@ -167,95 +168,95 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
   }, [reset]);
 
   const handleKeyDown = useCallback((key: string) => {
-      const isPrintable = key.length === 1;
-      const isAllowedControlKey = ['Tab', 'Control', 'Shift', 'Enter', 'Backspace'].includes(key);
+    const isPrintable = key.length === 1;
+    const isAllowedControlKey = ['Tab', 'Control', 'Shift', 'Enter', 'Backspace'].includes(key);
 
-      if (gameStateRef.current.isFinished || textToType.length === 0) {
-        return;
-      }
-      
-      // If the key is not a valid typing key, ignore it for timer/resume purposes.
-      if (!isPrintable && !isAllowedControlKey) {
-        return;
-      }
+    if (gameStateRef.current.isFinished || textToType.length === 0) {
+      return;
+    }
 
-      if (gameStateRef.current.isPaused) {
-          resumeGame();
-      } else if (gameStateRef.current.isTypingStarted) {
-          resetIdleTimer();
-      }
-    
-      if (!gameStateRef.current.isTypingStarted) {
-        setStartTime(Date.now());
-        startTimer();
-        resetIdleTimer();
-        gameStateRef.current.isTypingStarted = true;
-      }
-    
-      if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
-      setIsError(false);
+    // If the key is not a valid typing key, ignore it for timer/resume purposes.
+    if (!isPrintable && !isAllowedControlKey) {
+      return;
+    }
 
-      if (key === 'Backspace') {
-        setConsecutiveErrors(0);
-        if (currentIndex > 0) {
-          setTypedText(prev => prev.slice(0, -1));
-          setCharStates(prev => {
-            const newStates = [...prev];
-            newStates[currentIndex - 1] = CharState.Idle;
-            return newStates;
-          });
-        }
-      } else {
-        const inputChar = key === 'Enter' ? '\n' : (key === 'Tab' ? '\t' : (isPrintable ? key : null));
-        if (inputChar !== null && currentIndex < textToType.length) {
-          const expectedChar = textToType[currentIndex];
-          const isCorrect = inputChar === expectedChar;
+    if (gameStateRef.current.isPaused) {
+      resumeGame();
+    } else if (gameStateRef.current.isTypingStarted) {
+      resetIdleTimer();
+    }
 
-          if (!isCorrect) {
-            errorMapRef.current[expectedChar] = (errorMapRef.current[expectedChar] || 0) + 1;
-            const newConsecutiveErrors = consecutiveErrors + 1;
-            setErrors(prev => prev + 1);
-            if (errorThreshold > 0 && newConsecutiveErrors >= errorThreshold) {
-              setConsecutiveErrors(newConsecutiveErrors);
-              setIsError(true);
-              errorTimeoutRef.current = window.setTimeout(() => setIsError(false), 200);
-              return;
-            }
+    if (!gameStateRef.current.isTypingStarted) {
+      setStartTime(Date.now());
+      startTimer();
+      resetIdleTimer();
+      gameStateRef.current.isTypingStarted = true;
+    }
+
+    if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
+    setIsError(false);
+
+    if (key === 'Backspace') {
+      setConsecutiveErrors(0);
+      if (currentIndex > 0) {
+        setTypedText(prev => prev.slice(0, -1));
+        setCharStates(prev => {
+          const newStates = [...prev];
+          newStates[currentIndex - 1] = CharState.Idle;
+          return newStates;
+        });
+      }
+    } else {
+      const inputChar = key === 'Enter' ? '\n' : (key === 'Tab' ? '\t' : (isPrintable ? key : null));
+      if (inputChar !== null && currentIndex < textToType.length) {
+        const expectedChar = textToType[currentIndex];
+        const isCorrect = inputChar === expectedChar;
+
+        if (!isCorrect) {
+          errorMapRef.current[expectedChar] = (errorMapRef.current[expectedChar] || 0) + 1;
+          const newConsecutiveErrors = consecutiveErrors + 1;
+          setErrors(prev => prev + 1);
+          if (errorThreshold > 0 && newConsecutiveErrors >= errorThreshold) {
             setConsecutiveErrors(newConsecutiveErrors);
-          } else {
-            setConsecutiveErrors(0);
+            setIsError(true);
+            errorTimeoutRef.current = window.setTimeout(() => setIsError(false), 200);
+            return;
           }
+          setConsecutiveErrors(newConsecutiveErrors);
+        } else {
+          setConsecutiveErrors(0);
+        }
 
-          setTypedText(prev => prev + inputChar);
-          setCharStates(prev => {
-            const newStates = [...prev];
-            newStates[currentIndex] = isCorrect ? CharState.Correct : CharState.Incorrect;
-            return newStates;
-          });
+        setTypedText(prev => prev + inputChar);
+        setCharStates(prev => {
+          const newStates = [...prev];
+          newStates[currentIndex] = isCorrect ? CharState.Correct : CharState.Incorrect;
+          return newStates;
+        });
 
-          if (currentIndex + 1 === textToType.length) {
-            clearAutoPauseTimer();
-            stopTimer();
-            
-            const finalAccumulated = accumulatedDurationRef.current + (lastResumeTimeRef.current ? (Date.now() - lastResumeTimeRef.current) : 0);
-            const finalDurationInSeconds = finalAccumulated / 1000;
-            
-            setDuration(finalDurationInSeconds);
+        if (currentIndex + 1 === textToType.length) {
+          clearAutoPauseTimer();
+          stopTimer();
 
-            const durationInMinutes = finalDurationInSeconds / 60;
-            const wordsTyped = textToType.length / 5;
-            const finalWpm = durationInMinutes > 0 ? Math.round(wordsTyped / durationInMinutes) : 0;
-            setWpm(finalWpm);
-            
-            const finalAccuracy = Math.max(0, ((textToType.length - (errors + (isCorrect ? 0 : 1))) / textToType.length) * 100);
-            setAccuracy(parseFloat(finalAccuracy.toFixed(2)));
-            setIsFinished(true);
-          }
+          const finalAccumulated = accumulatedDurationRef.current + (lastResumeTimeRef.current ? (Date.now() - lastResumeTimeRef.current) : 0);
+          const finalDurationInSeconds = finalAccumulated / 1000;
+
+          setDuration(finalDurationInSeconds);
+
+          const durationInMinutes = finalDurationInSeconds / 60;
+          const wordsTyped = textToType.length / 5;
+          const finalWpm = durationInMinutes > 0 ? Math.round(wordsTyped / durationInMinutes) : 0;
+          setWpm(finalWpm);
+
+          const finalAccuracy = Math.max(0, ((textToType.length - (errors + (isCorrect ? 0 : 1))) / textToType.length) * 100);
+          setAccuracy(parseFloat(finalAccuracy.toFixed(2)));
+          setIsFinished(true);
         }
       }
+    }
   }, [
-      currentIndex, textToType, errors, errorThreshold, consecutiveErrors, 
-      resumeGame, clearAutoPauseTimer, resetIdleTimer, startTimer, stopTimer
+    currentIndex, textToType, errors, errorThreshold, consecutiveErrors,
+    resumeGame, clearAutoPauseTimer, resetIdleTimer, startTimer, stopTimer
   ]);
 
   useEffect(() => {
@@ -265,7 +266,7 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
       const durationInSeconds = currentTotalDurationMs / 1000;
 
       const wordsTyped = typedText.length / 5;
-      
+
       // FIX: Implemented a condition to prevent WPM from spiking on the first character.
       // WPM is now only calculated if more than one character has been typed OR
       // more than one second has passed, ensuring a more stable initial reading.
@@ -274,7 +275,7 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
       } else {
         setWpm(0);
       }
-      
+
       const totalTyped = typedText.length;
       if (totalTyped > 0) {
         const correctChars = typedText.split('').filter((char, index) => char === textToType[index]).length;
@@ -283,11 +284,11 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
         setAccuracy(100);
       }
     } else if (!startTime) {
-        setWpm(0);
-        setAccuracy(100);
+      setWpm(0);
+      setAccuracy(100);
     }
   }, [typedText, startTime, isFinished, isPaused, textToType]);
-  
+
   useEffect(() => stopTimer, [stopTimer]);
 
   const getSavableState = useCallback((): SavableTypingGameState => {
@@ -340,3 +341,4 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
 };
 
 export default useTypingGame;
+export const ai = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); // Using 1.5 Flash as defined in your source
