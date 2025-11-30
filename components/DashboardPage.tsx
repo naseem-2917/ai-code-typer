@@ -1,4 +1,3 @@
-// FIX: Implemented the DashboardPage component to display user stats.
 import React, { useContext, useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { Card } from './ui/Card';
@@ -11,20 +10,21 @@ import { SnippetLength, SnippetLevel } from '../types';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { exportAllData, importData } from '../services/dataService';
 import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  PieChart,
-  Pie,
-  Cell,
+    ResponsiveContainer,
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    PieChart,
+    Pie,
+    Cell,
 } from 'recharts';
 import { useAccessKey } from '../hooks/useAccessKey';
 import { ConfirmationModal } from './ui/ConfirmationModal';
+import { TrashIcon } from './icons/TrashIcon';
 
 const COLORS = ['#10b981', '#3b82f6', '#ef4444', '#f97316', '#8b5cf6', '#ec4899'];
 
@@ -35,7 +35,6 @@ const formatSessionDuration = (totalSeconds: number) => {
     return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
 };
 
-// FIX: Updated tooltip to handle timestamp labels and display full session data.
 const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         const sessionData = payload[0].payload;
@@ -60,7 +59,6 @@ const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
 };
 
 const RADIAN = Math.PI / 180;
-// FIX: Changed component type from React.FC to a plain function to fix type incompatibility with recharts Pie label prop.
 const renderCustomizedLabel = ({ cx, cy, midAngle, outerRadius, fill, percent, name }: any) => {
     const sin = Math.sin(-RADIAN * midAngle);
     const cos = Math.cos(-RADIAN * midAngle);
@@ -73,7 +71,7 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, outerRadius, fill, percent, n
     const textAnchor = cos >= 0 ? 'start' : 'end';
 
     if (percent < 0.02) {
-      return null;
+        return null;
     }
 
     return (
@@ -91,42 +89,45 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, outerRadius, fill, percent, n
 };
 
 const displayKey = (key: string): string => {
-  switch (key) {
-    case ' ':
-      return 'Space (␣)';
-    case '\n':
-      return 'Enter (↵)';
-    case '\t':
-      return 'Tab (⇥)';
-    default:
-      return key;
-  }
+    switch (key) {
+        case ' ':
+            return 'Space (␣)';
+        case '\n':
+            return 'Enter (↵)';
+        case '\t':
+            return 'Tab (⇥)';
+        default:
+            return key;
+    }
 };
 
 
 const DashboardPage: React.FC = () => {
     const context = useContext(AppContext);
     if (!context) throw new Error("AppContext not found");
-    const { 
-        practiceHistory, 
-        keyErrorStats, 
-        keyAttemptStats, 
-        wpmGoal, 
+    const {
+        practiceHistory,
+        keyErrorStats,
+        keyAttemptStats,
+        wpmGoal,
         accuracyGoal,
         timeGoal,
         dailyPracticeTime,
-        setGoals, 
-        navigateTo, 
+        setGoals,
+        navigateTo,
         startTargetedSession,
         showAlert,
         reloadDataFromStorage,
+        deletePracticeSession,
+        clearPracticeHistory,
     } = context;
-    
+
     const [isGoalsModalOpen, setIsGoalsModalOpen] = useState(false);
     const [isTargetedSetupOpen, setIsTargetedSetupOpen] = useState(false);
     const [timeFilter, setTimeFilter] = useState<'24h' | '7d' | '30d' | 'all'>('all');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [importConfirmation, setImportConfirmation] = useState<{ fileContent: string } | null>(null);
+    const [deleteConfirmation, setDeleteConfirmation] = useState<{ type: 'single' | 'all', timestamp?: number } | null>(null);
 
     const [focusedButtonIndex, setFocusedButtonIndex] = useState(0);
     const startButtonRef = useRef<HTMLButtonElement>(null);
@@ -137,10 +138,10 @@ const DashboardPage: React.FC = () => {
             startButtonRef.current?.focus();
         }
     }, [practiceHistory.length]);
-    
+
     useEffect(() => {
         if (practiceHistory.length > 0) return;
-        
+
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
                 e.preventDefault();
@@ -153,7 +154,7 @@ const DashboardPage: React.FC = () => {
 
     useEffect(() => {
         if (practiceHistory.length > 0) return;
-        
+
         if (focusedButtonIndex === 0) {
             startButtonRef.current?.focus();
         } else {
@@ -240,6 +241,26 @@ const DashboardPage: React.FC = () => {
         setImportConfirmation(null); // Close the modal
     };
 
+    const handleDeleteClick = (timestamp: number) => {
+        setDeleteConfirmation({ type: 'single', timestamp });
+    };
+
+    const handleDeleteAllClick = () => {
+        setDeleteConfirmation({ type: 'all' });
+    };
+
+    const handleDeleteConfirm = () => {
+        if (deleteConfirmation?.type === 'single' && deleteConfirmation.timestamp) {
+            deletePracticeSession(deleteConfirmation.timestamp);
+            showAlert('Session deleted.', 'info');
+        } else if (deleteConfirmation?.type === 'all') {
+            clearPracticeHistory();
+            showAlert('All history deleted.', 'info');
+        }
+        setDeleteConfirmation(null);
+    };
+
+
     const filteredHistory = useMemo(() => {
         const now = Date.now();
         if (timeFilter === '24h') {
@@ -253,7 +274,7 @@ const DashboardPage: React.FC = () => {
         }
         return practiceHistory;
     }, [practiceHistory, timeFilter]);
-    
+
     const graphConfig = useMemo(() => {
         const now = new Date();
         const sortedData = filteredHistory.slice().sort((a, b) => a.timestamp - b.timestamp);
@@ -315,11 +336,11 @@ const DashboardPage: React.FC = () => {
                 break;
             }
         }
-        
+
         return { data: chartData, domain, tickFormatter, ticks, xAxisType, xDataKey };
 
     }, [filteredHistory, timeFilter]);
-    
+
     const overallStats = useMemo(() => {
         if (filteredHistory.length === 0) {
             return { avgWpm: 0, avgAccuracy: 0, totalDuration: 0, sessions: 0, bestWpm: 0, totalLines: 0, totalErrors: 0 };
@@ -330,7 +351,7 @@ const DashboardPage: React.FC = () => {
         const bestWpm = Math.max(0, ...filteredHistory.map(s => s.wpm));
         const totalLines = filteredHistory.reduce((acc, curr) => acc + curr.linesTyped, 0);
         const totalErrors = filteredHistory.reduce((acc, curr) => acc + curr.errors, 0);
-        
+
         return {
             avgWpm: Math.round(totalWpm / filteredHistory.length),
             avgAccuracy: parseFloat((totalAccuracy / filteredHistory.length).toFixed(2)),
@@ -344,7 +365,7 @@ const DashboardPage: React.FC = () => {
 
     const errorAnalysis = useMemo(() => {
         if (practiceHistory.length === 0) return [];
-        
+
         return Object.entries(keyErrorStats)
             .map(([key, errors]) => {
                 const attempts = keyAttemptStats[key] || errors;
@@ -357,8 +378,8 @@ const DashboardPage: React.FC = () => {
             .sort((a, b) => b.errorRate - a.errorRate)
             .slice(0, 5);
     }, [keyErrorStats, keyAttemptStats, practiceHistory]);
-    
-     const languageFocus = useMemo(() => {
+
+    const languageFocus = useMemo(() => {
         if (filteredHistory.length === 0) return [];
         const focusMap: Record<string, number> = {};
         filteredHistory.forEach(session => {
@@ -376,12 +397,12 @@ const DashboardPage: React.FC = () => {
     const handleStartTargetedPractice = (length: SnippetLength, level: SnippetLevel) => {
         setIsTargetedSetupOpen(false);
         const keysToPractice = errorAnalysis.map(k => k.key);
-        if(keysToPractice.length > 0) {
+        if (keysToPractice.length > 0) {
             navigateTo('practice');
             startTargetedSession(keysToPractice, { length, level });
         }
     };
-    
+
     const wpmProgress = wpmGoal > 0 ? Math.min(100, (overallStats.avgWpm / wpmGoal) * 100) : 0;
     const accuracyProgress = accuracyGoal > 0 ? Math.min(100, (overallStats.avgAccuracy / accuracyGoal) * 100) : 0;
     const timeGoalInSeconds = timeGoal * 60;
@@ -407,7 +428,7 @@ const DashboardPage: React.FC = () => {
         newTimeGoal = Math.floor(dailyPracticeMinutes / 5) * 5 + 5;
         timeIncreaseAmount = newTimeGoal - timeGoal;
     }
-    
+
     const accuracyIncreaseAmount = Math.min(5, 100 - accuracyGoal);
 
     if (practiceHistory.length === 0) {
@@ -448,12 +469,12 @@ const DashboardPage: React.FC = () => {
             </div>
         );
     }
-    
+
     const filterOptions = [
-      { label: 'Last 24 Hrs', value: '24h' },
-      { label: 'Last 7 Days', value: '7d' },
-      { label: 'Last 30 Days', value: '30d' },
-      { label: 'All Time', value: 'all' },
+        { label: 'Last 24 Hrs', value: '24h' },
+        { label: 'Last 7 Days', value: '7d' },
+        { label: 'Last 30 Days', value: '30d' },
+        { label: 'All Time', value: 'all' },
     ];
     const filterAccessKeys = ['2', '7', '3', 'A'];
 
@@ -469,7 +490,7 @@ const DashboardPage: React.FC = () => {
                         accessKeyChars={filterAccessKeys}
                     />
                 </div>
-                
+
                 {filteredHistory.length === 0 ? (
                     <Card className="p-8 text-center text-slate-500">
                         No practice sessions found for the selected time period.
@@ -574,14 +595,14 @@ const DashboardPage: React.FC = () => {
                                     {languageFocus.length > 0 ? (
                                         <ResponsiveContainer width="100%" height={200}>
                                             <PieChart>
-                                                <Pie 
-                                                    data={languageFocus} 
-                                                    dataKey="value" 
-                                                    nameKey="name" 
-                                                    cx="50%" 
-                                                    cy="50%" 
+                                                <Pie
+                                                    data={languageFocus}
+                                                    dataKey="value"
+                                                    nameKey="name"
+                                                    cx="50%"
+                                                    cy="50%"
                                                     outerRadius={60}
-                                                    fill="#8884d8" 
+                                                    fill="#8884d8"
                                                     labelLine={false}
                                                     label={renderCustomizedLabel}
                                                 >
@@ -599,7 +620,18 @@ const DashboardPage: React.FC = () => {
                         </div>
 
                         <Card className="p-6">
-                            <h2 className="text-xl font-semibold mb-4">Practice History</h2>
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-xl font-semibold">Practice History</h2>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    onClick={handleDeleteAllClick}
+                                >
+                                    <TrashIcon className="w-4 h-4 mr-2" />
+                                    Delete All
+                                </Button>
+                            </div>
                             <div className="max-h-96 overflow-y-auto custom-scrollbar">
                                 <table className="w-full text-sm text-left">
                                     <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-slate-100 dark:bg-slate-700 sticky top-0">
@@ -610,6 +642,7 @@ const DashboardPage: React.FC = () => {
                                             <th scope="col" className="px-6 py-3">Errors</th>
                                             <th scope="col" className="px-6 py-3">Duration</th>
                                             <th scope="col" className="px-6 py-3">Date</th>
+                                            <th scope="col" className="px-6 py-3 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -621,9 +654,21 @@ const DashboardPage: React.FC = () => {
                                                 <td className="px-6 py-4">{session.errors}</td>
                                                 <td className="px-6 py-4">{formatSessionDuration(session.duration)}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap">{new Date(session.timestamp).toLocaleString()}</td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="text-slate-400 hover:text-red-500"
+                                                        onClick={() => handleDeleteClick(session.timestamp)}
+                                                        title="Delete Session"
+                                                    >
+                                                        <TrashIcon className="w-4 h-4" />
+                                                    </Button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
+
                                 </table>
                             </div>
                         </Card>
@@ -674,7 +719,7 @@ const DashboardPage: React.FC = () => {
                         />
                     </div>
                 </Card>
-                
+
                 <GoalsModal
                     isOpen={isGoalsModalOpen}
                     onClose={() => setIsGoalsModalOpen(false)}
@@ -683,12 +728,12 @@ const DashboardPage: React.FC = () => {
                     currentAccuracyGoal={accuracyGoal}
                     currentTimeGoal={timeGoal}
                 />
-                
+
                 <PracticeSetupModal
-                  isOpen={isTargetedSetupOpen}
-                  onClose={() => setIsTargetedSetupOpen(false)}
-                  onStart={(length, level) => handleStartTargetedPractice(length!, level!)}
-                  variant="targeted"
+                    isOpen={isTargetedSetupOpen}
+                    onClose={() => setIsTargetedSetupOpen(false)}
+                    onStart={(length, level) => handleStartTargetedPractice(length!, level!)}
+                    variant="targeted"
                 />
             </div>
 
@@ -702,6 +747,20 @@ const DashboardPage: React.FC = () => {
                     { label: 'Replace', onClick: () => handleImportConfirm('replace'), variant: 'secondary' },
                 ]}
             />
+
+            <ConfirmationModal
+                isOpen={!!deleteConfirmation}
+                onClose={() => setDeleteConfirmation(null)}
+                title={deleteConfirmation?.type === 'all' ? "Delete All History" : "Delete Session"}
+                message={deleteConfirmation?.type === 'all'
+                    ? "Are you sure you want to delete ALL practice history? This action cannot be undone."
+                    : "Are you sure you want to delete this practice session?"}
+                buttons={[
+                    { label: 'Cancel', onClick: () => setDeleteConfirmation(null), variant: 'secondary' },
+                    { label: 'Delete', onClick: handleDeleteConfirm, variant: 'primary', className: 'bg-red-600 hover:bg-red-700 text-white' },
+                ]}
+            />
+
         </>
     );
 };

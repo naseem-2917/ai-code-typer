@@ -118,6 +118,8 @@ interface AppContextType {
   handleNextSnippet: () => void;
   handlePracticeSame: () => void;
   handleSetupNew: () => void;
+  deletePracticeSession: (timestamp: number) => void;
+  clearPracticeHistory: () => void;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -575,6 +577,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSessionResetKey(prev => prev + 1); // Force remount to clear local state
   }, [openSetupModal]);
 
+  const deletePracticeSession = useCallback((timestamp: number) => {
+    setPracticeHistory(prev => {
+      const sessionToDelete = prev.find(s => s.timestamp === timestamp);
+      if (sessionToDelete) {
+        // Check if session is from today to update daily time
+        const sessionDate = new Date(sessionToDelete.timestamp).toDateString();
+        const todayDate = new Date().toDateString();
+        if (sessionDate === todayDate) {
+          setDailyPracticeTime(prevTime => Math.max(0, prevTime - sessionToDelete.duration));
+          // Also update localStorage for daily time
+          const currentDailyTime = Number(localStorage.getItem('dailyPracticeTime') || '0');
+          localStorage.setItem('dailyPracticeTime', String(Math.max(0, currentDailyTime - sessionToDelete.duration)));
+        }
+      }
+      return prev.filter(s => s.timestamp !== timestamp);
+    });
+  }, []);
+
+  const clearPracticeHistory = useCallback(() => {
+    setPracticeHistory([]);
+    // Reset daily practice time if we are clearing everything? 
+    // Maybe just keep it simple and only clear history list.
+    // But if we clear history, we probably should clear daily time if it was derived from that history.
+    // However, daily time might track practice not just in history (though currently it is).
+    // Let's reset daily time to 0 for consistency if we wipe everything.
+    setDailyPracticeTime(0);
+    localStorage.setItem('dailyPracticeTime', '0');
+
+    // Also clear stats derived from history
+    setKeyErrorStats({});
+    setKeyAttemptStats({});
+    localStorage.removeItem('keyErrorStats');
+    localStorage.removeItem('keyAttemptStats');
+  }, []);
+
   const value: AppContextType = {
     theme, toggleTheme,
     selectedLanguage, setSelectedLanguage,
@@ -603,6 +640,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     practiceMode, setPracticeMode,
     sessionResetKey,
     handleStartFromSetup, handleNextSnippet, handlePracticeSame, handleSetupNew,
+    deletePracticeSession, clearPracticeHistory,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
