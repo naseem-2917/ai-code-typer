@@ -66,8 +66,6 @@ const CodeSnippet: React.FC<CodeSnippetProps> = ({ code, charStates, currentInde
                                     highlightedChars.push({ char, classNames, originalIndex: charIndex++ });
                                 }
                             } else if (Array.isArray(token.content)) {
-                                // This is a simplification. True nested highlighting would require passing parent classes.
-                                // For this app's purpose, tokenizing preserves characters which is the main goal.
                                 processTokenStream(token.content);
                             }
                         }
@@ -76,18 +74,15 @@ const CodeSnippet: React.FC<CodeSnippetProps> = ({ code, charStates, currentInde
 
                 processTokenStream(tokens);
 
-                // Safety check to ensure tokenization didn't alter content length, which would break the app.
                 if (highlightedChars.map(c => c.char).join('') !== code) {
                     throw new Error("Tokenization resulted in content mismatch.");
                 }
             } catch (e) {
                 console.error("Prism tokenization failed, falling back to plain text.", e);
-                // Clear any partial results and fall back
                 highlightedChars.length = 0;
                 highlightedChars.push(...code.split('').map((char, index) => ({ char, classNames: [], originalIndex: index })));
             }
         } else {
-            // Fallback for no language support or no code
             highlightedChars.push(...code.split('').map((char, index) => ({ char, classNames: [], originalIndex: index })));
         }
 
@@ -120,10 +115,12 @@ const CodeSnippet: React.FC<CodeSnippetProps> = ({ code, charStates, currentInde
         const isCurrentChar = isInteractive && index === currentIndex;
 
         let charSpecificClassName;
+        let state = CharState.Idle;
 
         if (isInteractive) {
             if (index < currentIndex!) {
-                switch (charStates![index]) {
+                state = charStates![index];
+                switch (state) {
                     case CharState.Correct:
                         charSpecificClassName = 'text-primary-500 dark:text-primary-400';
                         break;
@@ -144,23 +141,32 @@ const CodeSnippet: React.FC<CodeSnippetProps> = ({ code, charStates, currentInde
             charSpecificClassName = charInfo.classNames.join(' ');
         }
 
-        // Use a different, less intrusive color for untyped text in interactive mode
         if (isInteractive && index > currentIndex!) {
             charSpecificClassName = 'text-gray-600 dark:text-gray-400';
         }
 
+        // --- NEW LOGIC: Handle Newline Character Highlight ---
+        const isNewline = charInfo.char === '\n';
+
+        // Check if this character (even if it's a newline) was typed incorrectly previously
+        // or is currently the active character with an error state.
+        const isErrorState =
+            (isInteractive && index < currentIndex! && state === CharState.Incorrect) ||
+            (isInteractive && isCurrentChar && isError);
+
         return (
-            <span key={index} ref={isCurrentChar ? cursorRef : undefined} className="relative">
+            <span key={index} ref={isCurrentChar ? cursorRef : undefined} className="relative inline-block">
                 {isInteractive && isCurrentChar && !isError && (
                     <span className="absolute top-0 left-0 w-0.5 h-full bg-primary-400 animate-blink rounded-full"></span>
                 )}
+
+                {/* If it's a newline AND it's an error (either past incorrect or current blocking error),
+                    we render a visible '↵' symbol with red background. 
+                    Otherwise, we just render the character (empty for newline).
+                */}
                 <span className={`${charSpecificClassName} ${isInteractive && isCurrentChar && isError ? 'bg-red-500/20 rounded-sm' : ''}`}>
-                    {charInfo.char === '\n' ? '' : charInfo.char}
+                    {isNewline ? (isErrorState ? <span className="text-red-500 bg-red-500/20 px-1 select-none">↵</span> : '\u200b') : charInfo.char}
                 </span>
-                {/* End of Line Error Indicator */}
-                {isInteractive && isCurrentChar && isError && charInfo.char === '\n' && (
-                    <span className="absolute top-0 left-0 text-red-500 select-none pointer-events-none">↵</span>
-                )}
             </span>
         );
     };
@@ -179,13 +185,12 @@ const CodeSnippet: React.FC<CodeSnippetProps> = ({ code, charStates, currentInde
                         </div>
                         <div className="flex-1 min-w-0 whitespace-pre-wrap break-all">
                             {chars.map(renderChar)}
-                            {/* If the line is blank, render an invisible non-breaking space to give it height,
-                                which ensures the cursor placed on the newline character is visible. */}
+
                             {isBlankLine && <span className="opacity-0 select-none">&nbsp;</span>}
+
                             {showCursorAtEnd && (
                                 <span ref={cursorRef} className="relative inline-block w-0">
                                     {'\u200b'}
-                                    {/* EOF Error Indicator */}
                                     {isError ? (
                                         <span className="absolute top-0 left-0 w-2 h-full bg-red-500/50 animate-pulse rounded-sm"></span>
                                     ) : (
