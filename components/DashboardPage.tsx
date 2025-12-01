@@ -685,7 +685,7 @@ const DashboardPage: React.FC = () => {
                                     <div key={key} className="flex items-center justify-between text-sm">
                                         <span className="font-mono bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded w-24 text-center">{displayKey(key)}</span>
                                         <div className="w-full mx-4 bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
-                                            <div className="bg-red-500 h-2.5 rounded-full" style={{ width: `${Math.min(100, errorRate * 5)}%` }}></div>
+                                            <div className="bg-red-500 h-2.5 rounded-full" style={{ width: `${Math.min(errorRate, 100)}%` }}></div>
                                         </div>
                                         <span className="font-semibold w-28 text-right">{errorRate.toFixed(1)}% error rate</span>
                                     </div>
