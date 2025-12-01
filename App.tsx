@@ -4,6 +4,7 @@ import HomePage from './components/HomePage';
 import PracticePage from './components/PracticePage';
 import { AppContext, AppProvider } from './context/AppContext';
 import DashboardPage from './components/DashboardPage';
+import HistoryPage from './components/HistoryPage';
 import { Page } from './types';
 import { Alert } from './components/ui/Alert';
 
@@ -21,6 +22,8 @@ const AppContent: React.FC = () => {
         return <PracticePage key={sessionResetKey} />;
       case 'dashboard':
         return <DashboardPage />;
+      case 'history':
+        return <HistoryPage />;
       case 'home':
       default:
         return <HomePage onStartPractice={() => navigateTo('practice')} />;

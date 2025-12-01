@@ -33,59 +33,28 @@ const PracticeQueueSidebar: React.FC = () => {
     if (!context) return null;
     const { practiceQueue, currentQueueIndex } = context;
 
-    const activeItemRef = useRef<HTMLDivElement>(null);
-    const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const scrollContainer = scrollContainerRef.current;
-        const activeItem = activeItemRef.current;
-
-        if (scrollContainer && activeItem) {
-            const containerRect = scrollContainer.getBoundingClientRect();
-            const itemRect = activeItem.getBoundingClientRect();
-            const itemCenterRelativeToContainer = (itemRect.top - containerRect.top) + (itemRect.height / 2);
-            const containerCenter = containerRect.height / 2;
-            const desiredScrollTop = scrollContainer.scrollTop + itemCenterRelativeToContainer - containerCenter;
-
-            scrollContainer.scrollTo({
-                top: desiredScrollTop,
-                behavior: 'smooth',
-            });
-        }
-    }, [currentQueueIndex]);
-
-
-    if (practiceQueue.length <= 1) return null;
-
     return (
-        <Card ref={scrollContainerRef} className="w-64 flex-shrink-0 hidden lg:block flex flex-col h-full overflow-y-auto custom-scrollbar">
-            <h3 className="text-lg font-semibold sticky top-0 bg-white dark:bg-slate-800 z-10 p-4 pb-3">Practice Queue</h3>
-            <div className="space-y-2 px-4 pb-4">
-                {practiceQueue.map((item, index) => (
-                    <div
-                        key={index}
-                        ref={index === currentQueueIndex ? activeItemRef : null}
-                        className={`flex items-center gap-3 p-2 rounded-md text-sm transition-colors ${index === currentQueueIndex
-                            ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
-                            : 'text-slate-600 dark:text-slate-400'
-                            }`}
-                    >
-                        {index < currentQueueIndex ? (
-                            <CheckIcon className="w-5 h-5 text-primary-500 flex-shrink-0" />
-                        ) : (
-                            <FileCodeIcon className="w-5 h-5 flex-shrink-0" />
-                        )}
-                        <span className="truncate font-medium">{item.name}</span>
+        <div className="flex flex-col gap-2 h-full">
+            <h3 className="font-semibold text-slate-700 dark:text-slate-300 px-2">Queue</h3>
+            <div className="flex-1 overflow-y-auto space-y-2 px-2 custom-scrollbar">
+                {practiceQueue.map((snippet, index) => (
+                    <div key={index} className={`p-2 rounded text-xs border ${index === currentQueueIndex ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700' : 'bg-slate-50 dark:bg-slate-800 border-transparent'}`}>
+                        <div className={`font-medium mb-1 ${index === currentQueueIndex ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500'}`}>
+                            Snippet {index + 1}
+                        </div>
+                        <div className="font-mono text-slate-600 dark:text-slate-400 truncate opacity-75">
+                            {snippet.substring(0, 40).replace(/\n/g, ' ')}...
+                        </div>
                     </div>
                 ))}
             </div>
-        </Card>
+        </div>
     );
 };
 
 const PracticePage: React.FC = () => {
     const context = useContext(AppContext);
-    if (!context) throw new Error("AppContext not found");
+    if (!context) return null;
 
     const {
         snippet, isLoadingSnippet, snippetError, selectedLanguage, fetchNewSnippet,
@@ -147,6 +116,50 @@ const PracticePage: React.FC = () => {
         gameRef.current.reset();
     }, [sessionResetKey]);
 
+    const resetGame = useCallback(() => {
+        gameRef.current.reset();
+        requestFocusOnCode();
+    }, [requestFocusOnCode]);
+
+    const togglePause = useCallback(() => {
+        gameRef.current.togglePause();
+        requestFocusOnCode();
+    }, [requestFocusOnCode]);
+
+    const handleSetupNew = useCallback(() => {
+        openSetupModal();
+    }, [openSetupModal]);
+
+    const handleEndSession = useCallback(() => {
+        setIsSessionEndedEarly(true);
+        // We need to calculate stats up to this point
+        const currentStats = {
+            wpm: gameRef.current.wpm,
+            accuracy: gameRef.current.accuracy,
+            errors: gameRef.current.errors,
+            duration: gameRef.current.duration,
+            errorMap: gameRef.current.errorMap,
+            attemptMap: gameRef.current.attemptMap
+        };
+        setLastStats(currentStats);
+        setIsResultsModalOpen(true);
+    }, []);
+
+    const handlePracticeSame = useCallback(() => {
+        setIsResultsModalOpen(false);
+        setIsTargetedResultsModalOpen(false);
+        resetGame();
+        requestFocusOnCode();
+    }, [resetGame, requestFocusOnCode]);
+
+    const handleNextSnippet = useCallback(() => {
+        setIsResultsModalOpen(false);
+        setIsTargetedResultsModalOpen(false);
+        loadNextSnippetInQueue();
+        requestFocusOnCode();
+    }, [loadNextSnippetInQueue, requestFocusOnCode]);
+
+
     // Restore session state on mount
     useEffect(() => {
         const sessionResultJSON = localStorage.getItem('sessionResultToShow');
@@ -178,218 +191,84 @@ const PracticePage: React.FC = () => {
                 setSessionToRestore(savedSession);
             } catch (e) { console.error("Failed to parse continued session", e); }
         }
-
-        if (!hasRestoredOnMount.current && !isInitialSetupComplete && !isLoadingSnippet && !snippetError) {
-            openSetupModal();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // Apply restored game state
-    useEffect(() => {
-        if (sessionToRestore && snippet === sessionToRestore.context.snippet) {
-            gameRef.current.restoreState(sessionToRestore.game);
-            setSessionToRestore(null);
-        }
-    }, [sessionToRestore, snippet]);
-
-    // Save session state on unmount
-    useEffect(() => {
-        return () => {
-            const currentGame = gameRef.current;
-            if (!currentGame.isFinished && currentGame.typedText.length > 0) {
-                const continuedSession: PausedSessionData = {
-                    game: currentGame.getSavableState(),
-                    context: {
-                        snippet,
-                        selectedLanguage,
-                        isCustomSession,
-                        currentTargetedKeys,
-                        practiceQueue,
-                        currentQueueIndex,
-                    },
-                    timestamp: Date.now(),
-                };
-                localStorage.setItem('continuedSession', JSON.stringify(continuedSession));
-            }
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hasSubmitted, isSessionEndedEarly, lastPracticeAction, isCustomSession, snippet, selectedLanguage, currentTargetedKeys, practiceQueue, currentQueueIndex]);
-
+    }, [restorePracticeSession, setCurrentTargetedKeys]);
 
     useEffect(() => {
-        const focusCode = () => {
-            codeEditorRef.current?.focus();
-        };
-        setRequestFocusOnCodeCallback(focusCode);
-        return () => setRequestFocusOnCodeCallback(null);
-    }, [setRequestFocusOnCodeCallback]);
-
-    // Check for finish
-    useEffect(() => {
-        if (game.isFinished && !hasSubmitted) {
+        if (game.isFinished && !hasSubmitted && !isResultsModalOpen && !isTargetedResultsModalOpen) {
             setHasSubmitted(true);
-
-            const linesTyped = (snippet.match(/\n/g) || []).length + 1;
             const stats = {
                 wpm: game.wpm,
                 accuracy: game.accuracy,
                 errors: game.errors,
-                language: selectedLanguage.name,
-                timestamp: Date.now(),
                 duration: game.duration,
-                linesTyped,
                 errorMap: game.errorMap,
-                attemptMap: game.attemptMap,
+                attemptMap: game.attemptMap
             };
-            addPracticeResult(stats as any);
-            setLastStats(stats as any);
+            setLastStats(stats);
+            setIsSessionEndedEarly(false);
+
+            addPracticeResult({
+                id: Date.now().toString(),
+                date: Date.now(),
+                wpm: game.wpm,
+                accuracy: game.accuracy,
+                duration: game.duration,
+                errors: game.errors,
+                language: selectedLanguage.name,
+                snippetLength: snippet.length,
+                timestamp: Date.now()
+            });
 
             if (currentTargetedKeys.length > 0) {
                 setIsTargetedResultsModalOpen(true);
             } else {
                 setIsResultsModalOpen(true);
             }
+        } else if (!game.isFinished) {
+            setHasSubmitted(false);
         }
-    }, [
-        game.isFinished,
-        game.wpm,
-        game.accuracy,
-        game.errors,
-        game.duration,
-        game.errorMap,
-        game.attemptMap,
-        hasSubmitted,
-        addPracticeResult,
-        snippet,
-        selectedLanguage.name,
-        currentTargetedKeys,
-    ]);
+    }, [game.isFinished, hasSubmitted, isResultsModalOpen, isTargetedResultsModalOpen, game.wpm, game.accuracy, game.errors, game.duration, game.errorMap, game.attemptMap, addPracticeResult, selectedLanguage.name, snippet.length, currentTargetedKeys]);
+
+
+    const handleShortcuts = useCallback((e: KeyboardEvent) => {
+        if (isResultsModalOpen || isTargetedResultsModalOpen || isSetupModalOpen) return;
+
+        if (e.altKey) {
+            switch (e.key.toLowerCase()) {
+                case 'n':
+                    e.preventDefault();
+                    handleSetupNew();
+                    break;
+                case 'e':
+                    e.preventDefault();
+                    handleEndSession();
+                    break;
+                case 'r':
+                    e.preventDefault();
+                    resetGame();
+                    break;
+                case 'p':
+                    e.preventDefault();
+                    togglePause();
+                    break;
+                case 'g':
+                    e.preventDefault();
+                    toggleHandGuide();
+                    break;
+                case 'b':
+                    e.preventDefault();
+                    const currentIndex = blockOnErrorOptions.findIndex(o => o.value === blockOnErrorThreshold);
+                    const nextIndex = (currentIndex + 1) % blockOnErrorOptions.length;
+                    setBlockOnErrorThreshold(blockOnErrorOptions[nextIndex].value);
+                    break;
+            }
+        }
+    }, [isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, handleSetupNew, handleEndSession, resetGame, togglePause, toggleHandGuide, blockOnErrorThreshold, setBlockOnErrorThreshold]);
 
     useEffect(() => {
-        setHasSubmitted(false);
-    }, [snippet]);
-
-    const resetGame = useCallback(() => {
-        gameRef.current.reset();
-        setIsResultsModalOpen(false);
-        setIsTargetedResultsModalOpen(false);
-        setHasSubmitted(false);
-        setIsSessionEndedEarly(false);
-        requestFocusOnCode();
-    }, [requestFocusOnCode]);
-
-    const togglePause = useCallback(() => {
-        if (gameRef.current.isPaused) {
-            gameRef.current.resumeGame();
-        } else {
-            gameRef.current.pauseGame();
-        }
-        requestFocusOnCode();
-    }, [requestFocusOnCode]);
-
-    const handleEndSession = useCallback(() => {
-        if (gameRef.current.isFinished || hasSubmitted) return;
-
-        gameRef.current.pauseGame();
-
-        setTimeout(() => {
-            const currentGame = gameRef.current;
-            if (currentGame.typedText.length > 1) {
-                setHasSubmitted(true);
-                const currentSnippetLines = (snippet.match(/\n/g) || []).length + 1;
-                const typedLinesRatio = currentGame.currentIndex / snippet.length;
-                const linesTyped = Math.round(currentSnippetLines * typedLinesRatio);
-
-                const stats = {
-                    wpm: currentGame.wpm,
-                    accuracy: currentGame.accuracy,
-                    errors: currentGame.errors,
-                    language: selectedLanguage.name,
-                    timestamp: Date.now(),
-                    duration: currentGame.duration,
-                    linesTyped,
-                    errorMap: currentGame.errorMap,
-                    attemptMap: currentGame.attemptMap,
-                };
-                addPracticeResult(stats as any);
-                setLastStats(stats as any);
-
-                setIsSessionEndedEarly(false);
-                setIsResultsModalOpen(true);
-            } else {
-                setLastStats({ wpm: 0, accuracy: 0, errors: 0, duration: 0, errorMap: {}, attemptMap: {} });
-                setIsSessionEndedEarly(true);
-                setIsResultsModalOpen(true);
-            }
-        }, 0);
-    }, [hasSubmitted, snippet, selectedLanguage, addPracticeResult]);
-
-    const handleSetupNew = useCallback(() => {
-        resetGame();
-        openSetupModal();
-    }, [resetGame, openSetupModal]);
-
-    const handlePracticeSame = useCallback(() => {
-        gameRef.current.reset();
-    }, []);
-
-    const handleNextSnippet = useCallback(() => {
-        gameRef.current.reset();
-        if (practiceQueue.length > 0 && currentQueueIndex < practiceQueue.length - 1) {
-            loadNextSnippetInQueue();
-        } else {
-            fetchNewSnippet({
-                length: 'medium',
-                level: 'medium',
-                mode: 'code'
-            });
-        }
-        setIsResultsModalOpen(false);
-        setIsTargetedResultsModalOpen(false);
-    }, [practiceQueue.length, currentQueueIndex, loadNextSnippetInQueue, fetchNewSnippet]);
-
-
-    // Shortcuts Handler
-    useEffect(() => {
-        const handleShortcuts = (e: KeyboardEvent) => {
-            if (isResultsModalOpen || isTargetedResultsModalOpen || isSetupModalOpen) return;
-
-            if (e.altKey) {
-                switch (e.key.toLowerCase()) {
-                    case 'n':
-                        e.preventDefault();
-                        handleSetupNew();
-                        break;
-                    case 'e':
-                        e.preventDefault();
-                        handleEndSession();
-                        break;
-                    case 'r':
-                        e.preventDefault();
-                        resetGame();
-                        break;
-                    case 'p':
-                        e.preventDefault();
-                        togglePause();
-                        break;
-                    case 'g':
-                        e.preventDefault();
-                        toggleHandGuide();
-                        break;
-                    case 'b':
-                        e.preventDefault();
-                        const currentIndex = blockOnErrorOptions.findIndex(o => o.value === blockOnErrorThreshold);
-                        const nextIndex = (currentIndex + 1) % blockOnErrorOptions.length;
-                        setBlockOnErrorThreshold(blockOnErrorOptions[nextIndex].value);
-                        break;
-                }
-            }
-        };
-
         window.addEventListener('keydown', handleShortcuts);
         return () => window.removeEventListener('keydown', handleShortcuts);
-    }, [isResultsModalOpen, isTargetedResultsModalOpen, isSetupModalOpen, handleSetupNew, handleEndSession, resetGame, togglePause, toggleHandGuide, blockOnErrorThreshold, setBlockOnErrorThreshold]);
+    }, [handleShortcuts]);
 
     const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
 

@@ -300,46 +300,52 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [focusRequestCallback]);
 
-  const fetchNewSnippet = useCallback(async (options?: { length?: SnippetLength, level?: SnippetLevel, mode?: PracticeMode, contentTypes?: ContentType[] }): Promise<boolean> => {
+  const fetchNewSnippet = useCallback(async (options?: { length?: SnippetLength, level?: SnippetLevel, mode?: PracticeMode, contentTypes?: ContentType[] }) => {
     if (isLoadingSnippet) return false;
 
-    const length = options?.length || snippetLength;
-    const level = options?.level || snippetLevel;
-    const mode = options?.mode || practiceMode;
-    // Use passed contentTypes or fall back to the state
-    const types = options?.contentTypes || generalContentTypes;
+    const targetMode = options?.mode || practiceMode;
+    const targetLength = options?.length || snippetLength;
+    const targetLevel = options?.level || snippetLevel;
+    const targetContentTypes = options?.contentTypes || generalContentTypes;
 
     setIsLoadingSnippet(true);
-    setSnippetError(null);
     setSnippet('');
+    setSnippetError(null);
     setIsCustomSession(false);
-    setCurrentTargetedKeys([]);
+
+    // Clear targeted keys if switching away from targeted mode, unless we are starting a new targeted session
+    if (targetMode !== 'targeted') {
+      setCurrentTargetedKeys([]);
+    }
 
     try {
       let newSnippet = '';
-      if (mode === 'general') {
-        newSnippet = await generateGeneralSnippet(length, level, types);
+      if (targetMode === 'code') {
+        newSnippet = await generateCodeSnippet(selectedLanguage, targetLength, targetLevel);
+      } else if (targetMode === 'targeted') {
+        const keys = currentTargetedKeys;
+        if (keys.length > 0) {
+          newSnippet = await generateTargetedCodeSnippet(selectedLanguage, keys, targetLength, targetLevel);
+        } else {
+          // Fallback if no keys
+          newSnippet = await generateCodeSnippet(selectedLanguage, targetLength, targetLevel);
+        }
       } else {
-        newSnippet = await generateCodeSnippet(selectedLanguage, length, level);
+        newSnippet = await generateGeneralSnippet(targetLength, targetLevel, targetContentTypes);
       }
-
-      if (!newSnippet || newSnippet.trim().length === 0) {
-        throw new Error("Received empty snippet from AI");
-      }
-
       setSnippet(convertSpacesToTabs(newSnippet));
       setSessionResetKey(prev => prev + 1);
       return true;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch a new code snippet. Please try again.';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate snippet. Please try again.';
       setSnippetError(errorMessage);
       setSessionResetKey(prev => prev + 1);
-      console.error("Fetch Snippet Error:", err);
+      console.error(err);
       return false;
     } finally {
       setIsLoadingSnippet(false);
     }
-  }, [selectedLanguage, snippetLength, snippetLevel, isLoadingSnippet, practiceMode, generalContentTypes]);
+  }, [selectedLanguage, snippetLength, snippetLevel, isLoadingSnippet, practiceMode, generalContentTypes, currentTargetedKeys]);
 
   const startCustomSession = (code: string, mode?: PracticeMode) => {
     clearPracticeQueue();
@@ -367,6 +373,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSnippetError(null);
     setIsCustomSession(false);
     setCurrentTargetedKeys(keys);
+    setPracticeMode('targeted');
+
     try {
       const newSnippet = await generateTargetedCodeSnippet(selectedLanguage, keys, options.length, options.level);
       setSnippet(convertSpacesToTabs(newSnippet));

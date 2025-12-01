@@ -27,8 +27,8 @@ export interface PracticeQueueItem {
 export type SnippetLength = 'short' | 'medium' | 'long';
 export type SnippetLevel = 'easy' | 'medium' | 'hard';
 export type FontSize = 'sm' | 'md' | 'lg' | 'xl';
-export type Page = 'home' | 'practice' | 'dashboard';
-export type PracticeMode = 'code' | 'general';
+export type Page = 'home' | 'practice' | 'dashboard' | 'history';
+export type PracticeMode = 'code' | 'general' | 'targeted';
 export type ContentType = 'characters' | 'numbers' | 'symbols';
 
 export interface SavableTypingGameState {

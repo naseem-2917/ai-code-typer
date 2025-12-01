@@ -103,13 +103,29 @@ export const generateTargetedCodeSnippet = async (
   const sanitizedKeys = keys.map(k => {
     if (k === ' ') return 'space';
     if (k === '\n') return 'newline';
-    if (k === ' ') return 'tab';
+    if (k === '\t') return 'tab';
     return k;
   }).join(', ');
 
-  const prompt = `Generate a code snippet in ${language.name}.
-The snippet must be ${lengthMap[length]} long and of ${levelMap[level]} difficulty.
-Crucially, the code must frequently and naturally use the following characters for typing practice: [${sanitizedKeys}]. Make them appear as part of valid syntax.`;
+  const prompt = `Generate a TARGETED PRACTICE snippet.
+  
+  Target Keys: [${sanitizedKeys}]
+  Language Style: ${language.name} (but NOT functional code)
+  Length: ${lengthMap[length]}
+  
+  CRITICAL RULES:
+  1. The snippet must be MEANINGLESS but READABLE (pseudo-code sentences, fake logic).
+  2. The Target Keys must appear 5x MORE FREQUENTLY than normal.
+  3. Do NOT generate real working code. It should feel like muscle memory training.
+  4. Use structure (brackets, indentation) if the language uses them.
+  5. NO explanations, NO comments, ONLY the raw snippet.
+  
+  Examples of style:
+  - "while w wraps words { ww }"
+  - "Tab shifts w into wider waves { }"
+  - "x = (x + x) * x; // x marks the spot"
+  
+  Generate the snippet now.`;
 
   return generateSnippet(prompt);
 };
@@ -132,42 +148,42 @@ export const generateGeneralSnippet = async (
     - CRITICAL REQUIREMENT: Every single sentence or line MUST contain at least one number AND one symbol.
     - Style: Technical data logs, complex passwords, inventory lists, or code-like pseudo text.
     - Example format: "User_ID: #4928 @ 10:45PM (Status: 99% Verified!)"`;
-  } 
+  }
   // 2. Char + Num
   else if (hasChar && hasNum) {
     instruction = `Generate a text containing words and numbers. 
     - Style: Addresses, historical dates, scientific facts with measurements, or financial summaries.
     - CRITICAL REQUIREMENT: Frequent use of digits mixed with sentences. Do NOT use complex symbols like @#$%^ (only basic punctuation like . , is allowed).
     - Example format: "On July 4th, 1776, approximately 2.5 million people lived there."`;
-  } 
+  }
   // 3. Char + Sym
   else if (hasChar && hasSym) {
     instruction = `Generate a text containing words and symbols.
     - Style: Dialogues with heavy punctuation, code comments, or expressive writing.
     - CRITICAL REQUIREMENT: Frequent use of brackets (), [], {}, punctuation !?.,:; and symbols @#&. Do NOT use numbers 0-9.
     - Example format: "Hello (world)! Waiting for response... [OK] -> {verified}."`;
-  } 
+  }
   // 4. Num + Sym (NO CHARACTERS)
   else if (hasNum && hasSym) {
     instruction = `Generate a sequence of Numbers and Symbols ONLY.
     - ABSOLUTELY FORBIDDEN: DO NOT INCLUDE ANY ALPHABET CHARACTERS (A-Z, a-z).
     - Style: Math equations, currency calculations, or abstract data strings.
     - Example format: "123+456=$579; (80% * 10) = #800 // 99.9"`;
-  } 
+  }
   // 5. Num ONLY
   else if (hasNum) {
     instruction = `Generate a sequence of Numbers ONLY.
     - ABSOLUTELY FORBIDDEN: DO NOT INCLUDE LETTERS OR SYMBOLS (except decimal points).
     - Style: Phone numbers, years, zip codes, or raw data streams.
     - Example format: "1990 2023 8837 1.45 00392 998 112"`;
-  } 
+  }
   // 6. Sym ONLY
   else if (hasSym) {
     instruction = `Generate a sequence of Symbols ONLY.
     - ABSOLUTELY FORBIDDEN: DO NOT INCLUDE LETTERS OR NUMBERS.
     - Style: Random symbol patterns for pinky finger practice.
     - Example format: "!@# $ %^ &*() _+ {} [] : ; < > ?"`;
-  } 
+  }
   // 7. Char ONLY (Default)
   else {
     instruction = `Generate standard English paragraphs.

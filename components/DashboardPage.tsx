@@ -123,7 +123,7 @@ const DashboardPage: React.FC = () => {
     } = context;
 
     const [isGoalsModalOpen, setIsGoalsModalOpen] = useState(false);
-    const [isTargetedSetupOpen, setIsTargetedSetupOpen] = useState(false);
+    // Targeted practice now starts directly, no modal needed
     const [timeFilter, setTimeFilter] = useState<'24h' | '7d' | '30d' | 'all'>('all');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [importConfirmation, setImportConfirmation] = useState<{ fileContent: string } | null>(null);
@@ -163,10 +163,10 @@ const DashboardPage: React.FC = () => {
     }, [focusedButtonIndex, practiceHistory.length]);
 
 
-    useAccessKey('2', () => setTimeFilter('24h'), { disabled: isGoalsModalOpen || isTargetedSetupOpen });
-    useAccessKey('7', () => setTimeFilter('7d'), { disabled: isGoalsModalOpen || isTargetedSetupOpen });
-    useAccessKey('3', () => setTimeFilter('30d'), { disabled: isGoalsModalOpen || isTargetedSetupOpen });
-    useAccessKey('a', () => setTimeFilter('all'), { disabled: isGoalsModalOpen || isTargetedSetupOpen });
+    useAccessKey('2', () => setTimeFilter('24h'), { disabled: isGoalsModalOpen });
+    useAccessKey('7', () => setTimeFilter('7d'), { disabled: isGoalsModalOpen });
+    useAccessKey('3', () => setTimeFilter('30d'), { disabled: isGoalsModalOpen });
+    useAccessKey('a', () => setTimeFilter('all'), { disabled: isGoalsModalOpen });
 
     const handleExportData = useCallback(() => {
         try {
@@ -182,8 +182,8 @@ const DashboardPage: React.FC = () => {
         fileInputRef.current?.click();
     }, []);
 
-    useAccessKey('E', handleExportData, { disabled: isGoalsModalOpen || isTargetedSetupOpen });
-    useAccessKey('I', handleImportClick, { disabled: isGoalsModalOpen || isTargetedSetupOpen });
+    useAccessKey('E', handleExportData, { disabled: isGoalsModalOpen });
+    useAccessKey('I', handleImportClick, { disabled: isGoalsModalOpen });
 
     const finishImport = (fileContent: string, mode: 'merge' | 'replace') => {
         try {
@@ -275,72 +275,6 @@ const DashboardPage: React.FC = () => {
         return practiceHistory;
     }, [practiceHistory, timeFilter]);
 
-    const graphConfig = useMemo(() => {
-        const now = new Date();
-        const sortedData = filteredHistory.slice().sort((a, b) => a.timestamp - b.timestamp);
-
-        let domain: [number | string, number | string] = [now.getTime() - 24 * 60 * 60 * 1000, now.getTime()];
-        let tickFormatter = (value: any) => new Date(value).toLocaleDateString();
-        let ticks: number[] | undefined = undefined;
-        let xAxisType: 'number' | 'category' = 'number';
-        let xDataKey = 'timestamp';
-        let chartData: any[] = sortedData;
-
-        switch (timeFilter) {
-            case '24h': {
-                domain = [now.getTime() - 24 * 60 * 60 * 1000, now.getTime()];
-                tickFormatter = (ts) => new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-                ticks = Array.from({ length: 7 }, (_, i) => now.getTime() - (i * 4 * 60 * 60 * 1000)).reverse();
-                break;
-            }
-            case '7d': {
-                const sevenDaysAgo = new Date(now);
-                sevenDaysAgo.setDate(now.getDate() - 6);
-                sevenDaysAgo.setHours(0, 0, 0, 0);
-                domain = [sevenDaysAgo.getTime(), now.getTime()];
-                tickFormatter = (ts) => new Date(ts).toLocaleDateString([], { month: 'numeric', day: 'numeric' });
-                ticks = Array.from({ length: 7 }, (_, i) => {
-                    const d = new Date(sevenDaysAgo);
-                    d.setDate(d.getDate() + i);
-                    return d.getTime();
-                });
-                break;
-            }
-            case '30d': {
-                const thirtyDaysAgo = new Date(now);
-                thirtyDaysAgo.setDate(now.getDate() - 29);
-                thirtyDaysAgo.setHours(0, 0, 0, 0);
-                domain = [thirtyDaysAgo.getTime(), now.getTime()];
-                tickFormatter = (ts) => new Date(ts).toLocaleDateString([], { month: 'numeric', day: 'numeric' });
-                ticks = Array.from({ length: 7 }, (_, i) => {
-                    const d = new Date(thirtyDaysAgo);
-                    d.setDate(d.getDate() + (i * 5));
-                    return d.getTime();
-                });
-                break;
-            }
-            case 'all':
-            default: {
-                if (sortedData.length > 0) {
-                    // Use index-based x-axis for equal spacing
-                    chartData = sortedData.map((item, index) => ({ ...item, index: index + 1 }));
-                    xDataKey = 'index';
-                    xAxisType = 'number';
-                    domain = ['dataMin', 'dataMax'];
-                    tickFormatter = (index) => {
-                        const item = chartData.find(d => d.index === index);
-                        return item ? new Date(item.timestamp).toLocaleDateString([], { month: 'numeric', day: 'numeric' }) : '';
-                    };
-                }
-                ticks = undefined;
-                break;
-            }
-        }
-
-        return { data: chartData, domain, tickFormatter, ticks, xAxisType, xDataKey };
-
-    }, [filteredHistory, timeFilter]);
-
     const overallStats = useMemo(() => {
         if (filteredHistory.length === 0) {
             return { avgWpm: 0, avgAccuracy: 0, totalDuration: 0, sessions: 0, bestWpm: 0, totalLines: 0, totalErrors: 0 };
@@ -394,14 +328,67 @@ const DashboardPage: React.FC = () => {
         return `${hours}h ${minutes}m`;
     };
 
-    const handleStartTargetedPractice = (length: SnippetLength, level: SnippetLevel) => {
-        setIsTargetedSetupOpen(false);
+    const handleStartTargetedPractice = () => {
         const keysToPractice = errorAnalysis.map(k => k.key);
         if (keysToPractice.length > 0) {
             navigateTo('practice');
-            startTargetedSession(keysToPractice, { length, level });
+            // Default to medium length and medium difficulty for quick practice
+            startTargetedSession(keysToPractice, { length: 'medium', level: 'medium' });
         }
     };
+
+    const graphConfig = useMemo(() => {
+        const now = new Date();
+        const sortedData = filteredHistory.slice().sort((a, b) => a.timestamp - b.timestamp);
+
+        let domain: [number | string, number | string] = [now.getTime() - 24 * 60 * 60 * 1000, now.getTime()];
+        let tickFormatter = (value: any) => new Date(value).toLocaleDateString();
+        let ticks: number[] | undefined = undefined;
+        let xAxisType: 'number' | 'category' = 'number';
+        let xDataKey = 'timestamp';
+        let chartData: any[] = sortedData;
+
+        switch (timeFilter) {
+            case '24h': {
+                domain = [now.getTime() - 24 * 60 * 60 * 1000, now.getTime()];
+                tickFormatter = (ts) => new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                ticks = Array.from({ length: 7 }, (_, i) => now.getTime() - (i * 4 * 60 * 60 * 1000)).reverse();
+                break;
+            }
+            case '7d': {
+                const sevenDaysAgo = new Date(now);
+                sevenDaysAgo.setDate(now.getDate() - 6);
+                sevenDaysAgo.setHours(0, 0, 0, 0);
+                domain = [sevenDaysAgo.getTime(), now.getTime()];
+                tickFormatter = (ts) => new Date(ts).toLocaleDateString([], { month: 'numeric', day: 'numeric' });
+                ticks = Array.from({ length: 7 }, (_, i) => {
+                    const d = new Date(sevenDaysAgo);
+                    d.setDate(d.getDate() + i);
+                    return d.getTime();
+                });
+                break;
+            }
+            case '30d': {
+                const thirtyDaysAgo = new Date(now);
+                thirtyDaysAgo.setDate(now.getDate() - 29);
+                thirtyDaysAgo.setHours(0, 0, 0, 0);
+                domain = [thirtyDaysAgo.getTime(), now.getTime()];
+                tickFormatter = (ts) => new Date(ts).toLocaleDateString([], { month: 'numeric', day: 'numeric' });
+                ticks = Array.from({ length: 7 }, (_, i) => {
+                    const d = new Date(thirtyDaysAgo);
+                    d.setDate(d.getDate() + (i * 5));
+                    return d.getTime();
+                });
+                break;
+            }
+            case 'all': {
+                domain = ['auto', 'auto'];
+                tickFormatter = (ts) => new Date(ts).toLocaleDateString();
+                break;
+            }
+        }
+        return { data: chartData, xAxisType, xDataKey, domain, ticks, tickFormatter };
+    }, [filteredHistory, timeFilter]);
 
     const wpmProgress = wpmGoal > 0 ? Math.min(100, (overallStats.avgWpm / wpmGoal) * 100) : 0;
     const accuracyProgress = accuracyGoal > 0 ? Math.min(100, (overallStats.avgAccuracy / accuracyGoal) * 100) : 0;
@@ -455,17 +442,11 @@ const DashboardPage: React.FC = () => {
                         onFocus={() => setFocusedButtonIndex(1)}
                         onMouseEnter={() => setFocusedButtonIndex(1)}
                         accessKeyChar="I"
+                        title="Import Data (Alt+I)"
                     >
                         Import Data
                     </Button>
                 </div>
-                <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept=".json,application/json"
-                    onChange={handleFileImport}
-                />
             </div>
         );
     }
@@ -481,8 +462,18 @@ const DashboardPage: React.FC = () => {
     return (
         <>
             <div className="space-y-8 h-full overflow-y-auto custom-scrollbar p-4">
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                    <h1 className="text-3xl font-bold">Your Progress Dashboard</h1>
+                <div className="flex flex-col xl:flex-row justify-between xl:items-center gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                        <h1 className="text-3xl font-bold">Your Progress Dashboard</h1>
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={handleImportClick} title="Import Data (Alt+I)" accessKeyChar="I">
+                                Import
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={handleExportData} title="Export Data (Alt+E)" accessKeyChar="E">
+                                Export
+                            </Button>
+                        </div>
+                    </div>
                     <SegmentedControl
                         options={filterOptions}
                         selectedValue={timeFilter}
@@ -507,27 +498,30 @@ const DashboardPage: React.FC = () => {
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            <Card className="lg:col-span-2 p-6">
+
+                            <Card className="lg:col-span-2 p-6 flex flex-col justify-center min-h-[450px]">
                                 <h2 className="text-xl font-semibold mb-4">Historical Performance</h2>
-                                <ResponsiveContainer width="100%" height={300}>
-                                    <LineChart data={graphConfig.data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                                        <XAxis
-                                            type={graphConfig.xAxisType}
-                                            dataKey={graphConfig.xDataKey}
-                                            domain={graphConfig.domain}
-                                            ticks={graphConfig.ticks}
-                                            tickFormatter={graphConfig.tickFormatter}
-                                            padding={{ left: 20, right: 20 }}
-                                        />
-                                        <YAxis yAxisId="left" label={{ value: 'WPM', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }} />
-                                        <YAxis yAxisId="right" orientation="right" label={{ value: 'Accuracy (%)', angle: -90, position: 'insideRight', style: { textAnchor: 'middle' } }} />
-                                        <Tooltip content={<CustomTooltip />} />
-                                        <Legend />
-                                        <Line yAxisId="left" type="monotone" dataKey="wpm" stroke="#10b981" name="WPM" dot={true} />
-                                        <Line yAxisId="right" type="monotone" dataKey="accuracy" stroke="#3b82f6" name="Accuracy" dot={true} />
-                                    </LineChart>
-                                </ResponsiveContainer>
+                                <div className="flex-grow flex items-center justify-center w-full">
+                                    <ResponsiveContainer width="100%" height={350}>
+                                        <LineChart data={graphConfig.data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                                            <XAxis
+                                                type={graphConfig.xAxisType}
+                                                dataKey={graphConfig.xDataKey}
+                                                domain={graphConfig.domain}
+                                                ticks={graphConfig.ticks}
+                                                tickFormatter={graphConfig.tickFormatter}
+                                                padding={{ left: 20, right: 20 }}
+                                            />
+                                            <YAxis yAxisId="left" label={{ value: 'WPM', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }} />
+                                            <YAxis yAxisId="right" orientation="right" label={{ value: 'Accuracy (%)', angle: -90, position: 'insideRight', style: { textAnchor: 'middle' } }} />
+                                            <Tooltip content={<CustomTooltip />} />
+                                            <Legend />
+                                            <Line yAxisId="left" type="monotone" dataKey="wpm" stroke="#10b981" name="WPM" dot={true} />
+                                            <Line yAxisId="right" type="monotone" dataKey="accuracy" stroke="#3b82f6" name="Accuracy" dot={true} />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
                             </Card>
 
                             <div className="space-y-8">
@@ -575,167 +569,159 @@ const DashboardPage: React.FC = () => {
                                             <div className="flex justify-between items-baseline mb-1">
                                                 <span className="text-sm font-medium">Accuracy: {overallStats.avgAccuracy}% / {accuracyGoal}%</span>
                                                 <div className="flex items-center gap-2">
-                                                    <span className={`text-sm font-bold ${accuracyGoalAchieved ? 'text-amber-500' : ''}`}>{accuracyGoalAchieved ? 'Goal Achieved!' : `${accuracyProgress.toFixed(0)}%`}</span>
+                                                    <span className={`text-sm font-bold ${overallStats.avgAccuracy >= accuracyGoal ? 'text-amber-500' : ''}`}>{overallStats.avgAccuracy >= accuracyGoal ? 'Goal Achieved!' : `${accuracyProgress.toFixed(0)}%`}</span>
                                                     {accuracyGoalAchieved && accuracyIncreaseAmount > 0 && (
-                                                        <Button variant="ghost" size="sm" className="!py-0 !px-2 !h-auto" onClick={() => setGoals(wpmGoal, Math.min(100, accuracyGoal + accuracyIncreaseAmount), timeGoal)} title={`Increase accuracy goal by ${accuracyIncreaseAmount}%`}>
+                                                        <Button variant="ghost" size="sm" className="!py-0 !px-2 !h-auto" onClick={() => setGoals(wpmGoal, accuracyGoal + accuracyIncreaseAmount, timeGoal)} title={`Increase Accuracy goal to ${accuracyGoal + accuracyIncreaseAmount}%`}>
                                                             +{accuracyIncreaseAmount}%
                                                         </Button>
                                                     )}
                                                 </div>
                                             </div>
                                             <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
-                                                <div className={`h-2.5 rounded-full ${accuracyGoalAchieved ? 'bg-amber-400' : 'bg-primary-500'}`} style={{ width: `${accuracyProgress}%` }}></div>
+                                                <div className={`h-2.5 rounded-full ${overallStats.avgAccuracy >= accuracyGoal ? 'bg-amber-400' : 'bg-primary-500'}`} style={{ width: `${accuracyProgress}%` }}></div>
                                             </div>
                                         </div>
                                     </div>
                                 </Card>
 
                                 <Card className="p-6">
-                                    <h2 className="text-xl font-semibold mb-4">Language Focus</h2>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h2 className="text-xl font-semibold">Language Focus</h2>
+                                    </div>
                                     {languageFocus.length > 0 ? (
                                         <ResponsiveContainer width="100%" height={200}>
                                             <PieChart>
                                                 <Pie
                                                     data={languageFocus}
-                                                    dataKey="value"
-                                                    nameKey="name"
                                                     cx="50%"
                                                     cy="50%"
-                                                    outerRadius={60}
-                                                    fill="#8884d8"
                                                     labelLine={false}
-                                                    label={renderCustomizedLabel}
+                                                    outerRadius={80}
+                                                    fill="#8884d8"
+                                                    dataKey="value"
+                                                    nameKey="name"
+                                                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                                                 >
-                                                    {languageFocus.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                                    {languageFocus.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                    ))}
                                                 </Pie>
-                                                <Tooltip formatter={(value: number) => overallStats.totalDuration > 0 ? `${(value / overallStats.totalDuration * 100).toFixed(2)}%` : '0.00%'} />
+                                                <Tooltip formatter={(value) => formatDuration(value as number)} />
                                                 <Legend />
                                             </PieChart>
                                         </ResponsiveContainer>
                                     ) : (
-                                        <div className="h-[200px] flex items-center justify-center text-slate-500">No language data for this period.</div>
+                                        <p className="text-center text-slate-500">No language data available for this period.</p>
                                     )}
                                 </Card>
+
+
                             </div>
                         </div>
 
+
+
                         <Card className="p-6">
                             <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-xl font-semibold">Practice History</h2>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                    onClick={handleDeleteAllClick}
-                                >
-                                    <TrashIcon className="w-4 h-4 mr-2" />
-                                    Delete All
+                                <h2 className="text-xl font-semibold">Error Analysis</h2>
+                                <Button variant="secondary" size="sm" onClick={handleStartTargetedPractice} disabled={errorAnalysis.length === 0} title="Practice your weakest keys immediately">
+                                    Practice Errors
                                 </Button>
                             </div>
-                            <div className="max-h-96 overflow-y-auto custom-scrollbar">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-slate-100 dark:bg-slate-700 sticky top-0">
-                                        <tr>
-                                            <th scope="col" className="px-6 py-3">Language</th>
-                                            <th scope="col" className="px-6 py-3">WPM</th>
-                                            <th scope="col" className="px-6 py-3">Accuracy</th>
-                                            <th scope="col" className="px-6 py-3">Errors</th>
-                                            <th scope="col" className="px-6 py-3">Duration</th>
-                                            <th scope="col" className="px-6 py-3">Date</th>
-                                            <th scope="col" className="px-6 py-3 text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredHistory.slice().reverse().map((session, index) => (
-                                            <tr key={`${session.timestamp}-${index}`} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600/50 text-gray-800 dark:text-gray-300">
-                                                <td className="px-6 py-4">{session.language}</td>
-                                                <td className="px-6 py-4 font-medium">{session.wpm}</td>
-                                                <td className="px-6 py-4">{session.accuracy.toFixed(2)}%</td>
-                                                <td className="px-6 py-4">{session.errors}</td>
-                                                <td className="px-6 py-4">{formatSessionDuration(session.duration)}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap">{new Date(session.timestamp).toLocaleString()}</td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="text-slate-400 hover:text-red-500"
-                                                        onClick={() => handleDeleteClick(session.timestamp)}
-                                                        title="Delete Session"
-                                                    >
-                                                        <TrashIcon className="w-4 h-4" />
-                                                    </Button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
+                            {errorAnalysis.length > 0 ? (
+                                <div className="space-y-4">
+                                    {errorAnalysis.slice(0, 5).map((error, index) => (
+                                        <div key={index} className="space-y-1">
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">
+                                                    {displayKey(error.key)}
+                                                </span>
+                                                <span className="text-slate-500 dark:text-slate-400 text-xs">
+                                                    {error.errors} Errors / {error.attempts} Attempts ({error.errorRate.toFixed(1)}%)
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+                                                <div
+                                                    className="bg-red-500 h-1.5 rounded-full"
+                                                    style={{ width: `${Math.min(100, error.errorRate)}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {errorAnalysis.length > 5 && (
+                                        <p className="text-xs text-center text-slate-500 mt-2">
+                                            + {errorAnalysis.length - 5} other keys needing practice
+                                        </p>
+                                    )}
+                                </div>
+                            ) : (
+                                <p className="text-center text-slate-500">No significant errors found for this period.</p>
+                            )}
+                        </Card>
 
-                                </table>
+                        <Card className="p-6">
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-xl font-semibold">Recent Sessions</h2>
+                                <div className="flex gap-2">
+                                    <Button variant="secondary" size="sm" onClick={() => navigateTo('history')}>
+                                        View All
+                                    </Button>
+                                    <Button variant="destructive" size="sm" onClick={() => setDeleteConfirmation({ type: 'all' })}>
+                                        Clear All History
+                                    </Button>
+                                </div>
                             </div>
+                            {filteredHistory.length > 0 ? (
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                                        <thead>
+                                            <tr>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">WPM</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Accuracy</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Duration</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Language</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Errors</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                                            {filteredHistory.slice(0, 5).map((session, index) => (
+                                                <tr key={session.id} className={index % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800' : ''}>
+                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{new Date(session.date).toLocaleDateString()}</td>
+                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.wpm.toFixed(0)}</td>
+                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.accuracy.toFixed(1)}%</td>
+                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{formatDuration(session.duration)}</td>
+                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.language}</td>
+                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.errors}</td>
+                                                    <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
+                                                        <Button variant="ghost" size="icon" onClick={() => setDeleteConfirmation({ type: 'single', timestamp: session.timestamp })}>
+                                                            <TrashIcon className="w-4 h-4 text-red-500" />
+                                                        </Button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <p className="text-center text-slate-500">No recent sessions for this period.</p>
+                            )}
                         </Card>
                     </>
                 )}
+            </div >
 
-                <Card className="p-6">
-                    <h2 className="text-xl font-semibold mb-4">Targeted Practice Area</h2>
-                    {errorAnalysis.length > 0 ? (
-                        <>
-                            <p className="text-sm text-slate-500 mb-4">Here are your top 5 weakest keys based on error rate. Start a targeted session to improve!</p>
-                            <div className="space-y-2">
-                                {errorAnalysis.map(({ key, errorRate }) => (
-                                    <div key={key} className="flex items-center justify-between text-sm">
-                                        <span className="font-mono bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded w-24 text-center">{displayKey(key)}</span>
-                                        <div className="w-full mx-4 bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
-                                            <div className="bg-red-500 h-2.5 rounded-full" style={{ width: `${Math.min(errorRate, 100)}%` }}></div>
-                                        </div>
-                                        <span className="font-semibold w-28 text-right">{errorRate.toFixed(1)}% error rate</span>
-                                    </div>
-                                ))}
-                            </div>
-                            <Button className="mt-6 w-full" onClick={() => setIsTargetedSetupOpen(true)}>
-                                Practice These Keys
-                            </Button>
-                        </>
-                    ) : (
-                        <p className="text-slate-500">Not enough data for error analysis. Keep practicing!</p>
-                    )}
-                </Card>
+            <GoalsModal
+                isOpen={isGoalsModalOpen}
+                onClose={() => setIsGoalsModalOpen(false)}
+                onSave={(wpm, acc, time) => { setGoals(wpm, acc, time); setIsGoalsModalOpen(false); }}
+                currentWpmGoal={wpmGoal}
+                currentAccuracyGoal={accuracyGoal}
+                currentTimeGoal={timeGoal}
+            />
 
-                <Card className="p-6">
-                    <h2 className="text-xl font-semibold mb-4">Data Management</h2>
-                    <p className="text-sm text-slate-500 mb-4">Save your practice history, goals, and settings to a file, or import them on another device.</p>
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <Button onClick={handleExportData} accessKeyChar="E">
-                            Export Data
-                        </Button>
-                        <Button variant="secondary" onClick={handleImportClick} accessKeyChar="I">
-                            Import Data
-                        </Button>
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            className="hidden"
-                            accept=".json,application/json"
-                            onChange={handleFileImport}
-                        />
-                    </div>
-                </Card>
 
-                <GoalsModal
-                    isOpen={isGoalsModalOpen}
-                    onClose={() => setIsGoalsModalOpen(false)}
-                    onSave={(wpm, acc, time) => { setGoals(wpm, acc, time); setIsGoalsModalOpen(false); }}
-                    currentWpmGoal={wpmGoal}
-                    currentAccuracyGoal={accuracyGoal}
-                    currentTimeGoal={timeGoal}
-                />
-
-                <PracticeSetupModal
-                    isOpen={isTargetedSetupOpen}
-                    onClose={() => setIsTargetedSetupOpen(false)}
-                    onStart={(length, level) => handleStartTargetedPractice(length!, level!)}
-                    variant="targeted"
-                />
-            </div>
 
             <ConfirmationModal
                 isOpen={!!importConfirmation}
@@ -760,7 +746,14 @@ const DashboardPage: React.FC = () => {
                     { label: 'Delete', onClick: handleDeleteConfirm, variant: 'primary', className: 'bg-red-600 hover:bg-red-700 text-white' },
                 ]}
             />
-
+            {/* Hidden file input for import functionality - always rendered */}
+            <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept=".json,application/json"
+                onChange={handleFileImport}
+            />
         </>
     );
 };

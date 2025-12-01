@@ -6,6 +6,8 @@ import { Button } from './ui/Button';
 import { ResetIcon } from './icons/ResetIcon';
 import SkeletonLoader from './SkeletonLoader';
 import { PauseIcon } from './icons/PauseIcon';
+import { CopyIcon } from './icons/CopyIcon';
+import { CheckIcon } from './icons/CheckIcon';
 
 interface CodeEditorProps {
     value: string;
@@ -43,7 +45,19 @@ export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(({
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const cursorRef = useRef<HTMLSpanElement>(null);
+
     const scrollableCardRef = useRef<HTMLDivElement>(null);
+    const [isCopied, setIsCopied] = React.useState(false);
+
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(snippet);
+            setIsCopied(true);
+            setTimeout(() => setIsCopied(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+        }
+    };
 
     // Expose focus method
     React.useImperativeHandle(ref, () => ({
@@ -141,7 +155,34 @@ export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(({
             )}
 
             {/* Display Area */}
-            <Card className="h-full overflow-hidden flex flex-col relative w-full">
+            <Card className="h-full overflow-hidden flex flex-col relative w-full group">
+                {/* Copy Button */}
+                {!isLoading && !error && (
+                    <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={(e) => {
+                                e.stopPropagation(); // Prevent container focus
+                                handleCopy();
+                            }}
+                            className="!py-1 !px-2 text-xs shadow-sm bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm"
+                            title="Copy Code"
+                        >
+                            {isCopied ? (
+                                <>
+                                    <CheckIcon className="w-3 h-3 mr-1 text-green-500" />
+                                    Copied!
+                                </>
+                            ) : (
+                                <>
+                                    <CopyIcon className="w-3 h-3 mr-1" />
+                                    Copy
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                )}
                 <div className="flex-grow overflow-y-auto custom-scrollbar relative" ref={scrollableCardRef}>
                     <div className="p-4 md:p-6 min-h-full font-mono text-lg md:text-xl leading-relaxed">
                         {isLoading ? (
