@@ -9,7 +9,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     
-    # CRITICAL FIX: Add  necessary permissions for the bot to push to the gh-pages branch
+    # CRITICAL FIX: Add necessary permissions for the bot to push to the gh-pages branch
     permissions:
       contents: write # Files ko read aur write karne ke liye
       pages: write    # Pages site ko update karne ke liye
