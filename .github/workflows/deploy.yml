@@ -3,17 +3,17 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main # Jab bhi main branch par push ho, tab chalao
+      - main # Run this workflow when pushing to the main branch
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     
-    # CRITICAL FIX: Add necessary permissions for the bot to push to the gh-pages branch
+    # Permissions required for the bot to deploy
     permissions:
-      contents: write # Files ko read aur write karne ke liye
-      pages: write    # Pages site ko update karne ke liye
-      id-token: write # Zaroori tokens ke liye
+      contents: write 
+      pages: write    
+      id-token: write 
       
     steps:
       - name: Checkout 🛎️
@@ -27,14 +27,14 @@ jobs:
       - name: Install dependencies ⚙️
         run: npm install
 
-      # API Key Injection and Build
+      # ========================================================
+      # 🔒 SECURE BUILD: No API Key Injection Needed
+      # We removed the 'env' section because the Cloudflare Worker 
+      # handles the key now. The frontend is safe.
+      # ========================================================
       - name: Build project 🏗️
-        env:
-          # Forcefully inject the secret so Vite hardcodes it.
-          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }} 
         run: npm run build 
 
-      # Deployment to gh-pages branch
       - name: Deploy to GitHub Pages 🚀
         uses: peaceiris/actions-gh-pages@v3
         with:

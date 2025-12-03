@@ -1,12 +1,6 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Language, SnippetLength, SnippetLevel, ContentType } from '../types';
 
-// NOTE: Using direct VITE_ access as per the final simplified workflow.
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
-// @ts-ignore
-const genAI = new GoogleGenerativeAI(apiKey);
-const ai = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+const API_URL = "https://ai-code-typer-proxy.khannaseem1704.workers.dev";
 
 const levelMap = {
   easy: 'basic syntax and concepts, like variable declaration and simple loops',
@@ -20,42 +14,59 @@ const lengthMap: Record<SnippetLength, string> = {
   long: '25-30 lines',
 };
 
-// Internal helper with RETRY LOGIC
+// Internal helper with RETRY LOGIC (Updated for Fetch API)
 const generateSnippet = async (prompt: string, customSystemInstruction?: string): Promise<string> => {
   const maxRetries = 3;
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      if (!apiKey) {
-        throw new Error("API Key is missing or invalid. Check your configuration.");
-      }
-
       const defaultSystemInstruction = `You are a code generation engine for a typing practice app.
 Your task is to provide a code snippet based on the user's request.
 The snippet MUST be clean, raw code.
 ABSOLUTELY NO explanations, comments, markdown backticks(\`\`\`), or any text other than the code itself.
 The code must be syntactically correct for the requested language.`;
 
-      const responseResult = await ai.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        systemInstruction: customSystemInstruction || defaultSystemInstruction,
+      // 1. Call Cloudflare Worker instead of Google SDK
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          systemInstruction: customSystemInstruction || defaultSystemInstruction
+        }),
       });
-      const response = responseResult.response;
 
-      const code = response.text().trim();
+      // Handle 429 (Too Many Requests) specifically for retry logic
+      if (response.status === 429) {
+        throw new Error('429: Too Many Requests');
+      }
+
+      if (!response.ok) {
+        throw new Error(`Worker Error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // 2. Parse the response (Worker returns raw Google structure)
+      // Path: data.candidates[0].content.parts[0].text
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!rawText) {
+        throw new Error(data.error || "The AI returned an empty snippet. Please try again.");
+      }
 
       // Clean up potential markdown code fences
-      const cleanedCode = code.replace(/^```(?:\w+\n)?/, '').replace(/```$/, '').trim();
-
-      if (!cleanedCode) {
-        throw new Error("The AI returned an empty snippet. Please try again.");
-      }
+      const cleanedCode = rawText.replace(/^```(?:\w+\n)?/, '').replace(/```$/, '').trim();
 
       return cleanedCode;
 
     } catch (error) {
       lastError = error as Error;
+
+      // Retry logic for 429 errors
       if (error instanceof Error && error.message.includes('429')) {
         if (attempt < maxRetries) {
           const delay = Math.pow(2, attempt) * 1000;
@@ -72,9 +83,7 @@ The code must be syntactically correct for the requested language.`;
   if (lastError && lastError.message.includes('429')) {
     throw new Error("AI service is busy. Please try again shortly.");
   }
-  if (lastError && lastError.message.includes('API key')) {
-    throw new Error("Invalid API key.");
-  }
+  // No need to check for 'API Key' error here as it's handled in the worker
   if (lastError) throw lastError;
 
   throw new Error("Unknown error generating snippet.");
@@ -130,7 +139,7 @@ export const generateTargetedCodeSnippet = async (
   return generateSnippet(prompt);
 };
 
-// Exported: General Practice (COMPLETELY FIXED LOGIC)
+// Exported: General Practice (KEPT YOUR EXACT LOGIC)
 export const generateGeneralSnippet = async (
   length: SnippetLength,
   level: SnippetLevel,
