@@ -477,6 +477,8 @@ const PracticePage: React.FC = () => {
                 }}
                 isSessionEndedEarly={isSessionEndedEarly}
                 hasNextSnippet={practiceQueue.length > 1 && currentQueueIndex < practiceQueue.length - 1}
+                sessionErrorMap={lastStats.errorMap}
+                sessionAttemptMap={lastStats.attemptMap}
             />
 
             <TargetedResultsModal
@@ -490,6 +492,8 @@ const PracticePage: React.FC = () => {
                 onNextSnippet={handleNextSnippet}
                 currentTargetedKeys={currentTargetedKeys}
                 onPracticeTargeted={(keys) => startTargetedSession(keys, { length: 'medium', level: 'medium' })}
+                sessionErrorMap={lastStats.errorMap}
+                sessionAttemptMap={lastStats.attemptMap}
             />
         </div >
     );

@@ -22,6 +22,8 @@ interface ResultsModalProps {
   isMultiFileSession?: boolean;
   onNextSnippet?: () => void;
   hasNextSnippet?: boolean;
+  sessionErrorMap?: Record<string, number>;
+  sessionAttemptMap?: Record<string, number>;
 }
 
 const formatDuration = (totalSeconds: number): string => {
@@ -47,6 +49,8 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   isMultiFileSession = false,
   onNextSnippet,
   hasNextSnippet = false,
+  sessionErrorMap = {},
+  sessionAttemptMap = {},
 }) => {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);

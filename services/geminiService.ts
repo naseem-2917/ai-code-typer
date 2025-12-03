@@ -218,3 +218,62 @@ IMPORTANT: Format the text naturally with line breaks ('\\n') every 8-12 words/i
 
   return generateSnippet(prompt, systemInstruction);
 };
+
+// Exported: Error Practice
+export const generateErrorPracticeSnippet = async (allErrorKeys: string[]): Promise<string> => {
+  const totalErrorKeys = allErrorKeys.length;
+  let lengthInstruction = "";
+
+  if (totalErrorKeys <= 3) {
+    lengthInstruction = "Generate a 150-250 character paragraph.";
+  } else if (totalErrorKeys <= 6) {
+    lengthInstruction = "Generate a 250-350 character paragraph.";
+  } else {
+    lengthInstruction = "Generate a 350-500 character paragraph.";
+  }
+
+  const sanitizedKeys = allErrorKeys.map(k => {
+    if (k === ' ') return 'space';
+    if (k === '\n') return 'newline';
+    if (k === '\t') return 'tab';
+    return k;
+  }).join(', ');
+
+  const prompt = `Generate a PRACTICE ERRORS snippet.
+  
+  Error Keys to Target: [${sanitizedKeys}]
+  
+  CRITICAL RULES:
+  1. DO NOT generate a code snippet.
+  2. Always generate a GENERAL natural-language paragraph.
+  3. The paragraph MUST contain HEAVY usage of the user's most frequent error keys listed above.
+  4. ${lengthInstruction}
+  5. Insert each high-frequency error key multiple times in the paragraph.
+  6. The paragraph MUST remain meaningful, readable and natural.
+  7. Do not generate random gibberish.
+  8. NEVER create code blocks.
+  
+  FINAL OUTPUT FORMAT:
+  Return ONLY this JSON structure:
+  {
+    "practiceMode": "error-training",
+    "generatedSnippet": "... final paragraph ...",
+    "length": <number>,
+    "keysUsed": ["<key1>", "<key2>", ...]
+  }`;
+
+  const systemInstruction = `You are a training engine for a typing practice app.
+  Your task is to generate a natural language paragraph that targets specific error keys.
+  Return ONLY valid JSON. No markdown formatting around the JSON.`;
+
+  const jsonResponse = await generateSnippet(prompt, systemInstruction);
+
+  try {
+    const parsed = JSON.parse(jsonResponse);
+    return parsed.generatedSnippet;
+  } catch (e) {
+    console.error("Failed to parse Error Practice JSON:", e);
+    // Fallback: return the raw response if it looks like text, or a default message
+    return jsonResponse;
+  }
+};

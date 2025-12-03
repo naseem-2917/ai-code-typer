@@ -128,6 +128,7 @@ const DashboardPage: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [importConfirmation, setImportConfirmation] = useState<{ fileContent: string } | null>(null);
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ type: 'single' | 'all', timestamp?: number } | null>(null);
+    const [isErrorAnalysisExpanded, setIsErrorAnalysisExpanded] = useState(false);
 
     const [focusedButtonIndex, setFocusedButtonIndex] = useState(0);
     const startButtonRef = useRef<HTMLButtonElement>(null);
@@ -310,7 +311,7 @@ const DashboardPage: React.FC = () => {
             })
             .filter(item => item.attempts > 2)
             .sort((a, b) => b.errorRate - a.errorRate)
-            .slice(0, 5);
+            .sort((a, b) => b.errorRate - a.errorRate);
     }, [keyErrorStats, keyAttemptStats, practiceHistory]);
 
     const languageFocus = useMemo(() => {
@@ -624,13 +625,18 @@ const DashboardPage: React.FC = () => {
                         <Card className="p-6">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-xl font-semibold">Error Analysis</h2>
-                                <Button variant="secondary" size="sm" onClick={handleStartTargetedPractice} disabled={errorAnalysis.length === 0} title="Practice your weakest keys immediately">
-                                    Practice Errors
-                                </Button>
+                                <div className="flex gap-2">
+                                    <Button variant="secondary" size="sm" onClick={() => setIsErrorAnalysisExpanded(!isErrorAnalysisExpanded)} disabled={errorAnalysis.length <= 5} title={isErrorAnalysisExpanded ? "Show Less" : "View All"}>
+                                        {isErrorAnalysisExpanded ? "Show Less" : "View All"}
+                                    </Button>
+                                    <Button variant="secondary" size="sm" onClick={handleStartTargetedPractice} disabled={errorAnalysis.length === 0} title="Practice your weakest keys immediately">
+                                        Practice Errors
+                                    </Button>
+                                </div>
                             </div>
                             {errorAnalysis.length > 0 ? (
                                 <div className="space-y-4">
-                                    {errorAnalysis.slice(0, 5).map((error, index) => (
+                                    {errorAnalysis.slice(0, isErrorAnalysisExpanded ? undefined : 5).map((error, index) => (
                                         <div key={index} className="space-y-1">
                                             <div className="flex justify-between items-center text-sm">
                                                 <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">
@@ -648,7 +654,7 @@ const DashboardPage: React.FC = () => {
                                             </div>
                                         </div>
                                     ))}
-                                    {errorAnalysis.length > 5 && (
+                                    {!isErrorAnalysisExpanded && errorAnalysis.length > 5 && (
                                         <p className="text-xs text-center text-slate-500 mt-2">
                                             + {errorAnalysis.length - 5} other keys needing practice
                                         </p>
