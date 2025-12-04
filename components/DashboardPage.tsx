@@ -6,7 +6,7 @@ import { Button } from './ui/Button';
 import { GoalsModal } from './GoalsModal';
 import { PencilIcon } from './icons/PencilIcon';
 import { PracticeSetupModal } from './PracticeSetupModal';
-import { SnippetLength, SnippetLevel } from '../types';
+import { SnippetLength, SnippetLevel, PracticeMode, ContentType } from '../types';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { exportAllData, importData } from '../services/dataService';
 import {
@@ -121,6 +121,11 @@ const DashboardPage: React.FC = () => {
         reloadDataFromStorage,
         deletePracticeSession,
         clearPracticeHistory,
+        openSetupModal,
+        fetchNewSnippet,
+        startCustomSession,
+        closeSetupModal,
+        isSetupModalOpen,
     } = context;
 
     const [isGoalsModalOpen, setIsGoalsModalOpen] = useState(false);
@@ -186,6 +191,20 @@ const DashboardPage: React.FC = () => {
 
     useAccessKey('E', handleExportData, { disabled: isGoalsModalOpen });
     useAccessKey('I', handleImportClick, { disabled: isGoalsModalOpen });
+
+    const handleStartFromSetup = useCallback(async (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => {
+        if (customCode) {
+            startCustomSession(customCode, mode);
+            closeSetupModal();
+            navigateTo('practice');
+        } else {
+            const success = await fetchNewSnippet({ length: length || undefined, level: level || undefined, mode: mode || undefined, contentTypes: contentTypes || undefined });
+            if (success) {
+                closeSetupModal();
+                navigateTo('practice');
+            }
+        }
+    }, [startCustomSession, closeSetupModal, fetchNewSnippet, navigateTo]);
 
     const finishImport = (fileContent: string, mode: 'merge' | 'replace') => {
         try {
@@ -255,11 +274,11 @@ const DashboardPage: React.FC = () => {
         if (deleteConfirmation?.type === 'single' && deleteConfirmation.timestamp) {
             deletePracticeSession(deleteConfirmation.timestamp);
             showAlert('Session deleted.', 'info');
+            setDeleteConfirmation(null);
         } else if (deleteConfirmation?.type === 'all') {
-            clearPracticeHistory();
-            showAlert('All history deleted.', 'info');
+            localStorage.clear();
+            window.location.reload();
         }
-        setDeleteConfirmation(null);
     };
 
 
@@ -435,7 +454,9 @@ const DashboardPage: React.FC = () => {
                     <Button
                         ref={startButtonRef}
                         variant={focusedButtonIndex === 0 ? 'primary' : 'secondary'}
-                        onClick={() => navigateTo('practice')}
+                        onClick={() => {
+                            openSetupModal();
+                        }}
                         onFocus={() => setFocusedButtonIndex(0)}
                         onMouseEnter={() => setFocusedButtonIndex(0)}
                         accessKeyChar="Enter"
@@ -455,6 +476,19 @@ const DashboardPage: React.FC = () => {
                         Import Data
                     </Button>
                 </div>
+                {/* Hidden file input for import functionality */}
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept=".json,application/json"
+                    onChange={handleFileImport}
+                />
+                <PracticeSetupModal
+                    isOpen={isSetupModalOpen}
+                    onClose={closeSetupModal}
+                    onStart={handleStartFromSetup}
+                />
             </div>
         );
     }
@@ -730,6 +764,12 @@ const DashboardPage: React.FC = () => {
                 )}
             </div >
 
+            <PracticeSetupModal
+                isOpen={isSetupModalOpen}
+                onClose={closeSetupModal}
+                onStart={handleStartFromSetup}
+            />
+
             <GoalsModal
                 isOpen={isGoalsModalOpen}
                 onClose={() => setIsGoalsModalOpen(false)}
@@ -793,7 +833,7 @@ const DashboardPage: React.FC = () => {
                 onClose={() => setDeleteConfirmation(null)}
                 title={deleteConfirmation?.type === 'all' ? "Delete All History" : "Delete Session"}
                 message={deleteConfirmation?.type === 'all'
-                    ? "Are you sure you want to delete ALL practice history? This action cannot be undone."
+                    ? "Are you sure you want to delete ALL practice history? This action cannot be undone and will reset the website to a fresh state."
                     : "Are you sure you want to delete this practice session?"}
                 buttons={[
                     { label: 'Cancel', onClick: () => setDeleteConfirmation(null), variant: 'secondary' },
