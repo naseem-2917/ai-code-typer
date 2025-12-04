@@ -216,7 +216,8 @@ const PracticePage: React.FC = () => {
                 errors: game.errors,
                 language: selectedLanguage.name,
                 snippetLength: snippet.length,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                linesTyped: snippet.split('\n').length
             });
 
             if (currentTargetedKeys.length > 0) {
@@ -488,10 +489,11 @@ const PracticePage: React.FC = () => {
                     requestFocusOnCode();
                 }}
                 stats={lastStats}
-                onPracticeSame={handlePracticeSame}
-                onNextSnippet={handleNextSnippet}
-                currentTargetedKeys={currentTargetedKeys}
-                onPracticeTargeted={(keys) => startTargetedSession(keys, { length: 'medium', level: 'medium' })}
+                onPracticeAgain={handlePracticeSame}
+                onReturnToDashboard={() => {
+                    setIsTargetedResultsModalOpen(false);
+                    navigateTo('dashboard');
+                }}
                 sessionErrorMap={lastStats.errorMap}
                 sessionAttemptMap={lastStats.attemptMap}
             />

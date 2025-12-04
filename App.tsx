@@ -7,6 +7,7 @@ import DashboardPage from './components/DashboardPage';
 import HistoryPage from './components/HistoryPage';
 import { Page } from './types';
 import { Alert } from './components/ui/Alert';
+import { DeveloperTools } from './components/DeveloperTools';
 
 const AppContent: React.FC = () => {
   const context = useContext(AppContext);
@@ -37,6 +38,10 @@ const AppContent: React.FC = () => {
       <main className="container mx-auto px-4 py-4 flex-grow flex flex-col min-h-0">
         {renderPage()}
       </main>
+      <DeveloperTools />
+      <div style={{ position: 'fixed', bottom: 0, left: 0, background: 'red', color: 'white', zIndex: 9999 }}>
+        DEBUG: VITE_DEVTOOLS_ENABLED = {import.meta.env.VITE_DEVTOOLS_ENABLED}
+      </div>
     </div>
   );
 };

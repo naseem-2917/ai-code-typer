@@ -8,6 +8,15 @@ if (!rootElement) {
 }
 
 const root = ReactDOM.createRoot(rootElement);
+
+if (import.meta.env.VITE_DEVTOOLS_ENABLED === "true") {
+  window.addEventListener("keydown", (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === ",") {
+      document.querySelector("button")?.click();
+    }
+  });
+}
+
 root.render(
   <App />
 );

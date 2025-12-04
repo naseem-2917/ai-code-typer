@@ -37,12 +37,13 @@ const KeyStatDisplay: React.FC<{
   beforeRate: number;
   afterRate: number;
 }> = ({ char, beforeRate, afterRate }) => {
-  const improvement = beforeRate - afterRate;
   const displayChar = displayKey(char);
 
+  // Improvement: Error rate went DOWN (after < before) -> Green
+  // Regression: Error rate went UP (after > before) -> Red
   let verdictColor = 'text-slate-500 dark:text-slate-400';
-  if (improvement > 2) verdictColor = 'text-green-500';
-  if (improvement < -2) verdictColor = 'text-red-500';
+  if (afterRate < beforeRate) verdictColor = 'text-green-500 font-bold';
+  if (afterRate > beforeRate) verdictColor = 'text-red-500 font-bold';
 
   return (
     <div className="grid grid-cols-3 items-center text-center text-sm p-2 rounded-md bg-slate-100 dark:bg-slate-700/50">
@@ -111,12 +112,13 @@ export const TargetedResultsModal: React.FC<TargetedResultsModalProps> = ({
         </p>
 
         <Card className="p-4 bg-slate-50 dark:bg-slate-900/50">
-          <div className="grid grid-cols-3 items-center text-center font-semibold text-xs text-slate-500 dark:text-slate-400 mb-2">
+          <div className="grid grid-cols-3 items-center text-center font-semibold text-xs text-slate-500 dark:text-slate-400 mb-2 mr-2">
             <span>Key</span>
             <span>Before</span>
             <span>After</span>
           </div>
-          <div className="space-y-1">
+          {/* Added max-height and overflow-y-auto for scrolling */}
+          <div className="space-y-1 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
             {comparisonData.results.map(data => <KeyStatDisplay key={data.key} char={data.key} {...data} />)}
           </div>
         </Card>

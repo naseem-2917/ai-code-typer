@@ -25,6 +25,7 @@ import {
 import { useAccessKey } from '../hooks/useAccessKey';
 import { ConfirmationModal } from './ui/ConfirmationModal';
 import { TrashIcon } from './icons/TrashIcon';
+import { Modal } from './ui/Modal';
 
 const COLORS = ['#10b981', '#3b82f6', '#ef4444', '#f97316', '#8b5cf6', '#ec4899'];
 
@@ -123,12 +124,12 @@ const DashboardPage: React.FC = () => {
     } = context;
 
     const [isGoalsModalOpen, setIsGoalsModalOpen] = useState(false);
+    const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
     // Targeted practice now starts directly, no modal needed
     const [timeFilter, setTimeFilter] = useState<'24h' | '7d' | '30d' | 'all'>('all');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [importConfirmation, setImportConfirmation] = useState<{ fileContent: string } | null>(null);
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ type: 'single' | 'all', timestamp?: number } | null>(null);
-    const [isErrorAnalysisExpanded, setIsErrorAnalysisExpanded] = useState(false);
 
     const [focusedButtonIndex, setFocusedButtonIndex] = useState(0);
     const startButtonRef = useRef<HTMLButtonElement>(null);
@@ -284,7 +285,8 @@ const DashboardPage: React.FC = () => {
         const totalAccuracy = filteredHistory.reduce((acc, curr) => acc + curr.accuracy, 0);
         const totalDuration = filteredHistory.reduce((acc, curr) => acc + curr.duration, 0);
         const bestWpm = Math.max(0, ...filteredHistory.map(s => s.wpm));
-        const totalLines = filteredHistory.reduce((acc, curr) => acc + curr.linesTyped, 0);
+        // FIX: Ensure linesTyped is handled safely (default to 0 if undefined)
+        const totalLines = filteredHistory.reduce((acc, curr) => acc + (curr.linesTyped || 0), 0);
         const totalErrors = filteredHistory.reduce((acc, curr) => acc + curr.errors, 0);
 
         return {
@@ -298,7 +300,7 @@ const DashboardPage: React.FC = () => {
         };
     }, [filteredHistory]);
 
-    const errorAnalysis = useMemo(() => {
+    const sortedErrorStats = useMemo(() => {
         if (practiceHistory.length === 0) return [];
 
         return Object.entries(keyErrorStats)
@@ -310,9 +312,10 @@ const DashboardPage: React.FC = () => {
                 return { key, errors: numericErrors, attempts: numericAttempts, errorRate };
             })
             .filter(item => item.attempts > 2)
-            .sort((a, b) => b.errorRate - a.errorRate)
             .sort((a, b) => b.errorRate - a.errorRate);
     }, [keyErrorStats, keyAttemptStats, practiceHistory]);
+
+    const errorAnalysis = useMemo(() => sortedErrorStats.slice(0, 5), [sortedErrorStats]);
 
     const languageFocus = useMemo(() => {
         if (filteredHistory.length === 0) return [];
@@ -385,6 +388,10 @@ const DashboardPage: React.FC = () => {
             case 'all': {
                 domain = ['auto', 'auto'];
                 tickFormatter = (ts) => new Date(ts).toLocaleDateString();
+                xAxisType = 'category'; // Use category to space points evenly by index
+                // We need to ensure dataKey is unique for category axis if timestamps are duplicate, 
+                // but for now timestamp is fine as they are likely unique.
+                // Recharts 'category' axis uses the index of the data array for spacing.
                 break;
             }
         }
@@ -626,8 +633,8 @@ const DashboardPage: React.FC = () => {
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-xl font-semibold">Error Analysis</h2>
                                 <div className="flex gap-2">
-                                    <Button variant="secondary" size="sm" onClick={() => setIsErrorAnalysisExpanded(!isErrorAnalysisExpanded)} disabled={errorAnalysis.length <= 5} title={isErrorAnalysisExpanded ? "Show Less" : "View All"}>
-                                        {isErrorAnalysisExpanded ? "Show Less" : "View All"}
+                                    <Button variant="ghost" size="sm" onClick={() => setIsErrorModalOpen(true)}>
+                                        View All
                                     </Button>
                                     <Button variant="secondary" size="sm" onClick={handleStartTargetedPractice} disabled={errorAnalysis.length === 0} title="Practice your weakest keys immediately">
                                         Practice Errors
@@ -636,7 +643,7 @@ const DashboardPage: React.FC = () => {
                             </div>
                             {errorAnalysis.length > 0 ? (
                                 <div className="space-y-4">
-                                    {errorAnalysis.slice(0, isErrorAnalysisExpanded ? undefined : 5).map((error, index) => (
+                                    {errorAnalysis.map((error, index) => (
                                         <div key={index} className="space-y-1">
                                             <div className="flex justify-between items-center text-sm">
                                                 <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">
@@ -654,9 +661,9 @@ const DashboardPage: React.FC = () => {
                                             </div>
                                         </div>
                                     ))}
-                                    {!isErrorAnalysisExpanded && errorAnalysis.length > 5 && (
+                                    {sortedErrorStats.length > 5 && (
                                         <p className="text-xs text-center text-slate-500 mt-2">
-                                            + {errorAnalysis.length - 5} other keys needing practice
+                                            + {sortedErrorStats.length - 5} other keys needing practice
                                         </p>
                                     )}
                                 </div>
@@ -692,21 +699,26 @@ const DashboardPage: React.FC = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                                            {filteredHistory.slice(0, 5).map((session, index) => (
-                                                <tr key={session.id} className={index % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800' : ''}>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{new Date(session.date).toLocaleDateString()}</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.wpm.toFixed(0)}</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.accuracy.toFixed(1)}%</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{formatDuration(session.duration)}</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.language}</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.errors}</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
-                                                        <Button variant="ghost" size="icon" onClick={() => setDeleteConfirmation({ type: 'single', timestamp: session.timestamp })}>
-                                                            <TrashIcon className="w-4 h-4 text-red-500" />
-                                                        </Button>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {filteredHistory
+                                                .sort((a, b) => b.timestamp - a.timestamp) // FIX: Sort Newest -> Oldest
+                                                .slice(0, 5)
+                                                .map((session, index) => (
+                                                    <tr key={session.id} className={index % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800' : ''}>
+                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
+                                                            {new Date(session.date).toLocaleDateString('en-GB')} {/* FIX: dd/mm/yyyy */}
+                                                        </td>
+                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.wpm.toFixed(0)}</td>
+                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.accuracy.toFixed(1)}%</td>
+                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{formatSessionDuration(session.duration)}</td>
+                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.language}</td>
+                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.errors}</td>
+                                                        <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
+                                                            <Button variant="ghost" size="icon" onClick={() => setDeleteConfirmation({ type: 'single', timestamp: session.timestamp })}>
+                                                                <TrashIcon className="w-4 h-4 text-red-500" />
+                                                            </Button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
                                         </tbody>
                                     </table>
                                 </div>
@@ -727,7 +739,43 @@ const DashboardPage: React.FC = () => {
                 currentTimeGoal={timeGoal}
             />
 
-
+            <Modal
+                isOpen={isErrorModalOpen}
+                onClose={() => setIsErrorModalOpen(false)}
+                title="All Error Stats"
+            >
+                <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+                    {sortedErrorStats.length > 0 ? (
+                        <div className="space-y-4">
+                            {sortedErrorStats.map((error, index) => (
+                                <div key={index} className="space-y-1">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">
+                                            {displayKey(error.key)}
+                                        </span>
+                                        <span className="text-slate-500 dark:text-slate-400 text-xs">
+                                            {error.errors} Errors / {error.attempts} Attempts ({error.errorRate.toFixed(1)}%)
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+                                        <div
+                                            className="bg-red-500 h-1.5 rounded-full"
+                                            style={{ width: `${Math.min(100, error.errorRate)}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-center text-slate-500">No error data available.</p>
+                    )}
+                </div>
+                <div className="mt-6 flex justify-end">
+                    <Button variant="secondary" onClick={() => setIsErrorModalOpen(false)}>
+                        Close
+                    </Button>
+                </div>
+            </Modal>
 
             <ConfirmationModal
                 isOpen={!!importConfirmation}

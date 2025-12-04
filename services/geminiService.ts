@@ -139,7 +139,7 @@ export const generateTargetedCodeSnippet = async (
   return generateSnippet(prompt);
 };
 
-// Exported: General Practice (KEPT YOUR EXACT LOGIC)
+// Exported: General Practice
 export const generateGeneralSnippet = async (
   length: SnippetLength,
   level: SnippetLevel,
@@ -212,27 +212,42 @@ ${instruction}
 ${difficultyInstruction}`;
 
   const systemInstruction = `You are a text generation engine for a typing practice app. 
-Your task is to provide a clean, raw text snippet based strictly on the user's content selection.
-ABSOLUTELY NO markdown, headers, conversational text, or backticks.
-IMPORTANT: Format the text naturally with line breaks ('\\n') every 8-12 words/items to fit a screen, do not create one giant line.`;
+  Your task is to provide a clean, raw text snippet based strictly on the user's content selection.
+  ABSOLUTELY NO markdown, headers, conversational text, or backticks.
+  IMPORTANT: Format the text naturally with line breaks ('\\n') every 8-12 words/items to fit a screen, do not create one giant line.`;
 
   return generateSnippet(prompt, systemInstruction);
 };
 
 // Exported: Error Practice
-export const generateErrorPracticeSnippet = async (allErrorKeys: string[]): Promise<string> => {
-  const totalErrorKeys = allErrorKeys.length;
-  let lengthInstruction = "";
+export const generateErrorPracticeSnippet = async (
+  keyStats: Record<string, { errors: number; attempts: number }>
+): Promise<string> => {
+  // 1. Calculate Error Rates & Sort
+  const sortedKeys = Object.entries(keyStats)
+    .map(([key, stats]) => {
+      const errorRate = stats.attempts > 0 ? (stats.errors / stats.attempts) * 100 : 0;
+      return { key, errorRate, attempts: stats.attempts };
+    })
+    .sort((a, b) => b.errorRate - a.errorRate);
 
-  if (totalErrorKeys <= 3) {
-    lengthInstruction = "Generate a 150-250 character paragraph.";
-  } else if (totalErrorKeys <= 6) {
-    lengthInstruction = "Generate a 250-350 character paragraph.";
-  } else {
-    lengthInstruction = "Generate a 350-500 character paragraph.";
+  // 2. Apply Filtering Rules
+  // A) Top 5 worst keys (always included if they exist)
+  const top5 = sortedKeys.slice(0, 5);
+
+  // B) Additional keys: Error Rate >= 12% AND Attempts >= 5
+  const additionalCandidates = sortedKeys.slice(5).filter(k => k.errorRate >= 12 && k.attempts >= 5);
+
+  // C) Combine & Limit to 7
+  // Use Set to avoid duplicates (though slice logic prevents overlap, safety first)
+  const finalKeysSet = new Set([...top5.map(k => k.key), ...additionalCandidates.map(k => k.key)]);
+  const finalKeys = Array.from(finalKeysSet).slice(0, 7);
+
+  if (finalKeys.length === 0) {
+    throw new Error("No significant error keys found to practice.");
   }
 
-  const sanitizedKeys = allErrorKeys.map(k => {
+  const sanitizedKeys = finalKeys.map(k => {
     if (k === ' ') return 'space';
     if (k === '\n') return 'newline';
     if (k === '\t') return 'tab';
@@ -241,39 +256,40 @@ export const generateErrorPracticeSnippet = async (allErrorKeys: string[]): Prom
 
   const prompt = `Generate a PRACTICE ERRORS snippet.
   
-  Error Keys to Target: [${sanitizedKeys}]
+  Target Keys: [${sanitizedKeys}]
   
   CRITICAL RULES:
-  1. DO NOT generate a code snippet.
-  2. Always generate a GENERAL natural-language paragraph.
-  3. The paragraph MUST contain HEAVY usage of the user's most frequent error keys listed above.
-  4. ${lengthInstruction}
-  5. Insert each high-frequency error key multiple times in the paragraph.
-  6. The paragraph MUST remain meaningful, readable and natural.
-  7. Do not generate random gibberish.
-  8. NEVER create code blocks.
+  1. Output MUST be plain English text. NO CODE. NO pseudocode.
+  2. NO programming keywords (if, for, while, etc.).
+  3. Length: 220-320 characters.
+  4. The text must feel like a natural paragraph or story.
+  5. HEAVY usage of the Target Keys.
+  6. High-priority keys (earlier in list) should appear more frequently.
+  7. NO bullet points, NO explanations, NO markdown backticks.
   
-  FINAL OUTPUT FORMAT:
-  Return ONLY this JSON structure:
+  OUTPUT FORMAT:
+  Return ONLY valid JSON:
   {
-    "practiceMode": "error-training",
-    "generatedSnippet": "... final paragraph ...",
-    "length": <number>,
-    "keysUsed": ["<key1>", "<key2>", ...]
+    "snippet": "generated text here",
+    "usedKeys": ["key1", "key2"]
   }`;
 
-  const systemInstruction = `You are a training engine for a typing practice app.
-  Your task is to generate a natural language paragraph that targets specific error keys.
-  Return ONLY valid JSON. No markdown formatting around the JSON.`;
+  const systemInstruction = `You are a creative writing engine for typing practice.
+  Your goal is to weave specific target characters into a natural, flowing English paragraph.
+  Return ONLY valid JSON.`;
 
   const jsonResponse = await generateSnippet(prompt, systemInstruction);
 
   try {
     const parsed = JSON.parse(jsonResponse);
-    return parsed.generatedSnippet;
+    return parsed.snippet;
   } catch (e) {
     console.error("Failed to parse Error Practice JSON:", e);
-    // Fallback: return the raw response if it looks like text, or a default message
+    // Fallback: try to find the snippet string if JSON parsing fails
+    if (jsonResponse.includes('"snippet":')) {
+      const match = jsonResponse.match(/"snippet":\s*"([^"]+)"/);
+      if (match) return match[1];
+    }
     return jsonResponse;
   }
 };

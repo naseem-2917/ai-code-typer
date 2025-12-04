@@ -5,6 +5,8 @@ import { generateCodeSnippet, generateTargetedCodeSnippet, generateGeneralSnippe
 import { updateDailyPracticeTime } from '../services/dataService';
 
 const CUSTOM_LANGUAGE: Language = { id: 'custom', name: 'Custom', prismAlias: 'clike' };
+const FONT_SIZES: FontSize[] = ['sm', 'md', 'lg', 'xl'];
+
 
 const getLanguageFromExtension = (filename: string): Language => {
   const lastDotIndex = filename.lastIndexOf('.');
@@ -140,7 +142,7 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
-const FONT_SIZES: FontSize[] = ['sm', 'md', 'lg', 'xl'];
+
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -228,6 +230,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [sessionResetKey, setSessionResetKey] = useState(0);
 
+  const showAlert = useCallback((message: string, type: 'warning' | 'info' | 'error', duration: number = 4000) => {
+    if (alertTimeoutRef.current) {
+      clearTimeout(alertTimeoutRef.current);
+    }
+    setAlertMessage({ message, type });
+    alertTimeoutRef.current = window.setTimeout(() => {
+      setAlertMessage(null);
+    }, duration);
+  }, []);
 
   const isInitialSetupComplete = !!snippet;
 
@@ -307,6 +318,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [focusRequestCallback]);
 
+  const clearPracticeQueue = () => {
+    setPracticeQueue([]);
+    setCurrentQueueIndex(-1);
+  };
+
   const fetchNewSnippet = useCallback(async (options?: { length?: SnippetLength, level?: SnippetLevel, mode?: PracticeMode, contentTypes?: ContentType[] }) => {
     if (isLoadingSnippet) return false;
 
@@ -314,8 +330,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const targetLength = options?.length || snippetLength;
     const targetLevel = options?.level || snippetLevel;
     const targetContentTypes = options?.contentTypes || generalContentTypes;
-
-    console.debug(`fetchNewSnippet called with mode: ${targetMode}, contentTypes: ${targetContentTypes.join(', ')}`);
 
     setIsLoadingSnippet(true);
     setSnippet('');
@@ -369,11 +383,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const clearPracticeQueue = () => {
-    setPracticeQueue([]);
-    setCurrentQueueIndex(-1);
-  };
-
   const startTargetedSession = useCallback(async (keys: string[], options: { length: SnippetLength, level: SnippetLevel }) => {
     if (isLoadingSnippet) return;
 
@@ -399,6 +408,53 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsLoadingSnippet(false);
     }
   }, [selectedLanguage, isLoadingSnippet]);
+
+  const startErrorPracticeSession = useCallback(async () => {
+    if (isLoadingSnippet) return;
+
+    // 1. Gather all error keys
+    const allErrorKeys = Object.entries(keyErrorStats)
+      .filter(([_, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1]) // Sort by error count descending
+      .map(([key]) => key);
+
+    if (allErrorKeys.length === 0) {
+      showAlert("No error history found! Practice more to generate error data.", 'info');
+      return;
+    }
+
+    setPracticeMode('error-training');
+    setCurrentTargetedKeys(allErrorKeys); // Set for highlighting
+
+    clearPracticeQueue();
+    setSnippet('');
+    setSnippetError(null);
+    setIsCustomSession(false);
+    setIsLoadingSnippet(true);
+
+    try {
+      // Prepare the stats object for the generator
+      const statsForGenerator: Record<string, { errors: number; attempts: number }> = {};
+
+      // We need to combine error stats with attempt stats
+      allErrorKeys.forEach(key => {
+        const errors = keyErrorStats[key] || 0;
+        const attempts = keyAttemptStats[key] || errors; // Fallback to errors if attempts missing
+        statsForGenerator[key] = { errors, attempts };
+      });
+
+      const newSnippet = await generateErrorPracticeSnippet(statsForGenerator);
+      setSnippet(convertSpacesToTabs(newSnippet));
+      setSessionResetKey(prev => prev + 1);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate error practice snippet.';
+      setSnippetError(errorMessage);
+      setSessionResetKey(prev => prev + 1);
+      console.error(err);
+    } finally {
+      setIsLoadingSnippet(false);
+    }
+  }, [keyErrorStats, keyAttemptStats, isLoadingSnippet, showAlert]);
 
   const loadSnippetFromQueue = useCallback((index: number) => {
     if (practiceQueue[index]) {
@@ -481,53 +537,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       loadSnippetFromQueue(nextIndex);
     }
   }, [currentQueueIndex, practiceQueue, loadSnippetFromQueue]);
-
-  const showAlert = useCallback((message: string, type: 'warning' | 'info' | 'error', duration: number = 4000) => {
-    if (alertTimeoutRef.current) {
-      clearTimeout(alertTimeoutRef.current);
-    }
-    setAlertMessage({ message, type });
-    alertTimeoutRef.current = window.setTimeout(() => {
-      setAlertMessage(null);
-    }, duration);
-  }, []);
-
-  const startErrorPracticeSession = useCallback(async () => {
-    if (isLoadingSnippet) return;
-
-    // 1. Gather all error keys
-    const allErrorKeys = Object.entries(keyErrorStats)
-      .filter(([_, count]) => count > 0)
-      .sort((a, b) => b[1] - a[1]) // Sort by error count descending
-      .map(([key]) => key);
-
-    if (allErrorKeys.length === 0) {
-      showAlert("No error history found! Practice more to generate error data.", 'info');
-      return;
-    }
-
-    setPracticeMode('error-training');
-    setCurrentTargetedKeys(allErrorKeys); // Set for highlighting
-
-    clearPracticeQueue();
-    setSnippet('');
-    setSnippetError(null);
-    setIsCustomSession(false);
-    setIsLoadingSnippet(true);
-
-    try {
-      const newSnippet = await generateErrorPracticeSnippet(allErrorKeys);
-      setSnippet(convertSpacesToTabs(newSnippet));
-      setSessionResetKey(prev => prev + 1);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate error practice snippet.';
-      setSnippetError(errorMessage);
-      setSessionResetKey(prev => prev + 1);
-      console.error(err);
-    } finally {
-      setIsLoadingSnippet(false);
-    }
-  }, [keyErrorStats, isLoadingSnippet, showAlert]);
 
   const increaseFontSize = () => {
     const currentIndex = FONT_SIZES.indexOf(fontSize);
