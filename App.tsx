@@ -39,9 +39,6 @@ const AppContent: React.FC = () => {
         {renderPage()}
       </main>
       <DeveloperTools />
-      <div style={{ position: 'fixed', bottom: 0, left: 0, background: 'red', color: 'white', zIndex: 9999 }}>
-        DEBUG: VITE_DEVTOOLS_ENABLED = {import.meta.env.VITE_DEVTOOLS_ENABLED}
-      </div>
     </div>
   );
 };
