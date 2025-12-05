@@ -26,6 +26,7 @@ import { useAccessKey } from '../hooks/useAccessKey';
 import { ConfirmationModal } from './ui/ConfirmationModal';
 import { TrashIcon } from './icons/TrashIcon';
 import { Modal } from './ui/Modal';
+import { formatDate, formatDateTime } from '../utils/dateUtils';
 
 const COLORS = ['#10b981', '#3b82f6', '#ef4444', '#f97316', '#8b5cf6', '#ec4899'];
 
@@ -39,13 +40,7 @@ const formatSessionDuration = (totalSeconds: number) => {
 const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         const sessionData = payload[0].payload;
-        const displayLabel = new Date(sessionData.timestamp).toLocaleString([], {
-            month: 'numeric',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit'
-        });
+        const displayLabel = formatDateTime(sessionData.timestamp);
         return (
             <div className="p-2 bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-md text-sm">
                 <p className="label font-semibold">{`${displayLabel}`}</p>
@@ -365,7 +360,7 @@ const DashboardPage: React.FC = () => {
         const sortedData = filteredHistory.slice().sort((a, b) => a.timestamp - b.timestamp);
 
         let domain: [number | string, number | string] = [now.getTime() - 24 * 60 * 60 * 1000, now.getTime()];
-        let tickFormatter = (value: any) => new Date(value).toLocaleDateString();
+        let tickFormatter = (value: any) => formatDate(value);
         let ticks: number[] | undefined = undefined;
         let xAxisType: 'number' | 'category' = 'number';
         let xDataKey = 'timestamp';
@@ -383,7 +378,7 @@ const DashboardPage: React.FC = () => {
                 sevenDaysAgo.setDate(now.getDate() - 6);
                 sevenDaysAgo.setHours(0, 0, 0, 0);
                 domain = [sevenDaysAgo.getTime(), now.getTime()];
-                tickFormatter = (ts) => new Date(ts).toLocaleDateString([], { month: 'numeric', day: 'numeric' });
+                tickFormatter = (ts) => formatDate(ts);
                 ticks = Array.from({ length: 7 }, (_, i) => {
                     const d = new Date(sevenDaysAgo);
                     d.setDate(d.getDate() + i);
@@ -396,7 +391,7 @@ const DashboardPage: React.FC = () => {
                 thirtyDaysAgo.setDate(now.getDate() - 29);
                 thirtyDaysAgo.setHours(0, 0, 0, 0);
                 domain = [thirtyDaysAgo.getTime(), now.getTime()];
-                tickFormatter = (ts) => new Date(ts).toLocaleDateString([], { month: 'numeric', day: 'numeric' });
+                tickFormatter = (ts) => formatDate(ts);
                 ticks = Array.from({ length: 7 }, (_, i) => {
                     const d = new Date(thirtyDaysAgo);
                     d.setDate(d.getDate() + (i * 5));
@@ -406,7 +401,7 @@ const DashboardPage: React.FC = () => {
             }
             case 'all': {
                 domain = ['auto', 'auto'];
-                tickFormatter = (ts) => new Date(ts).toLocaleDateString();
+                tickFormatter = (ts) => formatDate(ts);
                 xAxisType = 'category'; // Use category to space points evenly by index
                 // We need to ensure dataKey is unique for category axis if timestamps are duplicate, 
                 // but for now timestamp is fine as they are likely unique.
@@ -739,7 +734,7 @@ const DashboardPage: React.FC = () => {
                                                 .map((session, index) => (
                                                     <tr key={session.id} className={index % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800' : ''}>
                                                         <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
-                                                            {new Date(session.date).toLocaleDateString('en-GB')} {/* FIX: dd/mm/yyyy */}
+                                                            {formatDate(session.date)}
                                                         </td>
                                                         <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.wpm.toFixed(0)}</td>
                                                         <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.accuracy.toFixed(1)}%</td>

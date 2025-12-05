@@ -24,6 +24,7 @@ interface ResultsModalProps {
   hasNextSnippet?: boolean;
   sessionErrorMap?: Record<string, number>;
   sessionAttemptMap?: Record<string, number>;
+  saveStatus?: { saved: boolean; reason?: string } | null;
 }
 
 const formatDuration = (totalSeconds: number): string => {
@@ -51,6 +52,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   hasNextSnippet = false,
   sessionErrorMap = {},
   sessionAttemptMap = {},
+  saveStatus,
 }) => {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -61,6 +63,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
     const practiceSameButton = { label: 'Practice Same Code', action: onPracticeSame };
     const viewProgressButton = { label: 'View Your Progress', action: onViewProgress };
     const nextSnippetButton = { label: 'Next Snippet', action: onNextSnippet! };
+    const resumeButton = { label: 'Resume', action: onClose };
 
     let actionButtons = [];
 
@@ -69,7 +72,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
     }
 
     if (isEarlyExit) {
-      actionButtons.push(newSnippetButton, practiceSameButton, viewProgressButton);
+      actionButtons.push(resumeButton, newSnippetButton, practiceSameButton, viewProgressButton);
     } else {
       if (lastPracticeAction === 'practice_same' && !isMultiFileSession) {
         actionButtons.push(practiceSameButton, newSnippetButton);
@@ -80,7 +83,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
     }
 
     return actionButtons;
-  }, [isEarlyExit, isMultiFileSession, lastPracticeAction, onNewSnippet, onPracticeSame, onViewProgress, onNextSnippet, hasNextSnippet]);
+  }, [isEarlyExit, isMultiFileSession, lastPracticeAction, onNewSnippet, onPracticeSame, onViewProgress, onNextSnippet, hasNextSnippet, onClose]);
 
   useEffect(() => {
     buttonRefs.current = buttonRefs.current.slice(0, buttons.length);
@@ -130,20 +133,21 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title}>
       <div className="space-y-6">
-        {!isEarlyExit ? (
-          <div className="grid grid-cols-2 gap-4 text-center">
-            <Stat label="WPM" value={stats.wpm} />
-            <Stat label="Accuracy" value={`${stats.accuracy}%`} />
-            <Stat label="Errors" value={stats.errors} />
-            <Stat label="Duration" value={formatDuration(stats.duration)} />
+        <div className="grid grid-cols-2 gap-4 text-center">
+          <Stat label="WPM" value={stats.wpm} />
+          <Stat label="Accuracy" value={`${stats.accuracy}%`} />
+          <Stat label="Errors" value={stats.errors} />
+          <Stat label="Duration" value={formatDuration(stats.duration)} />
+        </div>
+
+        {isEarlyExit && (
+          <div className={`text-center py-2 px-4 rounded-md ${saveStatus?.saved ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+            <p className="font-medium">
+              {saveStatus?.saved
+                ? "Progress Saved"
+                : saveStatus?.reason || "Session Ended Early (Not Saved)"}
+            </p>
           </div>
-        ) : (
-          <p className="text-center text-slate-500 dark:text-slate-400 py-4">
-            {stats.wpm > 0
-              ? "Your progress for this session has been saved."
-              : "You ended the session before any progress could be saved."
-            }
-          </p>
         )}
 
         <div className="flex flex-col gap-3">

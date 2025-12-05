@@ -560,7 +560,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (practiceMode === 'general') {
       finalStats.language = 'General';
     }
-    setPracticeHistory(prev => [...prev, finalStats].slice(-100));
+    setPracticeHistory(prev => {
+      const existingIndex = prev.findIndex(s => s.id === finalStats.id);
+      if (existingIndex >= 0) {
+        const newHistory = [...prev];
+        newHistory[existingIndex] = finalStats;
+        return newHistory;
+      }
+      return [...prev, finalStats].slice(-100);
+    });
     const newDailyTime = updateDailyPracticeTime(finalStats.duration);
     setDailyPracticeTime(newDailyTime);
 

@@ -4,6 +4,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { TrashIcon } from './icons/TrashIcon';
 import { ConfirmationModal } from './ui/ConfirmationModal';
+import { formatDateTime } from '../utils/dateUtils';
 
 const HistoryPage: React.FC = () => {
     const context = useContext(AppContext);
@@ -67,15 +68,15 @@ const HistoryPage: React.FC = () => {
                                 {sortedHistory.map((session, index) => (
                                     <tr key={session.timestamp} className={index % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800' : ''}>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
-                                            {new Date(session.timestamp).toLocaleString()}
+                                            {formatDateTime(session.timestamp)}
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100 font-medium">
                                             {session.wpm.toFixed(0)}
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${session.accuracy >= 95 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                                    session.accuracy >= 90 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                                                        'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                                session.accuracy >= 90 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                                                 }`}>
                                                 {session.accuracy.toFixed(1)}%
                                             </span>

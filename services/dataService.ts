@@ -43,7 +43,7 @@ export const updateDailyPracticeTime = (sessionDuration: number): number => {
 
   dailyTime += sessionDuration;
   localStorage.setItem('dailyPracticeTime', String(dailyTime));
-  
+
   return dailyTime;
 };
 
@@ -65,6 +65,7 @@ export const exportAllData = () => {
     'timeGoal',
     'dailyPracticeDate',
     'dailyPracticeTime',
+    'generalContentTypes',
   ];
 
   // 2. Collect all data into a single object.
@@ -141,9 +142,9 @@ export const importData = (jsonString: string, mode: 'merge' | 'replace'): void 
   // 1. Overwrite all settings and non-history data first.
   Object.keys(data).forEach(key => {
     if (key !== 'practiceHistory' && key !== 'keyErrorStats' && key !== 'keyAttemptStats') {
-        const value = data[key];
-        const valueToStore = typeof value === 'string' ? value : JSON.stringify(value);
-        localStorage.setItem(key, valueToStore);
+      const value = data[key];
+      const valueToStore = typeof value === 'string' ? value : JSON.stringify(value);
+      localStorage.setItem(key, valueToStore);
     }
   });
 
@@ -154,19 +155,33 @@ export const importData = (jsonString: string, mode: 'merge' | 'replace'): void 
   if (mode === 'merge') {
     const existingHistoryRaw = localStorage.getItem('practiceHistory');
     const existingHistory: PracticeStats[] = existingHistoryRaw ? JSON.parse(existingHistoryRaw) : [];
-    
+
     // De-duplicate based on timestamp to avoid adding the same session twice.
     const existingTimestamps = new Set(existingHistory.map(s => s.timestamp));
     const uniqueImportedSessions = importedHistory.filter(s => !existingTimestamps.has(s.timestamp));
-    
+
     finalHistory = [...existingHistory, ...uniqueImportedSessions];
     finalHistory.sort((a, b) => a.timestamp - b.timestamp); // Sort chronologically
   } else { // 'replace' mode
     finalHistory = importedHistory;
   }
-  
+
   // 3. Recalculate derived stats from the final, authoritative history.
-  const { keyErrorStats, keyAttemptStats } = recalculateDerivedStats(finalHistory);
+  let { keyErrorStats, keyAttemptStats } = recalculateDerivedStats(finalHistory);
+
+  // Fallback: If recalculation yields no data (e.g., because history items are missing maps due to a past bug),
+  // but the imported data HAS stats, use the imported stats to prevent data loss.
+  if (Object.keys(keyErrorStats).length === 0 && data.keyErrorStats && Object.keys(data.keyErrorStats).length > 0) {
+    if (mode === 'replace') {
+      keyErrorStats = data.keyErrorStats;
+    }
+  }
+
+  if (Object.keys(keyAttemptStats).length === 0 && data.keyAttemptStats && Object.keys(data.keyAttemptStats).length > 0) {
+    if (mode === 'replace') {
+      keyAttemptStats = data.keyAttemptStats;
+    }
+  }
 
   // 4. Save the final history and recalculated stats to localStorage.
   localStorage.setItem('practiceHistory', JSON.stringify(finalHistory));

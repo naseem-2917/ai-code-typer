@@ -7,6 +7,7 @@ export interface Language {
 }
 
 export interface PracticeStats {
+  id: string;
   wpm: number;
   accuracy: number;
   errors: number;

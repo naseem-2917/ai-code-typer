@@ -69,8 +69,11 @@ const PracticePage: React.FC = () => {
         sessionResetKey,
     } = context;
 
+    const currentSessionId = useRef<string>(Date.now().toString());
+
     const handleStartFromSetup = useCallback(async (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => {
         closeSetupModal();
+        currentSessionId.current = Date.now().toString();
         if (customCode) {
             startCustomSession(customCode, mode);
         } else {
@@ -85,6 +88,7 @@ const PracticePage: React.FC = () => {
     const [isCapsLockOn, setIsCapsLockOn] = useState(false);
     const [hasSubmitted, setHasSubmitted] = useState(false);
     const [isSessionEndedEarly, setIsSessionEndedEarly] = useState(false);
+    const [saveStatus, setSaveStatus] = useState<{ saved: boolean; reason?: string } | null>(null);
     const [sessionToRestore, setSessionToRestore] = useState<PausedSessionData | null>(null);
 
     const gameContainerRef = useRef<HTMLDivElement>(null);
@@ -114,10 +118,12 @@ const PracticePage: React.FC = () => {
     // Force game reset when sessionResetKey changes
     useEffect(() => {
         gameRef.current.reset();
+        currentSessionId.current = Date.now().toString();
     }, [sessionResetKey]);
 
     const resetGame = useCallback(() => {
         gameRef.current.reset();
+        currentSessionId.current = Date.now().toString();
         requestFocusOnCode();
     }, [requestFocusOnCode]);
 
@@ -131,19 +137,63 @@ const PracticePage: React.FC = () => {
     }, [openSetupModal]);
 
     const handleEndSession = useCallback(() => {
-        setIsSessionEndedEarly(true);
-        // We need to calculate stats up to this point
-        const currentStats = {
-            wpm: gameRef.current.wpm,
-            accuracy: gameRef.current.accuracy,
-            errors: gameRef.current.errors,
-            duration: gameRef.current.duration,
-            errorMap: gameRef.current.errorMap,
-            attemptMap: gameRef.current.attemptMap
-        };
-        setLastStats(currentStats);
-        setIsResultsModalOpen(true);
-    }, []);
+        console.log("handleEndSession triggered");
+        try {
+            setIsSessionEndedEarly(true);
+            // We need to calculate stats up to this point
+            const currentStats = {
+                wpm: gameRef.current.wpm,
+                accuracy: gameRef.current.accuracy,
+                errors: gameRef.current.errors,
+                duration: gameRef.current.duration,
+                errorMap: gameRef.current.errorMap,
+                attemptMap: gameRef.current.attemptMap
+            };
+            setLastStats(currentStats);
+
+            // Smart Save Logic
+            const charsTyped = gameRef.current.currentIndex;
+            const totalChars = snippet.length;
+            const completionPercentage = totalChars > 0 ? (charsTyped / totalChars) * 100 : 0;
+            const duration = gameRef.current.duration;
+
+            // Criteria: (Characters >= 20) AND ((Completion = 100%) OR ((Completion >= 70% OR Characters >= 150) AND Duration >= 10s))
+            const hasMinChars = charsTyped >= 20;
+            const isComplete = completionPercentage >= 100;
+            const hasGoodProgress = (completionPercentage >= 70 || charsTyped >= 150) && duration >= 10;
+
+            if (hasMinChars && (isComplete || hasGoodProgress)) {
+                addPracticeResult({
+                    id: currentSessionId.current,
+                    date: Date.now(),
+                    wpm: currentStats.wpm,
+                    accuracy: currentStats.accuracy,
+                    duration: currentStats.duration,
+                    errors: currentStats.errors,
+                    language: selectedLanguage.name,
+                    snippetLength: snippet.length,
+                    timestamp: Date.now(),
+                    linesTyped: snippet.split('\n').length,
+                    errorMap: currentStats.errorMap,
+                    attemptMap: currentStats.attemptMap
+                });
+                setSaveStatus({ saved: true });
+            } else {
+                let reason = "Session not saved.";
+                if (!hasMinChars) {
+                    reason = "Not saved: Less than 20 characters typed.";
+                } else if (!hasGoodProgress) {
+                    reason = "Not saved: Duration under 10s or progress too low (<70% or <150 chars).";
+                }
+                setSaveStatus({ saved: false, reason });
+            }
+        } catch (error) {
+            console.error("Error in handleEndSession:", error);
+            setSaveStatus({ saved: false, reason: "Error saving session: " + (error instanceof Error ? error.message : String(error)) });
+        } finally {
+            setIsResultsModalOpen(true);
+        }
+    }, [addPracticeResult, selectedLanguage.name, snippet]);
 
     const handlePracticeSame = useCallback(() => {
         setIsResultsModalOpen(false);
@@ -156,6 +206,7 @@ const PracticePage: React.FC = () => {
         setIsResultsModalOpen(false);
         setIsTargetedResultsModalOpen(false);
         loadNextSnippetInQueue();
+        currentSessionId.current = Date.now().toString();
         requestFocusOnCode();
     }, [loadNextSnippetInQueue, requestFocusOnCode]);
 
@@ -208,7 +259,7 @@ const PracticePage: React.FC = () => {
             setIsSessionEndedEarly(false);
 
             addPracticeResult({
-                id: Date.now().toString(),
+                id: currentSessionId.current,
                 date: Date.now(),
                 wpm: game.wpm,
                 accuracy: game.accuracy,
@@ -217,7 +268,9 @@ const PracticePage: React.FC = () => {
                 language: selectedLanguage.name,
                 snippetLength: snippet.length,
                 timestamp: Date.now(),
-                linesTyped: snippet.split('\n').length
+                linesTyped: snippet.split('\n').length,
+                errorMap: game.errorMap,
+                attemptMap: game.attemptMap
             });
 
             if (currentTargetedKeys.length > 0) {
@@ -455,31 +508,45 @@ const PracticePage: React.FC = () => {
                 )
             }
 
-            <PracticeSetupModal
-                isOpen={isSetupModalOpen}
-                onClose={closeSetupModal}
-                onStart={handleStartFromSetup}
-            />
-
             <ResultsModal
                 isOpen={isResultsModalOpen}
                 onClose={() => {
-                    setIsResultsModalOpen(false);
-                    requestFocusOnCode();
+                    if (isSessionEndedEarly) {
+                        setIsResultsModalOpen(false);
+                        requestFocusOnCode();
+                    } else {
+                        handlePracticeSame();
+                    }
                 }}
-                stats={lastStats}
-                title={isSessionEndedEarly ? 'Session Ended' : 'Session Complete!'}
                 onPracticeSame={handlePracticeSame}
-                onNextSnippet={handleNextSnippet}
                 onNewSnippet={handleSetupNew}
                 onViewProgress={() => {
                     setIsResultsModalOpen(false);
                     navigateTo('dashboard');
                 }}
-                isSessionEndedEarly={isSessionEndedEarly}
+                isCustomSession={isCustomSession}
+                lastPracticeAction={lastPracticeAction}
+                stats={lastStats}
+                isEarlyExit={isSessionEndedEarly}
+                onNextSnippet={handleNextSnippet}
                 hasNextSnippet={practiceQueue.length > 1 && currentQueueIndex < practiceQueue.length - 1}
                 sessionErrorMap={lastStats.errorMap}
                 sessionAttemptMap={lastStats.attemptMap}
+                saveStatus={saveStatus}
+            />
+
+            <PracticeSetupModal
+                isOpen={isSetupModalOpen}
+                onClose={closeSetupModal}
+                onViewProgress={() => {
+                    setIsResultsModalOpen(false);
+                    navigateTo('dashboard');
+                }}
+                isEarlyExit={isSessionEndedEarly}
+                hasNextSnippet={practiceQueue.length > 1 && currentQueueIndex < practiceQueue.length - 1}
+                sessionErrorMap={lastStats.errorMap}
+                sessionAttemptMap={lastStats.attemptMap}
+                saveStatus={saveStatus}
             />
 
             <TargetedResultsModal
