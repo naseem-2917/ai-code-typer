@@ -6,7 +6,7 @@ interface ConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  message: string;
+  message: React.ReactNode;
   buttons: {
     label: string;
     onClick: () => void;
@@ -35,7 +35,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, on
       const handleKeyDown = (event: KeyboardEvent) => {
         // The modal component itself handles 'Escape'
         if (!isOpen) return;
-        
+
         // Allow the browser's default Tab and Shift+Tab behavior
         if (event.key === 'Tab') {
           return;
@@ -63,11 +63,11 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, on
         } else if (event.key === 'ArrowLeft') {
           newIndex = (currentIndex - 1 + focusableButtons.length) % focusableButtons.length;
         }
-        
+
         // Manually shift focus, which will trigger the onFocus handler on the button
         focusableButtons[newIndex]?.focus();
       };
-      
+
       document.addEventListener('keydown', handleKeyDown);
 
       return () => {
@@ -79,7 +79,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, on
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title}>
-      <p className="text-slate-600 dark:text-slate-300 mb-6">{message}</p>
+      <div className="text-slate-600 dark:text-slate-300 mb-6">{message}</div>
       <div className="flex justify-center items-center gap-3">
         {buttons.map((btn, index) => (
           <Button

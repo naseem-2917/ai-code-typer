@@ -5,11 +5,12 @@ import { Button } from './ui/Button';
 import { TrashIcon } from './icons/TrashIcon';
 import { ConfirmationModal } from './ui/ConfirmationModal';
 import { formatDateTime } from '../utils/dateUtils';
+import { exportAllData } from '../services/dataService';
 
 const HistoryPage: React.FC = () => {
     const context = useContext(AppContext);
     if (!context) return null;
-    const { practiceHistory, deletePracticeSession, clearPracticeHistory, navigateTo } = context;
+    const { practiceHistory, deletePracticeSession, clearPracticeHistory, navigateTo, showAlert } = context;
 
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ type: 'single' | 'all', timestamp?: number } | null>(null);
 
@@ -20,6 +21,16 @@ const HistoryPage: React.FC = () => {
             clearPracticeHistory();
         }
         setDeleteConfirmation(null);
+    };
+
+    const handleExportData = () => {
+        try {
+            exportAllData();
+            showAlert('Data exported successfully!', 'info');
+        } catch (error) {
+            showAlert('Failed to export data.', 'error');
+            console.error(error);
+        }
     };
 
     const formatDuration = (totalSeconds: number) => {
@@ -116,7 +127,13 @@ const HistoryPage: React.FC = () => {
                 onClose={() => setDeleteConfirmation(null)}
                 title={deleteConfirmation?.type === 'all' ? "Delete All History" : "Delete Session"}
                 message={deleteConfirmation?.type === 'all'
-                    ? "Are you sure you want to delete ALL practice history? This action cannot be undone."
+                    ? (
+                        <span>
+                            Are you sure you want to delete ALL practice history? This action cannot be undone.
+                            <br /><br />
+                            To prevent data loss, we recommend you <span className="text-blue-600 dark:text-blue-400 cursor-pointer hover:underline font-medium" onClick={handleExportData}>Export</span> your data first.
+                        </span>
+                    )
                     : "Are you sure you want to delete this practice session?"}
                 buttons={[
                     { label: 'Cancel', onClick: () => setDeleteConfirmation(null), variant: 'secondary' },

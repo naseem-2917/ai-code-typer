@@ -828,7 +828,13 @@ const DashboardPage: React.FC = () => {
                 onClose={() => setDeleteConfirmation(null)}
                 title={deleteConfirmation?.type === 'all' ? "Delete All History" : "Delete Session"}
                 message={deleteConfirmation?.type === 'all'
-                    ? "Are you sure you want to delete ALL practice history? This action cannot be undone and will reset the website to a fresh state."
+                    ? (
+                        <span>
+                            Are you sure you want to delete ALL practice history? This action cannot be undone and will reset the website to a fresh state.
+                            <br /><br />
+                            To prevent data loss, we recommend you <span className="text-blue-600 dark:text-blue-400 cursor-pointer hover:underline font-medium" onClick={handleExportData}>Export</span> your data first.
+                        </span>
+                    )
                     : "Are you sure you want to delete this practice session?"}
                 buttons={[
                     { label: 'Cancel', onClick: () => setDeleteConfirmation(null), variant: 'secondary' },
