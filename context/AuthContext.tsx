@@ -157,9 +157,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const saveUserPreferences = async (newPrefs: Partial<UserPreferences>) => {
         if (!user) return;
         try {
-            await setDoc(doc(db, 'users', user.uid), {
-                preferences: newPrefs
-            }, { merge: true });
+            // 🛠️ FIX: Use Dot Notation to update ONLY specific fields
+            // preventing the overwrite of the entire 'preferences' object.
+            const updateData: Record<string, any> = {};
+
+            Object.entries(newPrefs).forEach(([key, value]) => {
+                updateData[`preferences.${key}`] = value;
+            });
+
+            // Use updateDoc instead of setDoc for precise field updates
+            await updateDoc(doc(db, 'users', user.uid), updateData);
+
         } catch (error) {
             console.error("Failed to save preferences:", error);
         }
