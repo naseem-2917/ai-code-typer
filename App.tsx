@@ -7,6 +7,7 @@ import DashboardPage from './components/DashboardPage';
 import HistoryPage from './components/HistoryPage';
 import { Page } from './types';
 import { Alert } from './components/ui/Alert';
+import { PracticeSetupModal } from './components/PracticeSetupModal';
 
 
 const AppContent: React.FC = () => {
@@ -15,7 +16,7 @@ const AppContent: React.FC = () => {
   if (!context) {
     throw new Error("AppContext not found. Make sure AppContent is a child of AppProvider.");
   }
-  const { page, navigateTo, sessionResetKey } = context;
+  const { page, navigateTo, sessionResetKey, isSetupModalOpen, closeSetupModal, handleStartFromSetup } = context;
 
   const renderPage = () => {
     switch (page) {
@@ -38,6 +39,11 @@ const AppContent: React.FC = () => {
       <main className="container mx-auto px-4 py-4 flex-grow flex flex-col min-h-0">
         {renderPage()}
       </main>
+      <PracticeSetupModal
+        isOpen={isSetupModalOpen}
+        onClose={closeSetupModal}
+        onStart={handleStartFromSetup}
+      />
 
     </div>
   );

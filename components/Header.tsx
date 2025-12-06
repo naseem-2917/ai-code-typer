@@ -97,7 +97,19 @@ const Header: React.FC = () => {
             </h1>
             <nav className="hidden md:flex items-center gap-1 sm:gap-2">
               <NavButton page="home" label="Home" icon={<HomeIcon className="w-5 h-5" />} accessKeyChar="H" onClick={() => navigateTo('home')} />
-              <NavButton page="practice" label="Practice" icon={<PracticeIcon className="w-5 h-5" />} accessKeyChar="P" onClick={() => navigateTo('practice')} />
+              <NavButton
+                page="practice"
+                label="Practice"
+                icon={<PracticeIcon className="w-5 h-5" />}
+                accessKeyChar="P"
+                onClick={() => {
+                  if (!context.snippet) {
+                    context.openSetupModal();
+                  } else {
+                    navigateTo('practice');
+                  }
+                }}
+              />
               <NavButton page="dashboard" label="Dashboard" icon={<ChartBarIcon className="w-5 h-5" />} accessKeyChar="D" onClick={() => navigateTo('dashboard')} />
             </nav>
           </div>
@@ -162,7 +174,14 @@ const Header: React.FC = () => {
               label="Practice"
               icon={<PracticeIcon className="w-5 h-5" />}
               accessKeyChar="P"
-              onClick={() => { navigateTo('practice'); setIsMobileMenuOpen(false); }}
+              onClick={() => {
+                if (!context.snippet) {
+                  context.openSetupModal();
+                } else {
+                  navigateTo('practice');
+                }
+                setIsMobileMenuOpen(false);
+              }}
               className="w-full justify-start"
               showLabelAlways
             />

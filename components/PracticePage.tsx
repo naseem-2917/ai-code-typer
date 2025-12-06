@@ -8,7 +8,7 @@ import Keyboard from './Keyboard';
 import { Button } from './ui/Button';
 import { ResultsModal } from './ResultsModal';
 import { TargetedResultsModal } from './TargetedResultsModal';
-import { PracticeSetupModal } from './PracticeSetupModal';
+
 import { ResetIcon } from './icons/ResetIcon';
 import { PlayIcon } from './icons/PlayIcon';
 import { PauseIcon } from './icons/PauseIcon';
@@ -71,17 +71,6 @@ const PracticePage: React.FC = () => {
 
     const currentSessionId = useRef<string>(Date.now().toString());
 
-    const handleStartFromSetup = useCallback(async (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => {
-        closeSetupModal();
-        currentSessionId.current = Date.now().toString();
-        if (customCode) {
-            startCustomSession(customCode, mode);
-        } else {
-            await fetchNewSnippet({ length: length || undefined, level: level || undefined, mode: mode || undefined, contentTypes: contentTypes || undefined });
-        }
-        setTimeout(() => requestFocusOnCode(), 100);
-    }, [startCustomSession, closeSetupModal, fetchNewSnippet, requestFocusOnCode]);
-
     const [isResultsModalOpen, setIsResultsModalOpen] = useState(false);
     const [isTargetedResultsModalOpen, setIsTargetedResultsModalOpen] = useState(false);
     const [lastStats, setLastStats] = useState({ wpm: 0, accuracy: 0, errors: 0, duration: 0, errorMap: {}, attemptMap: {} });
@@ -119,7 +108,8 @@ const PracticePage: React.FC = () => {
     useEffect(() => {
         gameRef.current.reset();
         currentSessionId.current = Date.now().toString();
-    }, [sessionResetKey]);
+        requestFocusOnCode();
+    }, [sessionResetKey, requestFocusOnCode]);
 
     const resetGame = useCallback(() => {
         gameRef.current.reset();
@@ -400,9 +390,11 @@ const PracticePage: React.FC = () => {
     return (
         <div className="flex flex-col h-[100dvh] max-w-full mx-auto w-full overflow-hidden" ref={gameContainerRef}>
             {isCapsLockOn && (
-                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 bg-yellow-400 text-yellow-900 px-4 py-2 rounded-md shadow-lg flex items-center gap-2 animate-fade-in-up">
-                    <WarningIcon className="w-5 h-5" />
-                    <span className="font-semibold">Caps Lock is On</span>
+                <div className="fixed top-20 inset-x-0 z-50 flex justify-center pointer-events-none">
+                    <div className="bg-yellow-400 text-yellow-900 px-4 py-2 rounded-md shadow-lg flex items-center gap-2 animate-fade-in-up pointer-events-auto">
+                        <WarningIcon className="w-5 h-5" />
+                        <span className="font-semibold">Caps Lock is On</span>
+                    </div>
                 </div>
             )}
 
@@ -529,20 +521,6 @@ const PracticePage: React.FC = () => {
                 stats={lastStats}
                 isEarlyExit={isSessionEndedEarly}
                 onNextSnippet={handleNextSnippet}
-                hasNextSnippet={practiceQueue.length > 1 && currentQueueIndex < practiceQueue.length - 1}
-                sessionErrorMap={lastStats.errorMap}
-                sessionAttemptMap={lastStats.attemptMap}
-                saveStatus={saveStatus}
-            />
-
-            <PracticeSetupModal
-                isOpen={isSetupModalOpen}
-                onClose={closeSetupModal}
-                onViewProgress={() => {
-                    setIsResultsModalOpen(false);
-                    navigateTo('dashboard');
-                }}
-                isEarlyExit={isSessionEndedEarly}
                 hasNextSnippet={practiceQueue.length > 1 && currentQueueIndex < practiceQueue.length - 1}
                 sessionErrorMap={lastStats.errorMap}
                 sessionAttemptMap={lastStats.attemptMap}

@@ -413,7 +413,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (isLoadingSnippet) return;
 
     // 1. Gather all error keys
-    const allErrorKeys = Object.entries(keyErrorStats)
+    const allErrorKeys = (Object.entries(keyErrorStats) as [string, number][])
       .filter(([_, count]) => count > 0)
       .sort((a, b) => b[1] - a[1]) // Sort by error count descending
       .map(([key]) => key);
@@ -443,7 +443,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         statsForGenerator[key] = { errors, attempts };
       });
 
-      const newSnippet = await generateErrorPracticeSnippet(statsForGenerator);
+      const newSnippet = await generateErrorPracticeSnippet(statsForGenerator, snippetLength);
       setSnippet(convertSpacesToTabs(newSnippet));
       setSessionResetKey(prev => prev + 1);
     } catch (err) {
@@ -454,7 +454,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } finally {
       setIsLoadingSnippet(false);
     }
-  }, [keyErrorStats, keyAttemptStats, isLoadingSnippet, showAlert]);
+  }, [keyErrorStats, keyAttemptStats, isLoadingSnippet, showAlert, snippetLength]);
 
   const loadSnippetFromQueue = useCallback((index: number) => {
     if (practiceQueue[index]) {
@@ -637,6 +637,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (customCode) {
       startCustomSession(customCode, mode);
       closeSetupModal();
+      navigateTo('practice');
     } else {
       // Update state if provided
       if (length) setSnippetLength(length);
@@ -645,18 +646,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // Ensure we update the state with the latest selection for persistence
       if (newContentTypes) setGeneralContentTypes(newContentTypes);
 
-      const success = await fetchNewSnippet({
+      closeSetupModal();
+      navigateTo('practice');
+
+      await fetchNewSnippet({
         length: length || snippetLength,
         level: level || snippetLevel,
         mode: mode || practiceMode,
         // Pass explicitly, falling back to state
         contentTypes: newContentTypes || generalContentTypes
       });
-      if (success) {
-        closeSetupModal();
-      }
     }
-  }, [closeSetupModal, startCustomSession, fetchNewSnippet, snippetLength, snippetLevel, practiceMode, generalContentTypes]);
+  }, [closeSetupModal, startCustomSession, fetchNewSnippet, snippetLength, snippetLevel, practiceMode, generalContentTypes, navigateTo]);
 
   const handleNextSnippet = useCallback(() => {
     if (practiceQueue.length > 0 && currentQueueIndex < practiceQueue.length - 1) {

@@ -99,7 +99,14 @@ export const generateCodeSnippet = async (
 The snippet should be ${lengthMap[length]} long.
 The difficulty level should be ${levelMap[level]}.`;
 
-  return generateSnippet(prompt);
+  const systemInstruction = `You are a strict code generation engine.
+  RULES:
+  1. Generate ONLY valid, clean, compilable code in ${language.name}.
+  2. NO comments. NO explanation. NO markdown. NO backticks.
+  3. CODE MUST BE REAL, FUNCTIONAL, AND GRAMMATICALLY CORRECT for the language.
+  4. DO NOT write pseudo-code or fake logic.`;
+
+  return generateSnippet(prompt, systemInstruction);
 };
 
 // Exported: Targeted Practice
@@ -211,85 +218,97 @@ The length should be roughly ${lengthMap[length]}.
 ${instruction}
 ${difficultyInstruction}`;
 
-  const systemInstruction = `You are a text generation engine for a typing practice app. 
-  Your task is to provide a clean, raw text snippet based strictly on the user's content selection.
-  ABSOLUTELY NO markdown, headers, conversational text, or backticks.
-  IMPORTANT: Format the text naturally with line breaks ('\\n') every 8-12 words/items to fit a screen, do not create one giant line.`;
+  const systemInstruction = `You are a text generation engine for a general typing practice app. 
+  RULES:
+  1. Generate ONLY normal English text or mixed content based on instructions.
+  2. ABSOLUTELY NO PROGRAMMING CODE.
+  3. NO function-like patterns, NO classes, NO loops, NO braces like {}, [], () used in a code style.
+  4. NO variable-like words (temp1, obj2, xValue).
+  5. Format naturally with line breaks every 8-12 words.
+  6. NO markdown, headers, or backticks.`;
 
   return generateSnippet(prompt, systemInstruction);
 };
 
-// Exported: Error Practice
+// Exported: Error Practice (Optimized & Code-Proof)
 export const generateErrorPracticeSnippet = async (
-  keyStats: Record<string, { errors: number; attempts: number }>
+  keyStats: Record<string, { errors: number; attempts: number }>,
+  length: SnippetLength = 'medium'
 ): Promise<string> => {
-  // 1. Calculate Error Rates & Sort
+
+  // 1. Compute Error Rates
   const sortedKeys = Object.entries(keyStats)
-    .map(([key, stats]) => {
-      const errorRate = stats.attempts > 0 ? (stats.errors / stats.attempts) * 100 : 0;
-      return { key, errorRate, attempts: stats.attempts };
-    })
+    .map(([key, stats]) => ({
+      key,
+      errorRate: stats.attempts > 0 ? (stats.errors / stats.attempts) * 100 : 0
+    }))
     .sort((a, b) => b.errorRate - a.errorRate);
 
-  // 2. Apply Filtering Rules
-  // A) Top 5 worst keys (always included if they exist)
+  // Top 5 always kept
   const top5 = sortedKeys.slice(0, 5);
 
-  // B) Additional keys: Error Rate >= 12% AND Attempts >= 5
-  const additionalCandidates = sortedKeys.slice(5).filter(k => k.errorRate >= 12 && k.attempts >= 5);
+  // Additional keys (≥10% error rate)
+  const additional = sortedKeys.slice(5).filter(k => k.errorRate >= 10);
 
-  // C) Combine & Limit to 7
-  // Use Set to avoid duplicates (though slice logic prevents overlap, safety first)
-  const finalKeysSet = new Set([...top5.map(k => k.key), ...additionalCandidates.map(k => k.key)]);
-  const finalKeys = Array.from(finalKeysSet).slice(0, 7);
+  // Final 7 max
+  const finalKeys = [...top5, ...additional].slice(0, 7);
 
   if (finalKeys.length === 0) {
-    throw new Error("No significant error keys found to practice.");
+    throw new Error("No error history available for practice.");
   }
 
-  const sanitizedKeys = finalKeys.map(k => {
-    if (k === ' ') return 'space';
-    if (k === '\n') return 'newline';
-    if (k === '\t') return 'tab';
-    return k;
-  }).join(', ');
+  // Sanitize for display
+  const sanitizedKeys = finalKeys
+    .map(k => {
+      if (k.key === ' ') return 'space';
+      if (k.key === '\n') return 'newline';
+      if (k.key === '\t') return 'tab';
+      return k.key;
+    })
+    .join(', ');
 
-  const prompt = `Generate a PRACTICE ERRORS snippet.
-  
-  Target Keys: [${sanitizedKeys}]
-  
-  CRITICAL RULES:
-  1. Output MUST be plain English text. NO CODE. NO pseudocode.
-  2. NO programming keywords (if, for, while, etc.).
-  3. Length: 220-320 characters.
-  4. The text must feel like a natural paragraph or story.
-  5. HEAVY usage of the Target Keys.
-  6. High-priority keys (earlier in list) should appear more frequently.
-  7. NO bullet points, NO explanations, NO markdown backticks.
-  
-  OUTPUT FORMAT:
-  Return ONLY valid JSON:
-  {
-    "snippet": "generated text here",
-    "usedKeys": ["key1", "key2"]
-  }`;
+  // -------------------------------
+  // SUPER-STRONG STORY PROMPT (No Code)
+  // -------------------------------
 
-  const systemInstruction = `You are a creative writing engine for typing practice.
-  Your goal is to weave specific target characters into a natural, flowing English paragraph.
-  Return ONLY valid JSON.`;
+  const prompt = `
+Write a SHORT English STORY (length: ${lengthMap[length]}).
 
-  const jsonResponse = await generateSnippet(prompt, systemInstruction);
+The story MUST:
+- Use these characters frequently: [${sanitizedKeys}]
+- Use them naturally as punctuation, decoration, emphasis, or expressive elements.
+- Be readable, emotional, and completely natural English.
 
-  try {
-    const parsed = JSON.parse(jsonResponse);
-    return parsed.snippet;
-  } catch (e) {
-    console.error("Failed to parse Error Practice JSON:", e);
-    // Fallback: try to find the snippet string if JSON parsing fails
-    if (jsonResponse.includes('"snippet":')) {
-      const match = jsonResponse.match(/"snippet":\s*"([^"]+)"/);
-      if (match) return match[1];
-    }
-    return jsonResponse;
-  }
+ABSOLUTE HARD RULES (DO NOT BREAK):
+1. Do NOT write programming code.
+2. Do NOT imitate code formatting.
+3. Do NOT use patterns like: if(), while(), {}, [], ==, -> in a code-like structure.
+4. Do NOT indent text like functions or loops.
+5. Do NOT create variable-like words (x1, val2, temp, obj, dataSet, etc.).
+6. Do NOT write lists or bullet-like patterns that look like code.
+7. Use characters like '(' ')' ':' '.' ';' space newline tab ONLY in literary or stylistic ways.
+
+ACCEPTABLE USAGE:
+- "She whispered (softly) before leaving."
+- "He paused: the room felt silent."
+- "A smile appeared :) when he returned."
+- "She stepped inside; the air felt warm."
+
+UNACCEPTABLE:
+- "if (x < 1) { return x; }"
+- "while(a){b++;}"
+- function-like patterns
+- class-like patterns
+
+Now produce the story.
+`;
+
+  const systemInstruction = `
+You are a creative writing engine.
+You NEVER write code.
+You only write emotional, expressive, natural English stories.
+You MUST avoid any structure that resembles code.
+`;
+
+  return generateSnippet(prompt, systemInstruction);
 };

@@ -325,7 +325,7 @@ const DashboardPage: React.FC = () => {
                 const errorRate = numericAttempts > 0 ? (numericErrors / numericAttempts) * 100 : 0;
                 return { key, errors: numericErrors, attempts: numericAttempts, errorRate };
             })
-            .filter(item => item.attempts > 2)
+            .filter(item => item.errors > 0)
             .sort((a, b) => b.errorRate - a.errorRate);
     }, [keyErrorStats, keyAttemptStats, practiceHistory]);
 
