@@ -163,7 +163,7 @@ const PracticePage: React.FC = () => {
                     language: selectedLanguage.name,
                     snippetLength: snippet.length,
                     timestamp: Date.now(),
-                    linesTyped: snippet.split('\n').length,
+                    linesTyped: gameRef.current.typedText.split('\n').length,
                     errorMap: currentStats.errorMap,
                     attemptMap: currentStats.attemptMap
                 });
@@ -258,7 +258,7 @@ const PracticePage: React.FC = () => {
                 language: selectedLanguage.name,
                 snippetLength: snippet.length,
                 timestamp: Date.now(),
-                linesTyped: snippet.split('\n').length,
+                linesTyped: game.typedText.split('\n').length,
                 errorMap: game.errorMap,
                 attemptMap: game.attemptMap
             });

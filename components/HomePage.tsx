@@ -1,7 +1,7 @@
 import React, { useContext, useEffect } from 'react';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
-import { PracticeSetupModal } from './PracticeSetupModal';
+
 import { AppContext } from '../context/AppContext';
 import { Language, SnippetLength, SnippetLevel, PracticeMode } from '../types';
 
@@ -94,12 +94,7 @@ const HomePage: React.FC<HomePageProps> = ({ onStartPractice }) => {
         </div>
       </div>
 
-      <PracticeSetupModal
-        isOpen={isSetupModalOpen}
-        onClose={closeSetupModal}
-        onStart={handleStartSetup}
-        variant="default"
-      />
+
     </>
   );
 };

@@ -5,9 +5,11 @@ import PracticePage from './components/PracticePage';
 import { AppContext, AppProvider } from './context/AppContext';
 import DashboardPage from './components/DashboardPage';
 import HistoryPage from './components/HistoryPage';
+import { ProfilePage } from './components/ProfilePage';
 import { Page } from './types';
 import { Alert } from './components/ui/Alert';
 import { PracticeSetupModal } from './components/PracticeSetupModal';
+import { AuthProvider } from './context/AuthContext';
 
 
 const AppContent: React.FC = () => {
@@ -26,6 +28,8 @@ const AppContent: React.FC = () => {
         return <DashboardPage />;
       case 'history':
         return <HistoryPage />;
+      case 'profile':
+        return <ProfilePage />;
       case 'home':
       default:
         return <HomePage onStartPractice={() => navigateTo('practice')} />;
@@ -51,9 +55,11 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </AuthProvider>
   );
 };
 

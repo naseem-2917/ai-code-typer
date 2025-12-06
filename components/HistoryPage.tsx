@@ -77,6 +77,7 @@ const HistoryPage: React.FC = () => {
                                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Accuracy</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Duration</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Language</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Lines</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Errors</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
                                 </tr>
@@ -103,6 +104,9 @@ const HistoryPage: React.FC = () => {
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
                                             {session.language}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
+                                            {session.linesTyped || 0}
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
                                             {session.errors}

@@ -193,6 +193,10 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
+      if (e.defaultPrevented) return;
+
+      const target = e.target as HTMLElement;
+      const isTextInput = target.tagName === 'TEXTAREA' || (target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'text');
 
       if ((e.ctrlKey || e.shiftKey || e.altKey) && e.key === 'Enter') {
         e.preventDefault();
@@ -203,6 +207,9 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
         }
         return;
       }
+
+      // Stop Arrow navigation if in text input/textarea to allow cursor movement
+      if (isTextInput && (e.key.startsWith('Arrow'))) return;
 
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         const current = document.activeElement;

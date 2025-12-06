@@ -2,7 +2,10 @@ import React, { createContext, useState, useEffect, useCallback, ReactNode, useR
 import { Language, SnippetLength, SnippetLevel, FontSize, Page, PracticeStats, PracticeQueueItem, SavedContextState, PracticeMode, ContentType } from '../types';
 import { SUPPORTED_LANGUAGES } from '../constants';
 import { generateCodeSnippet, generateTargetedCodeSnippet, generateGeneralSnippet, generateErrorPracticeSnippet } from '../services/geminiService';
-import { updateDailyPracticeTime } from '../services/dataService';
+import { updateDailyPracticeTime, recalculateDerivedStats } from '../services/dataService';
+import { useAuth } from './AuthContext';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
 
 const CUSTOM_LANGUAGE: Language = { id: 'custom', name: 'Custom', prismAlias: 'clike' };
 const FONT_SIZES: FontSize[] = ['sm', 'md', 'lg', 'xl'];
@@ -145,6 +148,8 @@ export const AppContext = createContext<AppContextType | null>(null);
 
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { user, syncStatus, userData, saveUserPreferences } = useAuth();
+
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) return savedTheme as 'light' | 'dark';
@@ -245,35 +250,194 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('theme', theme);
-  }, [theme]);
+    if (user && userData?.preferences?.theme !== theme) {
+      saveUserPreferences({ theme });
+    }
+  }, [theme, user, userData]);
 
   useEffect(() => {
     localStorage.setItem('selectedLanguage', selectedLanguage.id);
-  }, [selectedLanguage]);
+    if (user && userData?.preferences?.languageId !== selectedLanguage.id) {
+      saveUserPreferences({ languageId: selectedLanguage.id });
+    }
+  }, [selectedLanguage, user, userData]);
 
-  // Save generalContentTypes to LocalStorage whenever it changes
+
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+  // HYDRATION: When sync completes, if AuthContext downloaded data to localStorage, pick it up.
+  useEffect(() => {
+    if (syncStatus === 'synced') {
+      const localHistoryJSON = localStorage.getItem('practiceHistory');
+      if (localHistoryJSON) {
+        console.log("Sync complete. Hydrating from local storage.");
+        try {
+          const hydratedHistory = JSON.parse(localHistoryJSON);
+          if (Array.isArray(hydratedHistory) && hydratedHistory.length > 0) {
+            setPracticeHistory(hydratedHistory);
+            // Recalculate stats
+            const { keyErrorStats, keyAttemptStats } = recalculateDerivedStats(hydratedHistory);
+            setKeyErrorStats(keyErrorStats);
+            setKeyAttemptStats(keyAttemptStats);
+          }
+        } catch (e) {
+          console.error("Failed to hydrate", e);
+        }
+      }
+    }
+  }, [syncStatus]);
+
+  // Real-time Update from AuthContext (Replaces old loadCloudData)
+  useEffect(() => {
+    if (userData) {
+      // Update History
+      if (userData.history) {
+        setPracticeHistory(userData.history);
+        const { keyErrorStats, keyAttemptStats } = recalculateDerivedStats(userData.history);
+        setKeyErrorStats(keyErrorStats);
+        setKeyAttemptStats(keyAttemptStats);
+      }
+      // Update Preferences
+      if (userData.preferences) {
+        const p = userData.preferences;
+        // Batch updates where possible or let React batch them
+        if (p.theme && p.theme !== theme) setTheme(p.theme);
+        if (p.languageId && p.languageId !== selectedLanguage.id) {
+          const lang = SUPPORTED_LANGUAGES.find(l => l.id === p.languageId);
+          if (lang) setSelectedLanguage(lang);
+        }
+        if (p.snippetLength && p.snippetLength !== snippetLength) setSnippetLength(p.snippetLength);
+        if (p.snippetLevel && p.snippetLevel !== snippetLevel) setSnippetLevel(p.snippetLevel);
+        if (p.blockOnErrorThreshold !== undefined && p.blockOnErrorThreshold !== blockOnErrorThreshold) setBlockOnErrorThreshold(p.blockOnErrorThreshold);
+        if (p.fontSize && p.fontSize !== fontSize) setFontSize(p.fontSize);
+        if (p.showKeyboard !== undefined && p.showKeyboard !== showKeyboard) setShowKeyboard(p.showKeyboard);
+        if (p.showHandGuide !== undefined && p.showHandGuide !== showHandGuide) setShowHandGuide(p.showHandGuide);
+
+        if (p.wpmGoal && p.wpmGoal !== wpmGoal) setWpmGoal(p.wpmGoal);
+        if (p.accuracyGoal && p.accuracyGoal !== accuracyGoal) setAccuracyGoal(p.accuracyGoal);
+        if (p.timeGoal && p.timeGoal !== timeGoal) setTimeGoal(p.timeGoal);
+
+        // Session Persistence Sync (Cloud -> Local App State)
+        if (p.lastSetupTab && p.lastSetupTab !== setupTab) setSetupTab(p.lastSetupTab);
+        if (p.lastPracticeMode && p.lastPracticeMode !== practiceMode) setPracticeMode(p.lastPracticeMode);
+        if (p.generalContentTypes && JSON.stringify(p.generalContentTypes) !== JSON.stringify(generalContentTypes)) {
+          setGeneralContentTypes(p.generalContentTypes);
+        }
+      }
+      setIsDataLoaded(true);
+    } else if (!user) {
+      setIsDataLoaded(true);
+    }
+  }, [userData, user]);
+
+  // Save generalContentTypes to LocalStorage (Settings are local-only for now, or could be synced)
   useEffect(() => {
     localStorage.setItem('generalContentTypes', JSON.stringify(generalContentTypes));
-  }, [generalContentTypes]);
+    if (user && JSON.stringify(userData?.preferences?.generalContentTypes) !== JSON.stringify(generalContentTypes)) {
+      saveUserPreferences({ generalContentTypes });
+    }
+  }, [generalContentTypes, user, userData]);
 
+  // Save History (Cloud or Local)
   useEffect(() => {
-    localStorage.setItem('practiceHistory', JSON.stringify(practiceHistory));
-  }, [practiceHistory]);
+    const saveHistory = async () => {
+      if (user) {
+        // CRITICAL GUARD: Only save if sync is complete AND initial load finished.
+        if (syncStatus === 'synced' && isDataLoaded) {
+          try {
+            // OPTIMIZATION: Prevent unnecessary writes if data hasn't changed from cloud
+            if (userData?.history && JSON.stringify(userData.history) === JSON.stringify(practiceHistory)) {
+              return;
+            }
 
+            await updateDoc(doc(db, 'users', user.uid), {
+              history: practiceHistory
+            });
+          } catch (err) {
+            // If doc doesn't exist (should involve AuthContext creation, but just in case)
+            try {
+              await setDoc(doc(db, 'users', user.uid), {
+                history: practiceHistory
+              });
+            } catch (e) {
+              console.error("Cloud save failed", e);
+            }
+          }
+        }
+      } else {
+        localStorage.setItem('practiceHistory', JSON.stringify(practiceHistory));
+      }
+    };
+    if (practiceHistory.length > 0 || user) { // Avoid saving empty initial state if not necessary, but harmless
+      saveHistory();
+    }
+  }, [practiceHistory, user, isDataLoaded, syncStatus]);
+
+  // Save Stats (Local only for guest, derived for cloud users so no need to save specifically unless we want to cache)
+  // Actually, we should probably save them to localStorage even for logged in users as a fallback/cache? 
+  // No, if we switch users it might be confusing.
+  // For Cloud users, we assume stats are derived from history on load.
   useEffect(() => {
-    localStorage.setItem('keyErrorStats', JSON.stringify(keyErrorStats));
-    localStorage.setItem('keyAttemptStats', JSON.stringify(keyAttemptStats));
-  }, [keyErrorStats, keyAttemptStats]);
+    if (!user) {
+      localStorage.setItem('keyErrorStats', JSON.stringify(keyErrorStats));
+      localStorage.setItem('keyAttemptStats', JSON.stringify(keyAttemptStats));
+    }
+  }, [keyErrorStats, keyAttemptStats, user]);
 
   useEffect(() => {
     localStorage.setItem('wpmGoal', String(wpmGoal));
     localStorage.setItem('accuracyGoal', String(accuracyGoal));
     localStorage.setItem('timeGoal', String(timeGoal));
-  }, [wpmGoal, accuracyGoal, timeGoal]);
+    if (user) {
+      const p = userData?.preferences;
+      if (p?.wpmGoal !== wpmGoal || p?.accuracyGoal !== accuracyGoal || p?.timeGoal !== timeGoal) {
+        saveUserPreferences({ wpmGoal, accuracyGoal, timeGoal });
+      }
+    }
+  }, [wpmGoal, accuracyGoal, timeGoal, user, userData]);
+
+  // Sync other settings (Setup & Display) to LS and Cloud
+  useEffect(() => {
+    // Setup Settings
+    localStorage.setItem('snippetLength', snippetLength);
+    localStorage.setItem('snippetLevel', snippetLevel);
+    localStorage.setItem('blockOnErrorThreshold', String(blockOnErrorThreshold));
+
+    // Display Settings
+    localStorage.setItem('fontSize', fontSize);
+    localStorage.setItem('showKeyboard', String(showKeyboard));
+    localStorage.setItem('showHandGuide', String(showHandGuide));
+
+    if (user && userData?.preferences) {
+      const p = userData.preferences;
+      const updates: Partial<any> = {}; // using Partial<UserPreferences>
+      if (p.snippetLength !== snippetLength) updates.snippetLength = snippetLength;
+      if (p.snippetLevel !== snippetLevel) updates.snippetLevel = snippetLevel;
+      if (p.blockOnErrorThreshold !== blockOnErrorThreshold) updates.blockOnErrorThreshold = blockOnErrorThreshold;
+      if (p.fontSize !== fontSize) updates.fontSize = fontSize;
+      if (p.showKeyboard !== showKeyboard) updates.showKeyboard = showKeyboard;
+      if (p.showHandGuide !== showHandGuide) updates.showHandGuide = showHandGuide;
+
+      if (Object.keys(updates).length > 0) {
+        saveUserPreferences(updates);
+      }
+    }
+  }, [snippetLength, snippetLevel, blockOnErrorThreshold, fontSize, showKeyboard, showHandGuide, user, userData]);
 
   useEffect(() => {
     localStorage.setItem('setupTab', setupTab);
-  }, [setupTab]);
+    if (user && userData?.preferences?.lastSetupTab !== setupTab) {
+      saveUserPreferences({ lastSetupTab: setupTab });
+    }
+  }, [setupTab, user, userData]);
+
+  useEffect(() => {
+    localStorage.setItem('practiceMode', practiceMode);
+    if (user && userData?.preferences?.lastPracticeMode !== practiceMode) {
+      saveUserPreferences({ lastPracticeMode: practiceMode });
+    }
+  }, [practiceMode, user, userData]);
+
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

@@ -1,4 +1,5 @@
 import React, { useContext, useRef, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import { SUPPORTED_LANGUAGES } from '../constants';
 import { SunIcon } from './icons/SunIcon';
@@ -38,6 +39,8 @@ const Header: React.FC = () => {
     requestFocusOnCode,
     isSetupModalOpen
   } = context;
+
+  const { user, loginWithGoogle } = useAuth();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -153,6 +156,41 @@ const Header: React.FC = () => {
             <Button variant="ghost" size="icon" onClick={() => handleSettingChange(toggleTheme)} aria-label="Toggle theme" accessKeyChar="M" disabled={isSetupModalOpen}>
               {theme === 'light' ? <MoonIcon className="w-6 h-6" /> : <SunIcon className="w-6 h-6" />}
             </Button>
+
+            {/* User Profile / Sign In - Moved to Right */}
+            {user ? (
+              <button
+                onClick={() => navigateTo('profile')}
+                className="relative group outline-none"
+                aria-label="User Profile"
+              >
+                <img
+                  src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}`}
+                  alt="Profile"
+                  className={`w-8 h-8 rounded-full border-2 border-slate-200 dark:border-slate-700 transition-transform group-hover:scale-105 ${page === 'profile' ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
+                />
+              </button>
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={loginWithGoogle}
+                className="hidden sm:flex"
+              >
+                Sign In
+              </Button>
+            )}
+            {/* Mobile Sign In Icon (if not logged in) */}
+            {!user && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={loginWithGoogle}
+                className="sm:hidden text-primary-600 dark:text-primary-400"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><polyline points="10 17 15 12 10 7" /><line x1="15" x2="3" y1="12" y2="12" /></svg>
+              </Button>
+            )}
           </div>
         </div>
       </div>

@@ -5,7 +5,7 @@ import { Stat } from './ui/Stat';
 import { Button } from './ui/Button';
 import { GoalsModal } from './GoalsModal';
 import { PencilIcon } from './icons/PencilIcon';
-import { PracticeSetupModal } from './PracticeSetupModal';
+
 import { SnippetLength, SnippetLevel, PracticeMode, ContentType } from '../types';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { exportAllData, importData } from '../services/dataService';
@@ -187,19 +187,7 @@ const DashboardPage: React.FC = () => {
     useAccessKey('E', handleExportData, { disabled: isGoalsModalOpen });
     useAccessKey('I', handleImportClick, { disabled: isGoalsModalOpen });
 
-    const handleStartFromSetup = useCallback(async (length: SnippetLength | null, level: SnippetLevel | null, customCode?: string | null, mode?: PracticeMode, contentTypes?: ContentType[]) => {
-        if (customCode) {
-            startCustomSession(customCode, mode);
-            closeSetupModal();
-            navigateTo('practice');
-        } else {
-            const success = await fetchNewSnippet({ length: length || undefined, level: level || undefined, mode: mode || undefined, contentTypes: contentTypes || undefined });
-            if (success) {
-                closeSetupModal();
-                navigateTo('practice');
-            }
-        }
-    }, [startCustomSession, closeSetupModal, fetchNewSnippet, navigateTo]);
+
 
     const finishImport = (fileContent: string, mode: 'merge' | 'replace') => {
         try {
@@ -479,11 +467,6 @@ const DashboardPage: React.FC = () => {
                     accept=".json,application/json"
                     onChange={handleFileImport}
                 />
-                <PracticeSetupModal
-                    isOpen={isSetupModalOpen}
-                    onClose={closeSetupModal}
-                    onStart={handleStartFromSetup}
-                />
             </div>
         );
     }
@@ -626,27 +609,29 @@ const DashboardPage: React.FC = () => {
                                         <h2 className="text-xl font-semibold">Language Focus</h2>
                                     </div>
                                     {languageFocus.length > 0 ? (
-                                        <ResponsiveContainer width="100%" height={200}>
-                                            <PieChart>
-                                                <Pie
-                                                    data={languageFocus}
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    labelLine={false}
-                                                    outerRadius={80}
-                                                    fill="#8884d8"
-                                                    dataKey="value"
-                                                    nameKey="name"
-                                                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                                                >
-                                                    {languageFocus.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip formatter={(value) => formatDuration(value as number)} />
-                                                <Legend />
-                                            </PieChart>
-                                        </ResponsiveContainer>
+                                        <div className="flex justify-center w-full">
+                                            <ResponsiveContainer width="100%" height={300}>
+                                                <PieChart>
+                                                    <Pie
+                                                        data={languageFocus}
+                                                        cx="50%"
+                                                        cy="50%"
+                                                        labelLine={false}
+                                                        outerRadius={100}
+                                                        fill="#8884d8"
+                                                        dataKey="value"
+                                                        nameKey="name"
+                                                        label={renderCustomizedLabel}
+                                                    >
+                                                        {languageFocus.map((entry, index) => (
+                                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip formatter={(value) => formatDuration(value as number)} />
+                                                    <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </div>
                                     ) : (
                                         <p className="text-center text-slate-500">No language data available for this period.</p>
                                     )}
@@ -759,11 +744,7 @@ const DashboardPage: React.FC = () => {
                 )}
             </div >
 
-            <PracticeSetupModal
-                isOpen={isSetupModalOpen}
-                onClose={closeSetupModal}
-                onStart={handleStartFromSetup}
-            />
+
 
             <GoalsModal
                 isOpen={isGoalsModalOpen}

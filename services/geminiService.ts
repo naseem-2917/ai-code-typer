@@ -104,7 +104,9 @@ The difficulty level should be ${levelMap[level]}.`;
   1. Generate ONLY valid, clean, compilable code in ${language.name}.
   2. NO comments. NO explanation. NO markdown. NO backticks.
   3. CODE MUST BE REAL, FUNCTIONAL, AND GRAMMATICALLY CORRECT for the language.
-  4. DO NOT write pseudo-code or fake logic.`;
+  4. DO NOT write pseudo-code or fake logic.
+  5. CRITICAL: INDENTATION MUST USE TAB CHARACTERS (\t). NEVER USE SPACES FOR INDENTATION.
+  6. Do not convert tabs to spaces. Use actual tab characters.`;
 
   return generateSnippet(prompt, systemInstruction);
 };

@@ -29,7 +29,7 @@ export interface CodeEditorHandle {
     focus: () => void;
 }
 
-export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(({
+export const CodeEditorComponent = React.forwardRef<CodeEditorHandle, CodeEditorProps>(({
     value,
     onValueChange,
     snippet,
@@ -253,4 +253,5 @@ export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(({
     );
 });
 
+export const CodeEditor = React.memo(CodeEditorComponent);
 CodeEditor.displayName = 'CodeEditor';
