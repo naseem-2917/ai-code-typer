@@ -10,8 +10,6 @@ import {
     setDoc,
     getDoc,
     updateDoc,
-    onSnapshot,
-    Unsubscribe
 } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../firebase/config';
 import { PracticeStats, UserPreferences, UserData, SnippetLength, SnippetLevel, FontSize, PracticeMode, ContentType } from '../types';
@@ -178,39 +176,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     useEffect(() => {
-        let unsubscribeSnapshot: Unsubscribe | null = null;
-
         const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
             if (currentUser) {
-                // 1. Sync Logic (One-time merge)
+                // Sync local storage with cloud on login
                 await syncUserData(currentUser.uid);
 
-                // 2. Real-time Listener
-                const userDocRef = doc(db, 'users', currentUser.uid);
-                unsubscribeSnapshot = onSnapshot(userDocRef, (docSnap) => {
+                // Fetch user data once to save reads (replaces onSnapshot)
+                try {
+                    const userDocRef = doc(db, 'users', currentUser.uid);
+                    const docSnap = await getDoc(userDocRef);
+
                     if (docSnap.exists()) {
                         setUserData(docSnap.data() as UserData);
                     }
-                });
+                } catch (error) {
+                    console.error("Error fetching user data:", error);
+                }
 
                 setUser(currentUser);
             } else {
                 setUser(null);
                 setUserData(null);
-                if (unsubscribeSnapshot) {
-                    unsubscribeSnapshot();
-                    unsubscribeSnapshot = null;
-                }
             }
             setLoading(false);
         });
 
-        return () => {
-            unsubscribeAuth();
-            if (unsubscribeSnapshot) {
-                unsubscribeSnapshot();
-            }
-        };
+        return () => unsubscribeAuth();
     }, []);
 
     const loginWithGoogle = async () => {

@@ -261,50 +261,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setTheme(newTheme);
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
     localStorage.setItem('theme', newTheme);
-    if (user && !isRemoteUpdate.current) {
-      saveUserPreferences({ theme: newTheme });
-    }
   };
   const toggleTheme = () => updateTheme(theme === 'light' ? 'dark' : 'light');
 
   const updateSelectedLanguage = (lang: Language) => {
     setSelectedLanguage(lang);
     localStorage.setItem('selectedLanguage', lang.id);
-    if (user && !isRemoteUpdate.current) {
-      saveUserPreferences({ languageId: lang.id });
-    }
   };
 
   const updateSnippetLength = (length: SnippetLength) => {
     setSnippetLength(length);
     localStorage.setItem('snippetLength', length);
-    if (user && !isRemoteUpdate.current) {
-      saveUserPreferences({ snippetLength: length });
-    }
   };
 
   const updateSnippetLevel = (level: SnippetLevel) => {
     setSnippetLevel(level);
     localStorage.setItem('snippetLevel', level);
-    if (user && !isRemoteUpdate.current) {
-      saveUserPreferences({ snippetLevel: level });
-    }
   };
 
   const updateBlockOnErrorThreshold = (val: number) => {
     setBlockOnErrorThreshold(val);
     localStorage.setItem('blockOnErrorThreshold', String(val));
-    if (user && !isRemoteUpdate.current) {
-      saveUserPreferences({ blockOnErrorThreshold: val });
-    }
   };
 
   const updateFontSize = (newSize: FontSize) => {
     setFontSize(newSize);
     localStorage.setItem('fontSize', newSize);
-    if (user && !isRemoteUpdate.current) {
-      saveUserPreferences({ fontSize: newSize });
-    }
   }
 
   const increaseFontSize = () => {
@@ -324,18 +306,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateShowKeyboard = (show: boolean) => {
     setShowKeyboard(show);
     localStorage.setItem('showKeyboard', String(show));
-    if (user && !isRemoteUpdate.current) {
-      saveUserPreferences({ showKeyboard: show });
-    }
   }
   const toggleKeyboard = () => updateShowKeyboard(!showKeyboard);
 
   const updateShowHandGuide = (show: boolean) => {
     setShowHandGuide(show);
     localStorage.setItem('showHandGuide', String(show));
-    if (user && !isRemoteUpdate.current) {
-      saveUserPreferences({ showHandGuide: show });
-    }
   }
   const toggleHandGuide = () => updateShowHandGuide(!showHandGuide);
 
@@ -343,25 +319,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateSetupTab = (tab: 'generate' | 'upload') => {
     setSetupTab(tab);
     localStorage.setItem('setupTab', tab);
-    if (user && !isRemoteUpdate.current) {
-      saveUserPreferences({ lastSetupTab: tab });
-    }
   }
 
   const updatePracticeMode = (mode: PracticeMode) => {
     setPracticeMode(mode);
     localStorage.setItem('practiceMode', mode);
-    if (user && !isRemoteUpdate.current) {
-      saveUserPreferences({ lastPracticeMode: mode });
-    }
   }
 
   const updateGeneralContentTypes = (types: ContentType[]) => {
     setGeneralContentTypes(types);
     localStorage.setItem('generalContentTypes', JSON.stringify(types));
-    if (user && !isRemoteUpdate.current) {
-      saveUserPreferences({ generalContentTypes: types });
-    }
   }
 
   // NOTE: setGoals is already a wrapper, just needs to be updated.
@@ -372,10 +339,48 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('wpmGoal', String(wpm));
     localStorage.setItem('accuracyGoal', String(accuracy));
     localStorage.setItem('timeGoal', String(time));
-    if (user && !isRemoteUpdate.current) {
-      saveUserPreferences({ wpmGoal: wpm, accuracyGoal: accuracy, timeGoal: time });
-    }
   };
+
+  // -------------------------------------------------------------------------
+  // DEBOUNCED CLOUD SAVE (Firestore Optimization)
+  // Watch all preference states -> Wait 2000ms -> Save ONCE
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    // 1. Guard: If no user or if this change came from cloud, skip.
+    if (!user || isRemoteUpdate.current) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const prefsToSave = {
+        theme,
+        languageId: selectedLanguage.id,
+        snippetLength,
+        snippetLevel,
+        blockOnErrorThreshold,
+        fontSize,
+        showKeyboard,
+        showHandGuide,
+        wpmGoal,
+        accuracyGoal,
+        timeGoal,
+        lastSetupTab: setupTab,
+        lastPracticeMode: practiceMode,
+        generalContentTypes
+      };
+      console.log("Debounced Save Payload:", prefsToSave);
+      saveUserPreferences(prefsToSave);
+    }, 2000); // 2 Second Debounce
+
+    return () => clearTimeout(timer);
+  }, [
+    // Dependencies: ANY change here resets the timer
+    theme, selectedLanguage, snippetLength, snippetLevel, blockOnErrorThreshold,
+    fontSize, showKeyboard, showHandGuide,
+    wpmGoal, accuracyGoal, timeGoal,
+    setupTab, practiceMode, generalContentTypes,
+    user // Re-run if user logs in
+  ]);
 
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
