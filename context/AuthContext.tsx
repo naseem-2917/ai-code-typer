@@ -3,7 +3,8 @@ import {
     User,
     signInWithPopup,
     signOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    updateProfile
 } from 'firebase/auth';
 import {
     doc,
@@ -22,6 +23,7 @@ interface AuthContextType {
     logout: () => Promise<void>;
     syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
     saveUserPreferences: (prefs: Partial<UserPreferences>) => Promise<void>;
+    updateUserProfile: (profile: { displayName?: string; photoURL?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -222,6 +224,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
+    const updateUserProfile = async (profile: { displayName?: string; photoURL?: string }) => {
+        if (!auth.currentUser) return;
+        try {
+            await updateProfile(auth.currentUser, profile);
+            setUser({ ...auth.currentUser, ...profile });
+
+            // Also update Firestore to keep it in sync (optional but good practice)
+            // We'll just update the top level fields if we decide to add them to UserData later, 
+            // but for now this just ensures Auth is current.
+        } catch (error) {
+            console.error("Failed to update profile", error);
+            throw error;
+        }
+    };
+
     return (
         <AuthContext.Provider value={{
             user,
@@ -230,7 +247,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             loginWithGoogle,
             logout,
             syncStatus,
-            saveUserPreferences
+            saveUserPreferences,
+            updateUserProfile
         }}>
             {children}
         </AuthContext.Provider>
