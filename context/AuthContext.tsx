@@ -155,13 +155,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const saveUserPreferences = async (newPrefs: Partial<UserPreferences>) => {
-        if (!user) return;
+        if (!user) {
+            console.warn("saveUserPreferences: No user logged in. Aborting save.");
+            return;
+        }
+        console.log("saveUserPreferences: Attempting to save...", newPrefs);
+
         try {
-            await setDoc(doc(db, 'users', user.uid), {
-                preferences: newPrefs
-            }, { merge: true });
+            // 🛠️ COMBINED FIX: Use Dot Notation for keys + setDoc with merge: true
+            const updates: Record<string, any> = {};
+            Object.entries(newPrefs).forEach(([key, value]) => {
+                updates[`preferences.${key}`] = value;
+            });
+            // Add timestamp for synchronization handling
+            updates['preferences.updatedAt'] = Date.now();
+
+            await setDoc(doc(db, 'users', user.uid), updates, { merge: true });
+            console.log("saveUserPreferences: Save SUCCESS.", updates);
         } catch (error) {
-            console.error("Failed to save preferences:", error);
+            console.error("saveUserPreferences: Failed to save preferences:", error);
         }
     };
 

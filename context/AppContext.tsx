@@ -192,6 +192,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // LOOP PREVENTION: Flag to indicate if current state change comes from Cloud Sync
   const isRemoteUpdate = useRef(false);
+  // SYNC CONTROL: Flag to ensure strict one-time sync for preferences on load
+  const preferencesSyncCompleted = useRef(false);
 
   const [practiceHistory, setPracticeHistory] = useState<PracticeStats[]>(() =>
     safeParseJSON('practiceHistory', [])
@@ -250,21 +252,130 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const isInitialSetupComplete = !!snippet;
 
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('theme', theme);
-    if (user && userData?.preferences?.theme !== theme && !isRemoteUpdate.current) {
-      saveUserPreferences({ theme });
-    }
-  }, [theme, user, userData]);
+  // -------------------------------------------------------------------------
+  // WRAPPER SETTERS (Event-Driven Updates)
+  // Instead of useEffects, we trigger saves directly when the user changes a setting.
+  // -------------------------------------------------------------------------
 
-  useEffect(() => {
-    localStorage.setItem('selectedLanguage', selectedLanguage.id);
-    if (user && userData?.preferences?.languageId !== selectedLanguage.id && !isRemoteUpdate.current) {
-      saveUserPreferences({ languageId: selectedLanguage.id });
+  const updateTheme = (newTheme: 'light' | 'dark') => {
+    setTheme(newTheme);
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+    localStorage.setItem('theme', newTheme);
+    if (user && !isRemoteUpdate.current) {
+      saveUserPreferences({ theme: newTheme });
     }
-  }, [selectedLanguage, user, userData]);
+  };
+  const toggleTheme = () => updateTheme(theme === 'light' ? 'dark' : 'light');
 
+  const updateSelectedLanguage = (lang: Language) => {
+    setSelectedLanguage(lang);
+    localStorage.setItem('selectedLanguage', lang.id);
+    if (user && !isRemoteUpdate.current) {
+      saveUserPreferences({ languageId: lang.id });
+    }
+  };
+
+  const updateSnippetLength = (length: SnippetLength) => {
+    setSnippetLength(length);
+    localStorage.setItem('snippetLength', length);
+    if (user && !isRemoteUpdate.current) {
+      saveUserPreferences({ snippetLength: length });
+    }
+  };
+
+  const updateSnippetLevel = (level: SnippetLevel) => {
+    setSnippetLevel(level);
+    localStorage.setItem('snippetLevel', level);
+    if (user && !isRemoteUpdate.current) {
+      saveUserPreferences({ snippetLevel: level });
+    }
+  };
+
+  const updateBlockOnErrorThreshold = (val: number) => {
+    setBlockOnErrorThreshold(val);
+    localStorage.setItem('blockOnErrorThreshold', String(val));
+    if (user && !isRemoteUpdate.current) {
+      saveUserPreferences({ blockOnErrorThreshold: val });
+    }
+  };
+
+  const updateFontSize = (newSize: FontSize) => {
+    setFontSize(newSize);
+    localStorage.setItem('fontSize', newSize);
+    if (user && !isRemoteUpdate.current) {
+      saveUserPreferences({ fontSize: newSize });
+    }
+  }
+
+  const increaseFontSize = () => {
+    const currentIndex = FONT_SIZES.indexOf(fontSize);
+    if (currentIndex < FONT_SIZES.length - 1) {
+      updateFontSize(FONT_SIZES[currentIndex + 1]);
+    }
+  };
+
+  const decreaseFontSize = () => {
+    const currentIndex = FONT_SIZES.indexOf(fontSize);
+    if (currentIndex > 0) {
+      updateFontSize(FONT_SIZES[currentIndex - 1]);
+    }
+  };
+
+  const updateShowKeyboard = (show: boolean) => {
+    setShowKeyboard(show);
+    localStorage.setItem('showKeyboard', String(show));
+    if (user && !isRemoteUpdate.current) {
+      saveUserPreferences({ showKeyboard: show });
+    }
+  }
+  const toggleKeyboard = () => updateShowKeyboard(!showKeyboard);
+
+  const updateShowHandGuide = (show: boolean) => {
+    setShowHandGuide(show);
+    localStorage.setItem('showHandGuide', String(show));
+    if (user && !isRemoteUpdate.current) {
+      saveUserPreferences({ showHandGuide: show });
+    }
+  }
+  const toggleHandGuide = () => updateShowHandGuide(!showHandGuide);
+
+
+  const updateSetupTab = (tab: 'generate' | 'upload') => {
+    setSetupTab(tab);
+    localStorage.setItem('setupTab', tab);
+    if (user && !isRemoteUpdate.current) {
+      saveUserPreferences({ lastSetupTab: tab });
+    }
+  }
+
+  const updatePracticeMode = (mode: PracticeMode) => {
+    setPracticeMode(mode);
+    localStorage.setItem('practiceMode', mode);
+    if (user && !isRemoteUpdate.current) {
+      saveUserPreferences({ lastPracticeMode: mode });
+    }
+  }
+
+  const updateGeneralContentTypes = (types: ContentType[]) => {
+    setGeneralContentTypes(types);
+    localStorage.setItem('generalContentTypes', JSON.stringify(types));
+    if (user && !isRemoteUpdate.current) {
+      saveUserPreferences({ generalContentTypes: types });
+    }
+  }
+
+  // NOTE: setGoals is already a wrapper, just needs to be updated.
+  const setGoals = (wpm: number, accuracy: number, time: number) => {
+    setWpmGoal(wpm);
+    setAccuracyGoal(accuracy);
+    setTimeGoal(time);
+    localStorage.setItem('wpmGoal', String(wpm));
+    localStorage.setItem('accuracyGoal', String(accuracy));
+    localStorage.setItem('timeGoal', String(time));
+    if (user && !isRemoteUpdate.current) {
+      saveUserPreferences({ wpmGoal: wpm, accuracyGoal: accuracy, timeGoal: time });
+    }
+  };
 
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
@@ -302,14 +413,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setKeyAttemptStats(keyAttemptStats);
       }
       // Update Preferences
-      if (userData.preferences) {
+      // Update Preferences (Sync ONLY on Initial Load)
+      if (userData.preferences && !preferencesSyncCompleted.current) {
         const p = userData.preferences;
 
         // SET FLAG: This update is from remote. Do NOT echo back to cloud.
         isRemoteUpdate.current = true;
 
         // Batch updates where possible or let React batch them
-        if (p.theme && p.theme !== theme) setTheme(p.theme);
+        if (p.theme && p.theme !== theme) {
+          setTheme(p.theme);
+          document.documentElement.classList.toggle('dark', p.theme === 'dark');
+        }
         if (p.languageId && p.languageId !== selectedLanguage.id) {
           const lang = SUPPORTED_LANGUAGES.find(l => l.id === p.languageId);
           if (lang) setSelectedLanguage(lang);
@@ -333,123 +448,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         // RESET FLAG
+        preferencesSyncCompleted.current = true; // Mark as done forever for this session
         setTimeout(() => {
           isRemoteUpdate.current = false;
         }, 100);
       }
       setIsDataLoaded(true);
     } else if (!user) {
+      preferencesSyncCompleted.current = false; // Reset on logout
       setIsDataLoaded(true);
     }
   }, [userData, user]);
-
-  // Save generalContentTypes to LocalStorage (Settings are local-only for now, or could be synced)
-  useEffect(() => {
-    localStorage.setItem('generalContentTypes', JSON.stringify(generalContentTypes));
-    if (user && JSON.stringify(userData?.preferences?.generalContentTypes) !== JSON.stringify(generalContentTypes) && !isRemoteUpdate.current) {
-      saveUserPreferences({ generalContentTypes });
-    }
-  }, [generalContentTypes, user, userData]);
-
-  // Save History (Cloud or Local)
-  useEffect(() => {
-    const saveHistory = async () => {
-      if (user) {
-        // CRITICAL GUARD: Only save if sync is complete AND initial load finished.
-        if (syncStatus === 'synced' && isDataLoaded) {
-          try {
-            // OPTIMIZATION: Prevent unnecessary writes if data hasn't changed from cloud
-            if (userData?.history && JSON.stringify(userData.history) === JSON.stringify(practiceHistory)) {
-              return;
-            }
-
-            await updateDoc(doc(db, 'users', user.uid), {
-              history: practiceHistory
-            });
-          } catch (err) {
-            // If doc doesn't exist (should involve AuthContext creation, but just in case)
-            try {
-              await setDoc(doc(db, 'users', user.uid), {
-                history: practiceHistory
-              });
-            } catch (e) {
-              console.error("Cloud save failed", e);
-            }
-          }
-        }
-      } else {
-        localStorage.setItem('practiceHistory', JSON.stringify(practiceHistory));
-      }
-    };
-    if (practiceHistory.length > 0 || user) { // Avoid saving empty initial state if not necessary, but harmless
-      saveHistory();
-    }
-  }, [practiceHistory, user, isDataLoaded, syncStatus]);
-
-  // Save Stats (Local only for guest, derived for cloud users so no need to save specifically unless we want to cache)
-  // Actually, we should probably save them to localStorage even for logged in users as a fallback/cache? 
-  // No, if we switch users it might be confusing.
-  // For Cloud users, we assume stats are derived from history on load.
-  useEffect(() => {
-    if (!user) {
-      localStorage.setItem('keyErrorStats', JSON.stringify(keyErrorStats));
-      localStorage.setItem('keyAttemptStats', JSON.stringify(keyAttemptStats));
-    }
-  }, [keyErrorStats, keyAttemptStats, user]);
-
-  useEffect(() => {
-    localStorage.setItem('wpmGoal', String(wpmGoal));
-    localStorage.setItem('accuracyGoal', String(accuracyGoal));
-    localStorage.setItem('timeGoal', String(timeGoal));
-    if (user && !isRemoteUpdate.current) {
-      const p = userData?.preferences;
-      if (p?.wpmGoal !== wpmGoal || p?.accuracyGoal !== accuracyGoal || p?.timeGoal !== timeGoal) {
-        saveUserPreferences({ wpmGoal, accuracyGoal, timeGoal });
-      }
-    }
-  }, [wpmGoal, accuracyGoal, timeGoal, user, userData]);
-
-  // Sync other settings (Setup & Display) to LS and Cloud
-  useEffect(() => {
-    // Setup Settings
-    localStorage.setItem('snippetLength', snippetLength);
-    localStorage.setItem('snippetLevel', snippetLevel);
-    localStorage.setItem('blockOnErrorThreshold', String(blockOnErrorThreshold));
-
-    // Display Settings
-    localStorage.setItem('fontSize', fontSize);
-    localStorage.setItem('showKeyboard', String(showKeyboard));
-    localStorage.setItem('showHandGuide', String(showHandGuide));
-
-    if (user && userData?.preferences && !isRemoteUpdate.current) {
-      const p = userData.preferences;
-      const updates: Partial<any> = {}; // using Partial<UserPreferences>
-      if (p.snippetLength !== snippetLength) updates.snippetLength = snippetLength;
-      if (p.snippetLevel !== snippetLevel) updates.snippetLevel = snippetLevel;
-      if (p.blockOnErrorThreshold !== blockOnErrorThreshold) updates.blockOnErrorThreshold = blockOnErrorThreshold;
-      if (p.fontSize !== fontSize) updates.fontSize = fontSize;
-      if (p.showKeyboard !== showKeyboard) updates.showKeyboard = showKeyboard;
-      if (p.showHandGuide !== showHandGuide) updates.showHandGuide = showHandGuide;
-
-      if (Object.keys(updates).length > 0) {
-        saveUserPreferences(updates);
-      }
-    }
-  }, [snippetLength, snippetLevel, blockOnErrorThreshold, fontSize, showKeyboard, showHandGuide, user, userData]);
-
-  useEffect(() => {
-    localStorage.setItem('setupTab', setupTab);
-    if (user && userData?.preferences?.lastSetupTab !== setupTab && !isRemoteUpdate.current) {
-      saveUserPreferences({ lastSetupTab: setupTab });
-    }
-  }, [setupTab, user, userData]);
-
-  useEffect(() => {
-    localStorage.setItem('practiceMode', practiceMode);
-    if (user && userData?.preferences?.lastPracticeMode !== practiceMode && !isRemoteUpdate.current) {
-      saveUserPreferences({ lastPracticeMode: practiceMode });
-    }
-  }, [practiceMode, user, userData]);
 
 
   useEffect(() => {
@@ -472,7 +481,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   }, []);
 
-  const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+
   const openSetupModal = () => setIsSetupModalOpen(true);
   const closeSetupModal = () => setIsSetupModalOpen(false);
 
@@ -715,37 +724,42 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [currentQueueIndex, practiceQueue, loadSnippetFromQueue]);
 
-  const increaseFontSize = () => {
-    const currentIndex = FONT_SIZES.indexOf(fontSize);
-    if (currentIndex < FONT_SIZES.length - 1) {
-      setFontSize(FONT_SIZES[currentIndex + 1]);
+
+
+
+
+  const saveHistoryToCloud = async (newHistory: PracticeStats[]) => {
+    if (user) {
+      try {
+        await setDoc(doc(db, 'users', user.uid), { history: newHistory }, { merge: true });
+      } catch (error) {
+        console.error("Failed to save history:", error);
+      }
     }
   };
-
-  const decreaseFontSize = () => {
-    const currentIndex = FONT_SIZES.indexOf(fontSize);
-    if (currentIndex > 0) {
-      setFontSize(FONT_SIZES[currentIndex - 1]);
-    }
-  };
-
-  const toggleKeyboard = () => setShowKeyboard(prev => !prev);
-  const toggleHandGuide = () => setShowHandGuide(prev => !prev);
 
   const addPracticeResult = (stats: PracticeStats) => {
     const finalStats = { ...stats };
     if (practiceMode === 'general') {
       finalStats.language = 'General';
     }
+
+    let newHistory: PracticeStats[] = [];
+
     setPracticeHistory(prev => {
       const existingIndex = prev.findIndex(s => s.id === finalStats.id);
       if (existingIndex >= 0) {
-        const newHistory = [...prev];
+        newHistory = [...prev];
         newHistory[existingIndex] = finalStats;
-        return newHistory;
+      } else {
+        newHistory = [...prev, finalStats].slice(-100);
       }
-      return [...prev, finalStats].slice(-100);
+      return newHistory;
     });
+
+    // Explicitly Save to Cloud
+    saveHistoryToCloud(newHistory);
+
     const newDailyTime = updateDailyPracticeTime(finalStats.duration);
     setDailyPracticeTime(newDailyTime);
 
@@ -770,14 +784,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const setGoals = (wpm: number, accuracy: number, time: number) => {
-    setWpmGoal(wpm);
-    setAccuracyGoal(accuracy);
-    setTimeGoal(time);
-    localStorage.setItem('wpmGoal', String(wpm));
-    localStorage.setItem('accuracyGoal', String(accuracy));
-    localStorage.setItem('timeGoal', String(time));
-  };
 
   const showAccessKeyMenu = () => setIsAccessKeyMenuVisible(true);
   const hideAccessKeyMenu = () => setIsAccessKeyMenuVisible(false);
@@ -854,6 +860,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [openSetupModal]);
 
   const deletePracticeSession = useCallback((timestamp: number) => {
+    let newHistory: PracticeStats[] = [];
     setPracticeHistory(prev => {
       const sessionToDelete = prev.find(s => s.timestamp === timestamp);
       if (sessionToDelete) {
@@ -865,9 +872,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           localStorage.setItem('dailyPracticeTime', String(Math.max(0, currentDailyTime - sessionToDelete.duration)));
         }
       }
-      return prev.filter(s => s.timestamp !== timestamp);
+      newHistory = prev.filter(s => s.timestamp !== timestamp);
+      return newHistory;
     });
-  }, []);
+
+    // Explicitly Save to Cloud
+    saveHistoryToCloud(newHistory);
+
+  }, [user]); // user added as dependency
 
   const clearPracticeHistory = useCallback(() => {
     setPracticeHistory([]);
@@ -877,23 +889,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setKeyAttemptStats({});
     localStorage.removeItem('keyErrorStats');
     localStorage.removeItem('keyAttemptStats');
-  }, []);
+
+    // Explicitly Save to Cloud
+    saveHistoryToCloud([]);
+  }, [user]); // user added as dependency
 
   const value: AppContextType = {
     theme, toggleTheme,
-    selectedLanguage, setSelectedLanguage,
+    selectedLanguage, setSelectedLanguage: updateSelectedLanguage,
     snippet, isLoadingSnippet, snippetError, fetchNewSnippet, startCustomSession, startTargetedSession, startErrorPracticeSession,
     isCustomSession, isMultiFileSession: practiceQueue.length > 0,
-    snippetLength, setSnippetLength,
-    snippetLevel, setSnippetLevel,
-    blockOnErrorThreshold, setBlockOnErrorThreshold,
+    snippetLength, setSnippetLength: updateSnippetLength,
+    snippetLevel, setSnippetLevel: updateSnippetLevel,
+    blockOnErrorThreshold, setBlockOnErrorThreshold: updateBlockOnErrorThreshold,
     fontSize, increaseFontSize, decreaseFontSize,
     showKeyboard, toggleKeyboard,
     showHandGuide, toggleHandGuide,
     page, navigateTo, getPreviousPage,
     isSetupModalOpen, openSetupModal, closeSetupModal,
     isInitialSetupComplete,
-    setupTab, setSetupTab,
+    setupTab, setSetupTab: updateSetupTab,
     practiceHistory, addPracticeResult,
     keyErrorStats, keyAttemptStats,
     wpmGoal, accuracyGoal, timeGoal, dailyPracticeTime, setGoals,
@@ -905,8 +920,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     alertMessage, showAlert,
     reloadDataFromStorage,
 
-    practiceMode, setPracticeMode,
-    generalContentTypes, setGeneralContentTypes,
+    practiceMode, setPracticeMode: updatePracticeMode,
+    generalContentTypes, setGeneralContentTypes: updateGeneralContentTypes,
     sessionResetKey,
     handleStartFromSetup, handleNextSnippet, handlePracticeSame, handleSetupNew,
     deletePracticeSession, clearPracticeHistory,
