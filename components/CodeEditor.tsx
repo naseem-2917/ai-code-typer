@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useContext } from 'react';
 import CodeSnippet from './CodeSnippet';
 import { Card } from './ui/Card';
 import { WarningIcon } from './icons/WarningIcon';
@@ -8,6 +8,7 @@ import SkeletonLoader from './SkeletonLoader';
 import { PauseIcon } from './icons/PauseIcon';
 import { CopyIcon } from './icons/CopyIcon';
 import { CheckIcon } from './icons/CheckIcon';
+import { AppContext } from '../context/AppContext';
 
 interface CodeEditorProps {
     value: string;
@@ -45,17 +46,57 @@ export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(({
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const cursorRef = useRef<HTMLSpanElement>(null);
-
     const scrollableCardRef = useRef<HTMLDivElement>(null);
     const [isCopied, setIsCopied] = React.useState(false);
 
+    // Inject Context
+    const context = useContext(AppContext);
+
     const handleCopy = async () => {
-        try {
-            await navigator.clipboard.writeText(snippet);
-            setIsCopied(true);
-            setTimeout(() => setIsCopied(false), 2000);
-        } catch (err) {
-            console.error('Failed to copy text: ', err);
+        const copyToClipboardFallback = (text: string) => {
+            try {
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+
+                // Ensure it's not visible but part of DOM
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                textArea.style.top = "0";
+                document.body.appendChild(textArea);
+
+                textArea.focus();
+                textArea.select();
+
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+
+                if (successful) {
+                    setIsCopied(true);
+                    setTimeout(() => setIsCopied(false), 2000);
+                    context?.showAlert('Code copied to clipboard!', 'info');
+                } else {
+                    throw new Error('Fallback copy failed');
+                }
+            } catch (err) {
+                console.error('Fallback copy failed: ', err);
+                context?.showAlert('Failed to copy code.', 'error');
+            }
+        };
+
+        // Try modern API first
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            try {
+                await navigator.clipboard.writeText(snippet);
+                setIsCopied(true);
+                setTimeout(() => setIsCopied(false), 2000);
+                context?.showAlert('Code copied to clipboard!', 'info');
+            } catch (err) {
+                console.warn('Clipboard API failed, trying fallback...', err);
+                copyToClipboardFallback(snippet);
+            }
+        } else {
+            // Fallback for older browsers or non-secure contexts
+            copyToClipboardFallback(snippet);
         }
     };
 
@@ -97,7 +138,6 @@ export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(({
 
             if (isMobile) {
                 // Mobile: Scroll line by line to keep context stable
-                // We check if the cursor is below the top 1/3rd of the screen or above the top
                 const lineHeight = cursorRect.height || 24; // Fallback line height
                 const threshold = containerRect.height / 3;
 
@@ -158,7 +198,7 @@ export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(({
             <Card className="h-full overflow-hidden flex flex-col relative w-full group">
                 {/* Copy Button */}
                 {!isLoading && !error && (
-                    <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <div className="absolute top-2 right-2 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
                         <Button
                             variant="secondary"
                             size="sm"
@@ -167,7 +207,8 @@ export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(({
                                 handleCopy();
                             }}
                             className="!py-1 !px-2 text-xs shadow-sm bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm"
-                            title="Copy Code"
+                            title="Copy Code (Alt+C)"
+                            accessKeyChar="C"
                         >
                             {isCopied ? (
                                 <>

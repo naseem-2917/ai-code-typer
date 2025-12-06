@@ -27,6 +27,7 @@ export interface TypingGame {
   handleKeyDown: (key: string) => void;
   pauseGame: () => void;
   resumeGame: () => void;
+  togglePause: () => void;
   reset: () => void;
   clearAutoPauseTimer: () => void;
   resetIdleTimer: () => void;
@@ -383,9 +384,17 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
     setIsPaused(true);
   }, [stopTimer]);
 
+  const togglePause = useCallback(() => {
+    if (gameStateRef.current.isPaused) {
+      resumeGame();
+    } else {
+      pauseGame();
+    }
+  }, [pauseGame, resumeGame]);
+
   return {
     charStates, typedText, wpm, accuracy, errors, duration, isFinished,
-    currentIndex, isError, isPaused, handleKeyDown, pauseGame, resumeGame,
+    currentIndex, isError, isPaused, handleKeyDown, pauseGame, resumeGame, togglePause,
     reset, clearAutoPauseTimer, resetIdleTimer,
     errorMap: errorMapRef.current,
     attemptMap: attemptMapRef.current,

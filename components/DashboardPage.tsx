@@ -805,8 +805,8 @@ const DashboardPage: React.FC = () => {
                         <p className="text-center text-slate-500">No error data available.</p>
                     )}
                 </div>
-                <div className="mt-6 flex justify-end">
-                    <Button variant="secondary" onClick={() => setIsErrorModalOpen(false)}>
+                <div className="mt-6 flex justify-center">
+                    <Button variant="secondary" onClick={() => setIsErrorModalOpen(false)} autoFocus>
                         Close
                     </Button>
                 </div>

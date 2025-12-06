@@ -48,7 +48,13 @@ const HistoryPage: React.FC = () => {
         <div className="space-y-6 h-full overflow-y-auto custom-scrollbar p-4">
             <div className="flex justify-between items-center">
                 <div className="flex items-center gap-4">
-                    <Button variant="outline" onClick={() => navigateTo('dashboard')}>
+                    <Button
+                        variant="outline"
+                        onClick={() => navigateTo('dashboard')}
+                        title="Back to Dashboard"
+                        accessKeyChar="ArrowLeft"
+                        accessKeyLabel="←"
+                    >
                         ← Back to Dashboard
                     </Button>
                     <h1 className="text-3xl font-bold">Practice History</h1>
