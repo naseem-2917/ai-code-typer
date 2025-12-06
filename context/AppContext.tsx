@@ -190,6 +190,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const previousPageRef = useRef<Page | null>(null);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
 
+  // LOOP PREVENTION: Flag to indicate if current state change comes from Cloud Sync
+  const isRemoteUpdate = useRef(false);
+
   const [practiceHistory, setPracticeHistory] = useState<PracticeStats[]>(() =>
     safeParseJSON('practiceHistory', [])
   );
@@ -250,14 +253,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('theme', theme);
-    if (user && userData?.preferences?.theme !== theme) {
+    if (user && userData?.preferences?.theme !== theme && !isRemoteUpdate.current) {
       saveUserPreferences({ theme });
     }
   }, [theme, user, userData]);
 
   useEffect(() => {
     localStorage.setItem('selectedLanguage', selectedLanguage.id);
-    if (user && userData?.preferences?.languageId !== selectedLanguage.id) {
+    if (user && userData?.preferences?.languageId !== selectedLanguage.id && !isRemoteUpdate.current) {
       saveUserPreferences({ languageId: selectedLanguage.id });
     }
   }, [selectedLanguage, user, userData]);
@@ -288,6 +291,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [syncStatus]);
 
   // Real-time Update from AuthContext (Replaces old loadCloudData)
+  // Real-time Update from AuthContext (Replaces old loadCloudData)
   useEffect(() => {
     if (userData) {
       // Update History
@@ -300,6 +304,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // Update Preferences
       if (userData.preferences) {
         const p = userData.preferences;
+
+        // SET FLAG: This update is from remote. Do NOT echo back to cloud.
+        isRemoteUpdate.current = true;
+
         // Batch updates where possible or let React batch them
         if (p.theme && p.theme !== theme) setTheme(p.theme);
         if (p.languageId && p.languageId !== selectedLanguage.id) {
@@ -323,6 +331,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (p.generalContentTypes && JSON.stringify(p.generalContentTypes) !== JSON.stringify(generalContentTypes)) {
           setGeneralContentTypes(p.generalContentTypes);
         }
+
+        // RESET FLAG
+        setTimeout(() => {
+          isRemoteUpdate.current = false;
+        }, 100);
       }
       setIsDataLoaded(true);
     } else if (!user) {
@@ -333,7 +346,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Save generalContentTypes to LocalStorage (Settings are local-only for now, or could be synced)
   useEffect(() => {
     localStorage.setItem('generalContentTypes', JSON.stringify(generalContentTypes));
-    if (user && JSON.stringify(userData?.preferences?.generalContentTypes) !== JSON.stringify(generalContentTypes)) {
+    if (user && JSON.stringify(userData?.preferences?.generalContentTypes) !== JSON.stringify(generalContentTypes) && !isRemoteUpdate.current) {
       saveUserPreferences({ generalContentTypes });
     }
   }, [generalContentTypes, user, userData]);
@@ -388,7 +401,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('wpmGoal', String(wpmGoal));
     localStorage.setItem('accuracyGoal', String(accuracyGoal));
     localStorage.setItem('timeGoal', String(timeGoal));
-    if (user) {
+    if (user && !isRemoteUpdate.current) {
       const p = userData?.preferences;
       if (p?.wpmGoal !== wpmGoal || p?.accuracyGoal !== accuracyGoal || p?.timeGoal !== timeGoal) {
         saveUserPreferences({ wpmGoal, accuracyGoal, timeGoal });
@@ -408,7 +421,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('showKeyboard', String(showKeyboard));
     localStorage.setItem('showHandGuide', String(showHandGuide));
 
-    if (user && userData?.preferences) {
+    if (user && userData?.preferences && !isRemoteUpdate.current) {
       const p = userData.preferences;
       const updates: Partial<any> = {}; // using Partial<UserPreferences>
       if (p.snippetLength !== snippetLength) updates.snippetLength = snippetLength;
@@ -426,14 +439,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   useEffect(() => {
     localStorage.setItem('setupTab', setupTab);
-    if (user && userData?.preferences?.lastSetupTab !== setupTab) {
+    if (user && userData?.preferences?.lastSetupTab !== setupTab && !isRemoteUpdate.current) {
       saveUserPreferences({ lastSetupTab: setupTab });
     }
   }, [setupTab, user, userData]);
 
   useEffect(() => {
     localStorage.setItem('practiceMode', practiceMode);
-    if (user && userData?.preferences?.lastPracticeMode !== practiceMode) {
+    if (user && userData?.preferences?.lastPracticeMode !== practiceMode && !isRemoteUpdate.current) {
       saveUserPreferences({ lastPracticeMode: practiceMode });
     }
   }, [practiceMode, user, userData]);
