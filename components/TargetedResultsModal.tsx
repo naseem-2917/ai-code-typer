@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from 'react';
+import React, { useContext, useMemo, useEffect } from 'react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { AppContext } from '../context/AppContext';
@@ -104,6 +104,48 @@ export const TargetedResultsModal: React.FC<TargetedResultsModalProps> = ({
     }
   }, [isOpen, currentTargetedKeys, keyErrorStats, keyAttemptStats, sessionErrorMap, sessionAttemptMap]);
 
+  const [focusedIndex, setFocusedIndex] = React.useState(0);
+  const buttonRefs = React.useRef<(HTMLButtonElement | null)[]>([]);
+
+  const buttons = useMemo(() => [
+    { label: 'Practice Again (Same Keys)', action: onPracticeAgain, variant: 'primary' as const },
+    { label: 'Return to Dashboard', action: onReturnToDashboard, variant: 'secondary' as const }
+  ], [onPracticeAgain, onReturnToDashboard]);
+
+  useEffect(() => {
+    buttonRefs.current = buttonRefs.current.slice(0, buttons.length);
+  }, [buttons]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setFocusedIndex(0);
+      setTimeout(() => {
+        buttonRefs.current[0]?.focus();
+      }, 100);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isOpen) return;
+      if (event.key === 'Tab') return; // Let browser handle Tab
+
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const direction = event.key === 'ArrowDown' ? 1 : -1;
+        const newIndex = (focusedIndex + direction + buttons.length) % buttons.length;
+        setFocusedIndex(newIndex);
+        buttonRefs.current[newIndex]?.focus();
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        buttonRefs.current[focusedIndex]?.click();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, buttons, focusedIndex]);
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Targeted Practice Results">
       <div className="space-y-6">
@@ -128,12 +170,20 @@ export const TargetedResultsModal: React.FC<TargetedResultsModalProps> = ({
         </p>
 
         <div className="flex flex-col gap-3 pt-2">
-          <Button size="lg" className="w-full" onClick={onPracticeAgain}>
-            Practice Again (Same Keys)
-          </Button>
-          <Button size="lg" variant="secondary" className="w-full" onClick={onReturnToDashboard}>
-            Return to Dashboard
-          </Button>
+          {buttons.map((btn, index) => (
+            <Button
+              key={index}
+              ref={el => { buttonRefs.current[index] = el; }}
+              size="lg"
+              className="w-full"
+              onClick={btn.action}
+              variant={index === focusedIndex ? 'primary' : 'secondary'} // Highlight focused button
+              onMouseEnter={() => setFocusedIndex(index)}
+              onFocus={() => setFocusedIndex(index)}
+            >
+              {btn.label}
+            </Button>
+          ))}
         </div>
       </div>
     </Modal>

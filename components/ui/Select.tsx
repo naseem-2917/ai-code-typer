@@ -68,7 +68,7 @@ export const Select = forwardRef<SelectRef, SelectProps>(({ options, className =
           setIsOpen(false);
         }
       };
-      
+
       document.addEventListener('keydown', handleKeyDown);
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
@@ -77,7 +77,7 @@ export const Select = forwardRef<SelectRef, SelectProps>(({ options, className =
       };
     }
   }, [isOpen, highlightedIndex, options, onChange]);
-  
+
   useImperativeHandle(ref, () => ({
     focus: () => triggerRef.current?.focus(),
     toggle: () => {
@@ -92,11 +92,11 @@ export const Select = forwardRef<SelectRef, SelectProps>(({ options, className =
 
   useEffect(() => {
     if (isOpen) {
-        const listElement = containerRef.current?.querySelector('ul');
-        const highlightedElement = listElement?.children[highlightedIndex] as HTMLElement;
-        if (highlightedElement) {
-            highlightedElement.scrollIntoView({ block: 'nearest' });
-        }
+      const listElement = containerRef.current?.querySelector('ul');
+      const highlightedElement = listElement?.children[highlightedIndex] as HTMLElement;
+      if (highlightedElement) {
+        highlightedElement.scrollIntoView({ block: 'nearest' });
+      }
     }
   }, [highlightedIndex, isOpen]);
 
@@ -109,13 +109,19 @@ export const Select = forwardRef<SelectRef, SelectProps>(({ options, className =
         onClick={() => !disabled && setIsOpen(!isOpen)}
         onKeyDown={(e) => {
           if (!disabled && !isOpen && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
-              e.preventDefault();
-              const currentIndex = options.findIndex(o => o.value === value);
-              if (currentIndex !== -1) {
-                  const direction = e.key === 'ArrowRight' ? 1 : -1;
-                  const newIndex = (currentIndex + direction + options.length) % options.length;
-                  onChange(options[newIndex].value);
-              }
+            e.preventDefault();
+            e.stopPropagation(); // Ensure we stop propagation
+            const currentIndex = options.findIndex(o => o.value === value);
+            const direction = e.key === 'ArrowRight' ? 1 : -1;
+
+            let newIndex;
+            if (currentIndex !== -1) {
+              newIndex = (currentIndex + direction + options.length) % options.length;
+            } else {
+              // If current value is invalid, start from 0
+              newIndex = 0;
+            }
+            onChange(options[newIndex].value);
           }
         }}
         className="w-full flex items-center justify-between px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-400 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -135,11 +141,10 @@ export const Select = forwardRef<SelectRef, SelectProps>(({ options, className =
           {options.map((option, index) => (
             <li
               key={option.value}
-              className={`cursor-pointer select-none relative py-2 pl-3 pr-9 transition-colors ${
-                highlightedIndex === index
+              className={`cursor-pointer select-none relative py-2 pl-3 pr-9 transition-colors ${highlightedIndex === index
                   ? 'text-white bg-primary-600'
                   : 'text-gray-900 dark:text-gray-100 hover:bg-slate-100 dark:hover:bg-slate-700'
-              }`}
+                }`}
               onClick={() => {
                 onChange(option.value);
                 setIsOpen(false);

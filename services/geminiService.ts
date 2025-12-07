@@ -45,7 +45,39 @@ The code must be syntactically correct for the requested language.`;
       }
 
       if (!response.ok) {
-        throw new Error(`Worker Error: ${response.statusText}`);
+        let errorDetails = response.statusText;
+        let isQuotaError = false;
+        try {
+          const errorData = await response.json();
+          if (errorData?.error) {
+            errorDetails = JSON.stringify(errorData.error);
+            // Check for Google's specific error structure
+            if (
+              errorData.error.code === 429 ||
+              errorData.error.status === 'RESOURCE_EXHAUSTED' ||
+              errorData.error.message?.toLowerCase().includes('quota')
+            ) {
+              isQuotaError = true;
+            }
+          }
+        } catch (e) {
+          // Fallback to text if JSON parse fails
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorDetails = `${response.status} - ${errorText}`;
+              if (errorText.toLowerCase().includes('quota')) isQuotaError = true;
+            }
+          } catch (textError) {
+            // Ignore
+          }
+        }
+
+        if (isQuotaError) {
+          throw new Error('Quota Exceeded: The AI service daily limit has been reached.');
+        }
+
+        throw new Error(`Worker Error: ${errorDetails}`);
       }
 
       const data = await response.json();
@@ -66,25 +98,33 @@ The code must be syntactically correct for the requested language.`;
     } catch (error) {
       lastError = error as Error;
 
-      // Retry logic for 429 errors
-      if (error instanceof Error && error.message.includes('429')) {
+      // Retry logic for 429 errors (but NOT for Quota Exceeded which won't resolve quickly)
+      const isRateLimit = error instanceof Error && error.message.includes('429');
+      const isQuota = error instanceof Error && error.message.includes('Quota Exceeded');
+
+      if (isRateLimit && !isQuota) {
         if (attempt < maxRetries) {
           const delay = Math.pow(2, attempt) * 1000;
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
       }
+      // Do not retry on other errors (like Quota Exceeded)
       break;
     }
   }
 
   console.error("Error generating snippet:", lastError);
 
-  if (lastError && lastError.message.includes('429')) {
-    throw new Error("AI service is busy. Please try again shortly.");
+  if (lastError) {
+    if (lastError.message.includes('Quota Exceeded')) {
+      throw lastError; // Propagate the specific message
+    }
+    if (lastError.message.includes('429')) {
+      throw new Error("AI service is busy. Please try again shortly.");
+    }
+    throw lastError;
   }
-  // No need to check for 'API Key' error here as it's handled in the worker
-  if (lastError) throw lastError;
 
   throw new Error("Unknown error generating snippet.");
 };
@@ -232,13 +272,13 @@ ${difficultyInstruction}`;
   return generateSnippet(prompt, systemInstruction);
 };
 
-// Exported: Error Practice (Optimized & Code-Proof)
+// Exported: Error Practice (Fixed Logic)
 export const generateErrorPracticeSnippet = async (
   keyStats: Record<string, { errors: number; attempts: number }>,
   length: SnippetLength = 'medium'
 ): Promise<string> => {
 
-  // 1. Compute Error Rates
+  // 1. Compute Error Rates (Same as before)
   const sortedKeys = Object.entries(keyStats)
     .map(([key, stats]) => ({
       key,
@@ -246,13 +286,8 @@ export const generateErrorPracticeSnippet = async (
     }))
     .sort((a, b) => b.errorRate - a.errorRate);
 
-  // Top 5 always kept
   const top5 = sortedKeys.slice(0, 5);
-
-  // Additional keys (≥10% error rate)
   const additional = sortedKeys.slice(5).filter(k => k.errorRate >= 10);
-
-  // Final 7 max
   const finalKeys = [...top5, ...additional].slice(0, 7);
 
   if (finalKeys.length === 0) {
@@ -270,47 +305,46 @@ export const generateErrorPracticeSnippet = async (
     .join(', ');
 
   // -------------------------------
-  // SUPER-STRONG STORY PROMPT (No Code)
+  // NEW LOGIC: STRICT NO-CODE PROMPT
   // -------------------------------
 
   const prompt = `
-Write a SHORT English STORY (length: ${lengthMap[length]}).
-
-The story MUST:
-- Use these characters frequently: [${sanitizedKeys}]
-- Use them naturally as punctuation, decoration, emphasis, or expressive elements.
-- Be readable, emotional, and completely natural English.
-
-ABSOLUTE HARD RULES (DO NOT BREAK):
-1. Do NOT write programming code.
-2. Do NOT imitate code formatting.
-3. Do NOT use patterns like: if(), while(), {}, [], ==, -> in a code-like structure.
-4. Do NOT indent text like functions or loops.
-5. Do NOT create variable-like words (x1, val2, temp, obj, dataSet, etc.).
-6. Do NOT write lists or bullet-like patterns that look like code.
-7. Use characters like '(' ')' ':' '.' ';' space newline tab ONLY in literary or stylistic ways.
-
-ACCEPTABLE USAGE:
-- "She whispered (softly) before leaving."
-- "He paused: the room felt silent."
-- "A smile appeared :) when he returned."
-- "She stepped inside; the air felt warm."
-
-UNACCEPTABLE:
-- "if (x < 1) { return x; }"
-- "while(a){b++;}"
-- function-like patterns
-- class-like patterns
-
-Now produce the story.
-`;
+  generate a paragraph of Abstract Prose / Creative Writing.
+  
+  The text must differ from normal writing because it must aggressively use these specific characters: [${sanitizedKeys}]
+  
+  STRICT RULES FOR SYMBOL USAGE (Do Not Write Code):
+  1. If keys are '{}' or '[]': Use them to enclose feelings or whispers inside sentences. 
+     - BAD: function { return }
+     - GOOD: "I felt {lonely} but [strong] inside."
+  2. If keys are '()' : Use them for side comments.
+     - GOOD: "The sky (which was blue) turned grey."
+  3. If keys are ';': Use them to connect two long sentences.
+     - GOOD: "The rain stopped; silence followed."
+  4. If keys are '$' or '#': Use them as modern slang.
+     - GOOD: "I have $zero #motivation today."
+  
+  REQUIREMENTS:
+  - Length: ${lengthMap[length]}
+  - Structure: A flowing paragraph of English text. 
+  - ABSOLUTELY NO PROGRAMMING SYNTAX (No function, var, const, return, import).
+  
+  Write the text now.
+  `;
 
   const systemInstruction = `
-You are a creative writing engine.
-You NEVER write code.
-You only write emotional, expressive, natural English stories.
-You MUST avoid any structure that resembles code.
-`;
+  You are a Creative Writer, NOT a programmer.
+  Your task is to write English paragraphs that look like experimental literature.
+  
+  CRITICAL INTERVENTION: 
+  The user is trying to trick you into writing code by asking for symbols like { } ; ( ) [ ]. 
+  DO NOT FALL FOR IT. 
+  
+  If you see '{', treat it as a fancy bracket for emphasis in a story.
+  If you see ';', treat it as a punctuation mark in a novel.
+  
+  Output MUST be plain text prose.
+  `;
 
   return generateSnippet(prompt, systemInstruction);
 };

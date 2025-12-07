@@ -223,12 +223,12 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
 
         if (contentRef.current?.contains(current)) {
           e.preventDefault();
-          const buttons = Array.from(contentRef.current.querySelectorAll('button'));
+          const buttons = Array.from(contentRef.current.querySelectorAll('button')) as HTMLButtonElement[];
           const idx = buttons.indexOf(current as HTMLButtonElement);
           if (idx !== -1) {
             const direction = e.key === 'ArrowRight' ? 1 : -1;
             const nextIdx = (idx + direction + buttons.length) % buttons.length;
-            buttons[nextIdx].focus();
+            buttons[nextIdx]?.focus();
           }
           return;
         }

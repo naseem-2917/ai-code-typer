@@ -47,58 +47,11 @@ export const CodeEditorComponent = React.forwardRef<CodeEditorHandle, CodeEditor
     const containerRef = useRef<HTMLDivElement>(null);
     const cursorRef = useRef<HTMLSpanElement>(null);
     const scrollableCardRef = useRef<HTMLDivElement>(null);
-    const [isCopied, setIsCopied] = React.useState(false);
 
     // Inject Context
     const context = useContext(AppContext);
 
-    const handleCopy = async () => {
-        const copyToClipboardFallback = (text: string) => {
-            try {
-                const textArea = document.createElement("textarea");
-                textArea.value = text;
 
-                // Ensure it's not visible but part of DOM
-                textArea.style.position = "fixed";
-                textArea.style.left = "-9999px";
-                textArea.style.top = "0";
-                document.body.appendChild(textArea);
-
-                textArea.focus();
-                textArea.select();
-
-                const successful = document.execCommand('copy');
-                document.body.removeChild(textArea);
-
-                if (successful) {
-                    setIsCopied(true);
-                    setTimeout(() => setIsCopied(false), 2000);
-                    context?.showAlert('Code copied to clipboard!', 'info');
-                } else {
-                    throw new Error('Fallback copy failed');
-                }
-            } catch (err) {
-                console.error('Fallback copy failed: ', err);
-                context?.showAlert('Failed to copy code.', 'error');
-            }
-        };
-
-        // Try modern API first
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            try {
-                await navigator.clipboard.writeText(snippet);
-                setIsCopied(true);
-                setTimeout(() => setIsCopied(false), 2000);
-                context?.showAlert('Code copied to clipboard!', 'info');
-            } catch (err) {
-                console.warn('Clipboard API failed, trying fallback...', err);
-                copyToClipboardFallback(snippet);
-            }
-        } else {
-            // Fallback for older browsers or non-secure contexts
-            copyToClipboardFallback(snippet);
-        }
-    };
 
     // Expose focus method
     React.useImperativeHandle(ref, () => ({
@@ -197,33 +150,7 @@ export const CodeEditorComponent = React.forwardRef<CodeEditorHandle, CodeEditor
             {/* Display Area */}
             <Card className="h-full overflow-hidden flex flex-col relative w-full group">
                 {/* Copy Button */}
-                {!isLoading && !error && (
-                    <div className="absolute top-2 right-2 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={(e) => {
-                                e.stopPropagation(); // Prevent container focus
-                                handleCopy();
-                            }}
-                            className="!py-1 !px-2 text-xs shadow-sm bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm"
-                            title="Copy Code (Alt+C)"
-                            accessKeyChar="C"
-                        >
-                            {isCopied ? (
-                                <>
-                                    <CheckIcon className="w-3 h-3 mr-1 text-green-500" />
-                                    Copied!
-                                </>
-                            ) : (
-                                <>
-                                    <CopyIcon className="w-3 h-3 mr-1" />
-                                    Copy
-                                </>
-                            )}
-                        </Button>
-                    </div>
-                )}
+
                 <div className="flex-grow overflow-y-auto custom-scrollbar relative" ref={scrollableCardRef}>
                     <div className="p-4 md:p-6 min-h-full font-mono text-lg md:text-xl leading-relaxed">
                         {isLoading ? (

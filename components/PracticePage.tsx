@@ -16,10 +16,11 @@ import { HandGuideIcon } from './icons/HandGuideIcon';
 import { Dropdown, DropdownItem, DropdownRef } from './ui/Dropdown';
 import { BlockIcon } from './icons/BlockIcon';
 import { PausedSessionData, FinishedSessionData, SnippetLength, SnippetLevel, ContentType, PracticeMode } from '../types';
-import { CheckIcon } from './icons/CheckIcon';
 import { FileCodeIcon } from './icons/FileCodeIcon';
 import { XIcon } from './icons/XIcon';
 import { WarningIcon } from './icons/WarningIcon';
+import { CopyIcon } from './icons/CopyIcon';
+import { CheckIcon } from './icons/CheckIcon';
 
 const blockOnErrorOptions = [
     { label: 'Off', value: 0 },
@@ -67,6 +68,7 @@ const PracticePage: React.FC = () => {
         isSetupModalOpen, openSetupModal, closeSetupModal, isInitialSetupComplete,
         restorePracticeSession,
         sessionResetKey,
+        practiceMode, // Added practiceMode
     } = context;
 
     const currentSessionId = useRef<string>(Date.now().toString());
@@ -79,6 +81,48 @@ const PracticePage: React.FC = () => {
     const [isSessionEndedEarly, setIsSessionEndedEarly] = useState(false);
     const [saveStatus, setSaveStatus] = useState<{ saved: boolean; reason?: string } | null>(null);
     const [sessionToRestore, setSessionToRestore] = useState<PausedSessionData | null>(null);
+    const [isCopied, setIsCopied] = useState(false);
+
+    const handleCopy = async () => {
+        const copyToClipboardFallback = (text: string) => {
+            try {
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                textArea.style.top = "0";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                if (successful) {
+                    setIsCopied(true);
+                    setTimeout(() => setIsCopied(false), 2000);
+                    context?.showAlert('Code copied to clipboard!', 'info');
+                } else {
+                    throw new Error('Fallback copy failed');
+                }
+            } catch (err) {
+                console.error('Fallback copy failed: ', err);
+                context?.showAlert('Failed to copy code.', 'error');
+            }
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            try {
+                await navigator.clipboard.writeText(snippet);
+                setIsCopied(true);
+                setTimeout(() => setIsCopied(false), 2000);
+                context?.showAlert('Code copied to clipboard!', 'info');
+            } catch (err) {
+                console.warn('Clipboard API failed, trying fallback...', err);
+                copyToClipboardFallback(snippet);
+            }
+        } else {
+            copyToClipboardFallback(snippet);
+        }
+    };
 
     const gameContainerRef = useRef<HTMLDivElement>(null);
     const blockOnErrorRef = useRef<DropdownRef>(null);
@@ -248,6 +292,15 @@ const PracticePage: React.FC = () => {
             setLastStats(stats);
             setIsSessionEndedEarly(false);
 
+            let sessionLabel = selectedLanguage.name;
+            if (practiceMode === 'error-training') {
+                sessionLabel = 'Error Practice';
+            } else if (practiceMode === 'targeted') {
+                sessionLabel = 'Targeted Practice';
+            } else if (practiceMode === 'general') {
+                sessionLabel = 'General Typing';
+            }
+
             addPracticeResult({
                 id: currentSessionId.current,
                 date: Date.now(),
@@ -255,7 +308,7 @@ const PracticePage: React.FC = () => {
                 accuracy: game.accuracy,
                 duration: game.duration,
                 errors: game.errors,
-                language: selectedLanguage.name,
+                language: sessionLabel,
                 snippetLength: snippet.length,
                 timestamp: Date.now(),
                 linesTyped: game.typedText.split('\n').length,
@@ -279,6 +332,10 @@ const PracticePage: React.FC = () => {
 
         if (e.altKey) {
             switch (e.key.toLowerCase()) {
+                case 'c':
+                    e.preventDefault();
+                    handleCopy();
+                    break;
                 case 'n':
                     e.preventDefault();
                     handleSetupNew();
@@ -429,6 +486,10 @@ const PracticePage: React.FC = () => {
                     <Button onClick={togglePause} variant="outline" disabled={isSetupModalOpen || game.isFinished} title={game.isPaused ? "Resume (Alt+P)" : "Pause (Alt+P)"} accessKey="p" size="sm">
                         {game.isPaused ? <PlayIcon className="w-4 h-4 mr-2" /> : <PauseIcon className="w-4 h-4 mr-2" />}
                         {game.isPaused ? "Resume" : "Pause"}
+                    </Button>
+                    <Button onClick={handleCopy} variant="outline" disabled={isSetupModalOpen} title="Copy Code (Alt+C)" accessKey="c" size="sm">
+                        {isCopied ? <CheckIcon className="w-4 h-4 mr-2 text-green-500" /> : <CopyIcon className="w-4 h-4 mr-2" />}
+                        {isCopied ? "Copied" : "Copy"}
                     </Button>
 
                     <Dropdown
