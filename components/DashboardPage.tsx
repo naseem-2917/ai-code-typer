@@ -9,24 +9,21 @@ import { PencilIcon } from './icons/PencilIcon';
 import { SnippetLength, SnippetLevel, PracticeMode, ContentType } from '../types';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { exportAllData, importData } from '../services/dataService';
-import {
-    ResponsiveContainer,
-    LineChart,
-    Line,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    Legend,
-    PieChart,
-    Pie,
-    Cell,
-} from 'recharts';
+import { PerformanceChart } from './PerformanceChart';
 import { useAccessKey } from '../hooks/useAccessKey';
 import { ConfirmationModal } from './ui/ConfirmationModal';
 import { TrashIcon } from './icons/TrashIcon';
 import { Modal } from './ui/Modal';
-import { formatDate, formatDateTime } from '../utils/dateUtils';
+import { formatDate, formatDateTime, formatShortDate } from '../utils/dateUtils';
+
+import {
+    ResponsiveContainer,
+    PieChart,
+    Pie,
+    Cell,
+    Legend,
+    Tooltip
+} from 'recharts';
 
 const COLORS = ['#10b981', '#3b82f6', '#ef4444', '#f97316', '#8b5cf6', '#ec4899'];
 
@@ -346,32 +343,68 @@ const DashboardPage: React.FC = () => {
     const graphConfig = useMemo(() => {
         const now = new Date();
         const sortedData = filteredHistory.slice().sort((a, b) => a.timestamp - b.timestamp);
+        let chartData = sortedData;
 
-        let domain: [number | string, number | string] = [now.getTime() - 24 * 60 * 60 * 1000, now.getTime()];
-        let tickFormatter = (value: any) => formatDate(value);
-        let ticks: number[] | undefined = undefined;
         let xAxisType: 'number' | 'category' = 'number';
         let xDataKey = 'timestamp';
-        let chartData: any[] = sortedData;
+        let domain: [number | string, number | string] = ['auto', 'auto'];
+        let ticks: number[] | undefined = undefined;
+        let tickFormatter: (value: any, index: number) => string = (value: any) => formatShortDate(value);
+
+        // Helper for smart date formatting (show year only on change)
+        const smartTickFormatter = (timestamp: number, index: number, ticksArray: number[]) => {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            const dayMonth = `${date.getDate()}/${date.getMonth() + 1}`;
+
+            // Always show year for the very first tick if it's not the current year
+            if (index === 0) {
+                const currentYear = new Date().getFullYear();
+                if (date.getFullYear() !== currentYear) {
+                    return formatShortDate(timestamp);
+                }
+                return dayMonth;
+            }
+
+            // Check if year changed from previous tick
+            // We need access to the previous tick. 
+            // In Recharts, if ticks are explicitly provided, we can use the ticks array from closure if available, 
+            // but Recharts tickFormatter passes index of the tick being rendered.
+            // If ticks are generated (like in 7d/30d), we have them. 
+
+            const prevTimestamp = ticksArray[index - 1];
+            if (prevTimestamp) {
+                const prevDate = new Date(prevTimestamp);
+                if (prevDate.getFullYear() !== date.getFullYear()) {
+                    return formatShortDate(timestamp);
+                }
+            }
+
+            return dayMonth;
+        };
+
+        const createSmartFormatter = (generatedTicks: number[]) => {
+            return (value: any, index: number) => smartTickFormatter(value, index, generatedTicks);
+        };
 
         switch (timeFilter) {
-            case '24h': {
+            case '24h':
                 domain = [now.getTime() - 24 * 60 * 60 * 1000, now.getTime()];
                 tickFormatter = (ts) => new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
                 ticks = Array.from({ length: 7 }, (_, i) => now.getTime() - (i * 4 * 60 * 60 * 1000)).reverse();
                 break;
-            }
             case '7d': {
                 const sevenDaysAgo = new Date(now);
                 sevenDaysAgo.setDate(now.getDate() - 6);
                 sevenDaysAgo.setHours(0, 0, 0, 0);
                 domain = [sevenDaysAgo.getTime(), now.getTime()];
-                tickFormatter = (ts) => formatDate(ts);
+
                 ticks = Array.from({ length: 7 }, (_, i) => {
                     const d = new Date(sevenDaysAgo);
                     d.setDate(d.getDate() + i);
                     return d.getTime();
                 });
+                tickFormatter = createSmartFormatter(ticks);
                 break;
             }
             case '30d': {
@@ -379,21 +412,35 @@ const DashboardPage: React.FC = () => {
                 thirtyDaysAgo.setDate(now.getDate() - 29);
                 thirtyDaysAgo.setHours(0, 0, 0, 0);
                 domain = [thirtyDaysAgo.getTime(), now.getTime()];
-                tickFormatter = (ts) => formatDate(ts);
+
                 ticks = Array.from({ length: 7 }, (_, i) => {
                     const d = new Date(thirtyDaysAgo);
                     d.setDate(d.getDate() + (i * 5));
                     return d.getTime();
                 });
+                tickFormatter = createSmartFormatter(ticks);
                 break;
             }
             case 'all': {
                 domain = ['auto', 'auto'];
-                tickFormatter = (ts) => formatDate(ts);
-                xAxisType = 'category'; // Use category to space points evenly by index
-                // We need to ensure dataKey is unique for category axis if timestamps are duplicate, 
-                // but for now timestamp is fine as they are likely unique.
-                // Recharts 'category' axis uses the index of the data array for spacing.
+                // For 'all', we don't have explicit ticks upfront easily, relies on data points.
+                // But we can approximate or just use simple formatShortDate as fallback or category logic.
+                // Using simple d/m for now to meet "no year" preference unless critical. 
+                // However, without explicit ticks array, 'index' refers to data index if category?
+                // If xAxisType is category, ticks are the data points.
+                xAxisType = 'category';
+                tickFormatter = (value, index) => {
+                    // For category axis, we can check previous data point from sortedData
+                    if (index > 0 && sortedData[index - 1]) {
+                        const prevDate = new Date(sortedData[index - 1].timestamp);
+                        const currDate = new Date(value);
+                        if (prevDate.getFullYear() !== currDate.getFullYear()) {
+                            return formatShortDate(value);
+                        }
+                    }
+                    const d = new Date(value);
+                    return `${d.getDate()}/${d.getMonth() + 1}`;
+                };
                 break;
             }
         }
@@ -521,27 +568,16 @@ const DashboardPage: React.FC = () => {
 
                             <Card className="lg:col-span-2 p-6 flex flex-col justify-center min-h-[450px]">
                                 <h2 className="text-xl font-semibold mb-4">Historical Performance</h2>
-                                <div className="flex-grow flex items-center justify-center w-full">
-                                    <ResponsiveContainer width="100%" height={350}>
-                                        <LineChart data={graphConfig.data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                                            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                                            <XAxis
-                                                type={graphConfig.xAxisType}
-                                                dataKey={graphConfig.xDataKey}
-                                                domain={graphConfig.domain}
-                                                ticks={graphConfig.ticks}
-                                                tickFormatter={graphConfig.tickFormatter}
-                                                padding={{ left: 20, right: 20 }}
-                                            />
-                                            <YAxis yAxisId="left" label={{ value: 'WPM', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }} />
-                                            <YAxis yAxisId="right" orientation="right" label={{ value: 'Accuracy (%)', angle: -90, position: 'insideRight', style: { textAnchor: 'middle' } }} />
-                                            <Tooltip content={<CustomTooltip />} />
-                                            <Legend />
-                                            <Line yAxisId="left" type="monotone" dataKey="wpm" stroke="#10b981" name="WPM" dot={true} />
-                                            <Line yAxisId="right" type="monotone" dataKey="accuracy" stroke="#3b82f6" name="Accuracy" dot={true} />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                </div>
+                                <PerformanceChart
+                                    data={graphConfig.data}
+                                    xDataKey={graphConfig.xDataKey}
+                                    xAxisConfig={{
+                                        type: graphConfig.xAxisType,
+                                        domain: graphConfig.domain,
+                                        ticks: graphConfig.ticks,
+                                        tickFormatter: graphConfig.tickFormatter
+                                    }}
+                                />
                             </Card>
 
                             <div className="space-y-8">
@@ -714,12 +750,12 @@ const DashboardPage: React.FC = () => {
                                         </thead>
                                         <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                                             {filteredHistory
-                                                .sort((a, b) => b.timestamp - a.timestamp) // FIX: Sort Newest -> Oldest
+                                                .sort((a, b) => b.timestamp - a.timestamp)
                                                 .slice(0, 5)
                                                 .map((session, index) => (
                                                     <tr key={session.id} className={index % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800' : ''}>
                                                         <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
-                                                            {formatDate(session.date)}
+                                                            {formatShortDate(session.date)}
                                                         </td>
                                                         <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.wpm.toFixed(0)}</td>
                                                         <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.accuracy.toFixed(1)}%</td>
@@ -733,6 +769,7 @@ const DashboardPage: React.FC = () => {
                                                         </td>
                                                     </tr>
                                                 ))}
+
                                         </tbody>
                                     </table>
                                 </div>

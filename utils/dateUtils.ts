@@ -35,3 +35,19 @@ export const formatDateTime = (dateInput: number | string | Date): string => {
     });
     return `${datePart}, ${timePart}`;
 };
+
+/**
+ * Formats a date string, timestamp, or Date object to 'd/m/yy' (e.g., 6/12/25).
+ * @param dateInput The date to format.
+ * @returns The formatted date string.
+ */
+export const formatShortDate = (dateInput: number | string | Date): string => {
+    if (!dateInput) return '';
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return '';
+
+    const day = date.getDate();
+    const month = date.getMonth() + 1;
+    const year = date.getFullYear().toString().slice(-2);
+    return `${day}/${month}/${year}`;
+};

@@ -115,7 +115,7 @@ export const getWeakestKeys = (keyErrorStats: Record<string, number>, keyAttempt
 
     // Filter for statistically significant keys (at least 5 errors) and sort by rate
     return errorRates
-        .filter(k => k.errors >= 3) // Lower threshold slightly for visibility
+        .filter(k => k.errors > 0) // Match Dashboard logic (was >= 3)
         .sort((a, b) => b.rate - a.rate)
         .slice(0, 3);
 };

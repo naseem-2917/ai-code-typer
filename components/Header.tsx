@@ -46,6 +46,7 @@ const Header: React.FC = () => {
 
   const selectRef = useRef<SelectRef>(null);
   useAccessKey('L', () => selectRef.current?.toggle(), { disabled: isSetupModalOpen });
+  useAccessKey('U', () => navigateTo('profile'), { disabled: isSetupModalOpen || !user });
 
   const handleSettingChange = (action: () => void) => {
     action();
@@ -117,21 +118,11 @@ const Header: React.FC = () => {
             </nav>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
-            <div className='relative w-32 sm:w-40'>
-              <Select
-                ref={selectRef}
-                value={selectedLanguage.id}
-                onChange={(value) => {
-                  const lang = SUPPORTED_LANGUAGES.find(l => l.id === value);
-                  if (lang) {
-                    handleSettingChange(() => setSelectedLanguage(lang));
-                  }
-                }}
-                disabled={isSetupModalOpen}
-                options={SUPPORTED_LANGUAGES.map(lang => ({ value: lang.id, label: lang.name }))}
-              />
-              {isAccessKeyMenuVisible && <AccessKeyLabel label="L" />}
-            </div>
+
+            <Button variant="ghost" size="icon" onClick={() => handleSettingChange(toggleTheme)} aria-label="Toggle theme" accessKeyChar="M" disabled={isSetupModalOpen}>
+              {theme === 'light' ? <MoonIcon className="w-6 h-6" /> : <SunIcon className="w-6 h-6" />}
+            </Button>
+
             {page === 'practice' && (
               <>
                 <Button variant="ghost" size="icon" onClick={() => handleSettingChange(decreaseFontSize)} disabled={!canDecrease || isSetupModalOpen} aria-label="Decrease font size" accessKeyChar="-">
@@ -153,9 +144,22 @@ const Header: React.FC = () => {
                 </Button>
               </>
             )}
-            <Button variant="ghost" size="icon" onClick={() => handleSettingChange(toggleTheme)} aria-label="Toggle theme" accessKeyChar="M" disabled={isSetupModalOpen}>
-              {theme === 'light' ? <MoonIcon className="w-6 h-6" /> : <SunIcon className="w-6 h-6" />}
-            </Button>
+
+            <div className='relative w-32 sm:w-40'>
+              <Select
+                ref={selectRef}
+                value={selectedLanguage.id}
+                onChange={(value) => {
+                  const lang = SUPPORTED_LANGUAGES.find(l => l.id === value);
+                  if (lang) {
+                    handleSettingChange(() => setSelectedLanguage(lang));
+                  }
+                }}
+                disabled={isSetupModalOpen}
+                options={SUPPORTED_LANGUAGES.map(lang => ({ value: lang.id, label: lang.name }))}
+              />
+              {isAccessKeyMenuVisible && <AccessKeyLabel label="L" />}
+            </div>
 
             {/* User Profile / Sign In - Moved to Right */}
             {user ? (
@@ -169,6 +173,7 @@ const Header: React.FC = () => {
                   alt="Profile"
                   className={`w-8 h-8 rounded-full border-2 border-slate-200 dark:border-slate-700 transition-transform group-hover:scale-105 ${page === 'profile' ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
                 />
+                {isAccessKeyMenuVisible && <AccessKeyLabel label="U" />}
               </button>
             ) : (
               <Button

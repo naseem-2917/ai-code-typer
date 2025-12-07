@@ -4,7 +4,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { TrashIcon } from './icons/TrashIcon';
 import { ConfirmationModal } from './ui/ConfirmationModal';
-import { formatDateTime } from '../utils/dateUtils';
+import { formatShortDate } from '../utils/dateUtils';
 import { exportAllData } from '../services/dataService';
 
 const HistoryPage: React.FC = () => {
@@ -86,7 +86,7 @@ const HistoryPage: React.FC = () => {
                                 {sortedHistory.map((session, index) => (
                                     <tr key={session.timestamp} className={index % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800' : ''}>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
-                                            {formatDateTime(session.timestamp)}
+                                            {formatShortDate(session.timestamp)}
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100 font-medium">
                                             {session.wpm.toFixed(0)}
