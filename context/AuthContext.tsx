@@ -76,13 +76,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Handle local storage migration on login
     // Algorithm: Fetch Cloud -> Get Local -> Smart Merge -> Save Back
-    const syncUserData = async (uid: string) => {
+    // Handle local storage migration on login
+    // Algorithm: Fetch Cloud -> Get Local -> Smart Merge -> Save Back
+    // RETURNS: The final UserData to be used by the app (eliminating need for extra read)
+    const syncUserData = async (uid: string): Promise<UserData | null> => {
         try {
             setSyncStatus('syncing');
+
+            // 1. Get Local Defaults (Fallback)
             const localHistoryJSON = localStorage.getItem('practiceHistory');
             const localHistory: PracticeStats[] = localHistoryJSON ? JSON.parse(localHistoryJSON) : [];
             const localPrefs = getLocalPreferences();
 
+            // 2. Get Cloud Data (Primary)
             const userDocRef = doc(db, 'users', uid);
             const userDoc = await getDoc(userDocRef);
 
@@ -97,60 +103,69 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 docExists = true;
             }
 
+            // --- HISTORY LOGIC (Merge Local + Cloud) ---
             let historyToSave = cloudHistory;
-            let prefsToSave = cloudPrefs;
-            let needsUpdate = false;
+            let needsHistoryUpdate = false;
 
-            // SMART MERGE LOGIC - HISTORY
-            // 1. If local is empty, we DOWNLOAD cloud data to local (restore session)
-            //    and do NOT overwrite cloud.
-            if (localHistory.length === 0 && docExists) {
-                console.log("Local storage empty. Downloading cloud data...");
-                localStorage.setItem('practiceHistory', JSON.stringify(cloudHistory));
-                // We also assume prefs will be downloaded via the snapshot listener
-            }
-            // 2. If local has data, we MERGE and UPLOAD.
-            else if (localHistory.length > 0) {
-                // De-duplicate: Create Set of existing cloud IDs
+            if (localHistory.length > 0) {
+                // Filter out duplicates
                 const existingIds = new Set(cloudHistory.map((s: any) => s.id));
                 const newSessions = localHistory.filter(s => !existingIds.has(s.id));
 
                 if (newSessions.length > 0) {
                     historyToSave = [...cloudHistory, ...newSessions];
-                    needsUpdate = true;
+                    needsHistoryUpdate = true;
                 }
-
-                // Clear local storage after successful sync (migration complete)
+                // Cleanup local storage
                 localStorage.removeItem('practiceHistory');
                 localStorage.removeItem('keyErrorStats');
                 localStorage.removeItem('keyAttemptStats');
             }
 
-            // SMART MERGE LOGIC - PREFS
-            if (!cloudPrefs) {
-                // If cloud has no prefs, upload local ones
-                prefsToSave = localPrefs;
-                needsUpdate = true;
+            // --- PREFERENCES LOGIC (Cloud Priority) ---
+            let finalPreferences: UserPreferences;
+            let needsPrefsUpdate = false;
+
+            if (cloudPrefs) {
+                // Cloud exists: Merge cloud over local defaults (Cloud wins)
+                finalPreferences = { ...localPrefs, ...cloudPrefs };
+            } else {
+                // Cloud empty: Upload local defaults
+                finalPreferences = localPrefs;
+                needsPrefsUpdate = true;
             }
 
-            if (needsUpdate || !docExists) {
+            // --- SAVE TO FIRESTORE ---
+            if (needsHistoryUpdate || needsPrefsUpdate || !docExists) {
+                const updates: any = {};
+
+                if (needsHistoryUpdate) updates.history = historyToSave;
+                // Only upload preferences if cloud was empty
+                if (needsPrefsUpdate) updates.preferences = finalPreferences;
+
                 if (docExists) {
-                    await updateDoc(userDocRef, {
-                        history: historyToSave,
-                        preferences: prefsToSave || localPrefs // fallback if somehow undefined
-                    });
+                    if (Object.keys(updates).length > 0) {
+                        await updateDoc(userDocRef, updates);
+                    }
                 } else {
                     await setDoc(userDocRef, {
                         history: historyToSave,
-                        preferences: localPrefs
+                        preferences: finalPreferences
                     });
                 }
             }
 
             setSyncStatus('synced');
+
+            return {
+                history: historyToSave,
+                preferences: finalPreferences
+            };
+
         } catch (error) {
             console.error("Sync failed:", error);
             setSyncStatus('error');
+            return null;
         }
     };
 
@@ -180,22 +195,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
             if (currentUser) {
-                // Sync local storage with cloud on login
-                await syncUserData(currentUser.uid);
-
-                // Fetch user data once to save reads (replaces onSnapshot)
-                try {
-                    const userDocRef = doc(db, 'users', currentUser.uid);
-                    const docSnap = await getDoc(userDocRef);
-
-                    if (docSnap.exists()) {
-                        setUserData(docSnap.data() as UserData);
-                    }
-                } catch (error) {
-                    console.error("Error fetching user data:", error);
-                }
-
                 setUser(currentUser);
+                // 1. Sync & Load Logic (Optimized: No separate listener)
+                // Use the data returned directly from syncUserData
+                const data = await syncUserData(currentUser.uid);
+                if (data) {
+                    setUserData(data);
+                }
             } else {
                 setUser(null);
                 setUserData(null);
@@ -203,7 +209,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setLoading(false);
         });
 
-        return () => unsubscribeAuth();
+        return () => {
+            unsubscribeAuth();
+        };
     }, []);
 
     const loginWithGoogle = async () => {

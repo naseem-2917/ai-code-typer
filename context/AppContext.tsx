@@ -148,7 +148,7 @@ export const AppContext = createContext<AppContextType | null>(null);
 
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user, syncStatus, userData, saveUserPreferences } = useAuth();
+  const { user, syncStatus, userData, saveUserPreferences, loading } = useAuth();
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -342,12 +342,100 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // -------------------------------------------------------------------------
+  // HYDRATION: When sync completes, if AuthContext downloaded data to localStorage, pick it up.
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (syncStatus === 'synced') {
+      const localHistoryJSON = localStorage.getItem('practiceHistory');
+      if (localHistoryJSON) {
+        console.log("Sync complete. Hydrating from local storage.");
+        try {
+          const hydratedHistory = JSON.parse(localHistoryJSON);
+          if (Array.isArray(hydratedHistory) && hydratedHistory.length > 0) {
+            setPracticeHistory(hydratedHistory);
+            // Recalculate stats
+            const { keyErrorStats, keyAttemptStats } = recalculateDerivedStats(hydratedHistory);
+            setKeyErrorStats(keyErrorStats);
+            setKeyAttemptStats(keyAttemptStats);
+          }
+        } catch (e) {
+          console.error("Failed to hydrate", e);
+        }
+      }
+    }
+  }, [syncStatus]);
+
+  // Real-time Update from AuthContext (Cloud -> Local)
+  useEffect(() => {
+    if (userData) {
+      // 1. Update History
+      if (userData.history) {
+        setPracticeHistory(userData.history);
+        const { keyErrorStats, keyAttemptStats } = recalculateDerivedStats(userData.history);
+        setKeyErrorStats(keyErrorStats);
+        setKeyAttemptStats(keyAttemptStats);
+      }
+
+      // 2. Update Preferences (Sync ONLY on Initial Load)
+      if (userData.preferences && !preferencesSyncCompleted.current) {
+        const p = userData.preferences;
+
+        // FLAG: This update is from Cloud. Do NOT echo back to Cloud.
+        isRemoteUpdate.current = true;
+
+        // Apply settings
+        if (p.theme && p.theme !== theme) {
+          setTheme(p.theme);
+          document.documentElement.classList.toggle('dark', p.theme === 'dark');
+        }
+        if (p.languageId && p.languageId !== selectedLanguage.id) {
+          const lang = SUPPORTED_LANGUAGES.find(l => l.id === p.languageId);
+          if (lang) setSelectedLanguage(lang);
+        }
+        if (p.snippetLength && p.snippetLength !== snippetLength) setSnippetLength(p.snippetLength);
+        if (p.snippetLevel && p.snippetLevel !== snippetLevel) setSnippetLevel(p.snippetLevel);
+        if (p.blockOnErrorThreshold !== undefined && p.blockOnErrorThreshold !== blockOnErrorThreshold) setBlockOnErrorThreshold(p.blockOnErrorThreshold);
+        if (p.fontSize && p.fontSize !== fontSize) setFontSize(p.fontSize);
+        if (p.showKeyboard !== undefined && p.showKeyboard !== showKeyboard) setShowKeyboard(p.showKeyboard);
+        if (p.showHandGuide !== undefined && p.showHandGuide !== showHandGuide) setShowHandGuide(p.showHandGuide);
+
+        if (p.wpmGoal && p.wpmGoal !== wpmGoal) setWpmGoal(p.wpmGoal);
+        if (p.accuracyGoal && p.accuracyGoal !== accuracyGoal) setAccuracyGoal(p.accuracyGoal);
+        if (p.timeGoal && p.timeGoal !== timeGoal) setTimeGoal(p.timeGoal);
+
+        // Session Persistence Sync
+        if (p.lastSetupTab && p.lastSetupTab !== setupTab) setSetupTab(p.lastSetupTab);
+        if (p.lastPracticeMode && p.lastPracticeMode !== practiceMode) setPracticeMode(p.lastPracticeMode);
+        if (p.generalContentTypes && JSON.stringify(p.generalContentTypes) !== JSON.stringify(generalContentTypes)) {
+          setGeneralContentTypes(p.generalContentTypes);
+        }
+
+        // Mark sync complete
+        preferencesSyncCompleted.current = true;
+
+        // RESET FLAG: Extended to 4000ms to ensure it outlasts the 2000ms saver debounce
+        setTimeout(() => {
+          isRemoteUpdate.current = false;
+        }, 4000);
+      }
+      setIsDataLoaded(true);
+
+    } else if (!user) {
+      // Reset sync status on logout
+      preferencesSyncCompleted.current = false;
+      setIsDataLoaded(true);
+    }
+  }, [userData, user]);
+
+  // -------------------------------------------------------------------------
   // DEBOUNCED CLOUD SAVE (Firestore Optimization)
   // Watch all preference states -> Wait 2000ms -> Save ONCE
   // -------------------------------------------------------------------------
   useEffect(() => {
     // 1. Guard: If no user or if this change came from cloud, skip.
-    if (!user || isRemoteUpdate.current) {
+    // AND CRITICAL: Skip if we are still loading initial data (Race Condition Fix)
+    // AND CRITICAL: Skip if userData is not yet hydrated (Failed/Empty Sync prevention)
+    if (!user || isRemoteUpdate.current || loading || !userData) {
       return;
     }
 
@@ -379,91 +467,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     fontSize, showKeyboard, showHandGuide,
     wpmGoal, accuracyGoal, timeGoal,
     setupTab, practiceMode, generalContentTypes,
-    user // Re-run if user logs in
+    user, loading, userData // Re-run if user/loading/data state changes
   ]);
 
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // HYDRATION: When sync completes, if AuthContext downloaded data to localStorage, pick it up.
-  useEffect(() => {
-    if (syncStatus === 'synced') {
-      const localHistoryJSON = localStorage.getItem('practiceHistory');
-      if (localHistoryJSON) {
-        console.log("Sync complete. Hydrating from local storage.");
-        try {
-          const hydratedHistory = JSON.parse(localHistoryJSON);
-          if (Array.isArray(hydratedHistory) && hydratedHistory.length > 0) {
-            setPracticeHistory(hydratedHistory);
-            // Recalculate stats
-            const { keyErrorStats, keyAttemptStats } = recalculateDerivedStats(hydratedHistory);
-            setKeyErrorStats(keyErrorStats);
-            setKeyAttemptStats(keyAttemptStats);
-          }
-        } catch (e) {
-          console.error("Failed to hydrate", e);
-        }
-      }
-    }
-  }, [syncStatus]);
 
-  // Real-time Update from AuthContext (Replaces old loadCloudData)
-  // Real-time Update from AuthContext (Replaces old loadCloudData)
-  useEffect(() => {
-    if (userData) {
-      // Update History
-      if (userData.history) {
-        setPracticeHistory(userData.history);
-        const { keyErrorStats, keyAttemptStats } = recalculateDerivedStats(userData.history);
-        setKeyErrorStats(keyErrorStats);
-        setKeyAttemptStats(keyAttemptStats);
-      }
-      // Update Preferences
-      // Update Preferences (Sync ONLY on Initial Load)
-      if (userData.preferences && !preferencesSyncCompleted.current) {
-        const p = userData.preferences;
-
-        // SET FLAG: This update is from remote. Do NOT echo back to cloud.
-        isRemoteUpdate.current = true;
-
-        // Batch updates where possible or let React batch them
-        if (p.theme && p.theme !== theme) {
-          setTheme(p.theme);
-          document.documentElement.classList.toggle('dark', p.theme === 'dark');
-        }
-        if (p.languageId && p.languageId !== selectedLanguage.id) {
-          const lang = SUPPORTED_LANGUAGES.find(l => l.id === p.languageId);
-          if (lang) setSelectedLanguage(lang);
-        }
-        if (p.snippetLength && p.snippetLength !== snippetLength) setSnippetLength(p.snippetLength);
-        if (p.snippetLevel && p.snippetLevel !== snippetLevel) setSnippetLevel(p.snippetLevel);
-        if (p.blockOnErrorThreshold !== undefined && p.blockOnErrorThreshold !== blockOnErrorThreshold) setBlockOnErrorThreshold(p.blockOnErrorThreshold);
-        if (p.fontSize && p.fontSize !== fontSize) setFontSize(p.fontSize);
-        if (p.showKeyboard !== undefined && p.showKeyboard !== showKeyboard) setShowKeyboard(p.showKeyboard);
-        if (p.showHandGuide !== undefined && p.showHandGuide !== showHandGuide) setShowHandGuide(p.showHandGuide);
-
-        if (p.wpmGoal && p.wpmGoal !== wpmGoal) setWpmGoal(p.wpmGoal);
-        if (p.accuracyGoal && p.accuracyGoal !== accuracyGoal) setAccuracyGoal(p.accuracyGoal);
-        if (p.timeGoal && p.timeGoal !== timeGoal) setTimeGoal(p.timeGoal);
-
-        // Session Persistence Sync (Cloud -> Local App State)
-        if (p.lastSetupTab && p.lastSetupTab !== setupTab) setSetupTab(p.lastSetupTab);
-        if (p.lastPracticeMode && p.lastPracticeMode !== practiceMode) setPracticeMode(p.lastPracticeMode);
-        if (p.generalContentTypes && JSON.stringify(p.generalContentTypes) !== JSON.stringify(generalContentTypes)) {
-          setGeneralContentTypes(p.generalContentTypes);
-        }
-
-        // RESET FLAG
-        preferencesSyncCompleted.current = true; // Mark as done forever for this session
-        setTimeout(() => {
-          isRemoteUpdate.current = false;
-        }, 100);
-      }
-      setIsDataLoaded(true);
-    } else if (!user) {
-      preferencesSyncCompleted.current = false; // Reset on logout
-      setIsDataLoaded(true);
-    }
-  }, [userData, user]);
 
 
   useEffect(() => {
@@ -736,12 +745,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const saveHistoryToCloud = async (newHistory: PracticeStats[]) => {
     if (user) {
       try {
+        console.log("Saving history to cloud...", newHistory.length);
         await setDoc(doc(db, 'users', user.uid), { history: newHistory }, { merge: true });
+        console.log("Cloud save successful.");
       } catch (error) {
         console.error("Failed to save history:", error);
+        showAlert("Failed to sync with cloud. Please check your connection.", 'error');
       }
     }
   };
+
 
   const addPracticeResult = (stats: PracticeStats) => {
     const finalStats = { ...stats };
@@ -865,39 +878,88 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [openSetupModal]);
 
   const deletePracticeSession = useCallback((timestamp: number) => {
-    let newHistory: PracticeStats[] = [];
-    setPracticeHistory(prev => {
-      const sessionToDelete = prev.find(s => s.timestamp === timestamp);
-      if (sessionToDelete) {
-        const sessionDate = new Date(sessionToDelete.timestamp).toDateString();
-        const todayDate = new Date().toDateString();
-        if (sessionDate === todayDate) {
-          setDailyPracticeTime(prevTime => Math.max(0, prevTime - sessionToDelete.duration));
-          const currentDailyTime = Number(localStorage.getItem('dailyPracticeTime') || '0');
-          localStorage.setItem('dailyPracticeTime', String(Math.max(0, currentDailyTime - sessionToDelete.duration)));
-        }
-      }
-      newHistory = prev.filter(s => s.timestamp !== timestamp);
-      return newHistory;
-    });
+    // 1. Calculate new history synchronously based on current state
+    const sessionToDelete = practiceHistory.find(s => s.timestamp === timestamp);
+    if (!sessionToDelete) return;
 
-    // Explicitly Save to Cloud
+    const newHistory = practiceHistory.filter(s => s.timestamp !== timestamp);
+
+    // 2. Update Local State
+    setPracticeHistory(newHistory);
+
+    // 3. Update Daily Stats
+    const sessionDate = new Date(sessionToDelete.timestamp).toDateString();
+    const todayDate = new Date().toDateString();
+    if (sessionDate === todayDate) {
+      setDailyPracticeTime(prevTime => Math.max(0, prevTime - sessionToDelete.duration));
+      const currentDailyTime = Number(localStorage.getItem('dailyPracticeTime') || '0');
+      localStorage.setItem('dailyPracticeTime', String(Math.max(0, currentDailyTime - sessionToDelete.duration)));
+    }
+
+    // 4. Update Cloud
     saveHistoryToCloud(newHistory);
 
-  }, [user]); // user added as dependency
+  }, [practiceHistory, user]);
 
-  const clearPracticeHistory = useCallback(() => {
+  const clearPracticeHistory = useCallback(async () => {
+    // 1. Reset State to Defaults
     setPracticeHistory([]);
     setDailyPracticeTime(0);
-    localStorage.setItem('dailyPracticeTime', '0');
     setKeyErrorStats({});
     setKeyAttemptStats({});
-    localStorage.removeItem('keyErrorStats');
-    localStorage.removeItem('keyAttemptStats');
 
-    // Explicitly Save to Cloud
-    saveHistoryToCloud([]);
-  }, [user]); // user added as dependency
+    // Preferences Reset
+    setTheme('dark'); // Default to dark safe choice or system
+    setSelectedLanguage(SUPPORTED_LANGUAGES[0]);
+    setPracticeMode('code');
+    setGeneralContentTypes(['characters']);
+    setSnippetLength('medium');
+    setSnippetLevel('medium');
+    setBlockOnErrorThreshold(2);
+    setFontSize('medium');
+    setWpmGoal(20);
+    setAccuracyGoal(95);
+    setTimeGoal(15);
+    // Note: We don't reset showKeyboard/HandGuide usually as they are device dependent,
+    // but user asked for "all cache", so let's reset to defaults.
+    setShowKeyboard(window.innerWidth >= 768);
+    setShowHandGuide(true);
+
+
+    // 2. Clear Local Storage "Cache" (Comprehensive)
+    const keysToRemove = [
+      'practiceHistory', 'keyErrorStats', 'keyAttemptStats', 'dailyPracticeTime', 'dailyPracticeDate',
+      'theme', 'selectedLanguage', 'generalContentTypes', 'snippetLength', 'snippetLevel',
+      'blockOnErrorThreshold', 'fontSize', 'wpmGoal', 'accuracyGoal', 'timeGoal',
+      'setupTab', 'sessionResultToShow', 'continuedSession', 'showKeyboard'
+    ];
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+
+    // 3. Clear Cloud Data (Hard Wipe)
+    if (user) {
+      try {
+        console.log("Wiping cloud data...");
+        // Overwrite document with empty history and default preferences
+        await setDoc(doc(db, 'users', user.uid), {
+          history: [],
+          preferences: {
+            theme: 'dark',
+            languageId: SUPPORTED_LANGUAGES[0].id,
+            // Add other defaults if strictly needed for sync logic, otherwise empty implies defaults
+          }
+        });
+        console.log("Cloud wipe successful.");
+        showAlert("All history and preferences cleared from device and cloud.", 'info');
+      } catch (error) {
+        console.error("Failed to wipe cloud data:", error);
+        showAlert("Failed to clear cloud data. Please check connection.", 'error');
+      }
+    } else {
+      showAlert("All local history and preferences cleared.", 'info');
+    }
+  }, [user, showAlert]);
+
+
 
   const value: AppContextType = {
     theme, toggleTheme,
