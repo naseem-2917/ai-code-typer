@@ -140,7 +140,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
           <Stat label="Duration" value={formatDuration(stats.duration)} />
         </div>
 
-        {isEarlyExit && (
+        {(isEarlyExit || (saveStatus && !saveStatus.saved)) && (
           <div className={`text-center py-2 px-4 rounded-md ${saveStatus?.saved ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
             <p className="font-medium">
               {saveStatus?.saved

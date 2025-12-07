@@ -301,20 +301,40 @@ const PracticePage: React.FC = () => {
                 sessionLabel = 'General Typing';
             }
 
-            addPracticeResult({
-                id: currentSessionId.current,
-                date: Date.now(),
-                wpm: game.wpm,
-                accuracy: game.accuracy,
-                duration: game.duration,
-                errors: game.errors,
-                language: sessionLabel,
-                snippetLength: snippet.length,
-                timestamp: Date.now(),
-                linesTyped: game.typedText.split('\n').length,
-                errorMap: game.errorMap,
-                attemptMap: game.attemptMap
-            });
+            // Enforce Strict Saving Rules for Uploaded/Custom Snippets
+            let shouldSave = true;
+            let reason = "";
+
+            if (isCustomSession) {
+                // User Requirement: Uploaded code MUST be >= 150 chars AND >= 10s duration
+                // even if 100% complete.
+                const charsTyped = snippet.length; // 100% complete implies this
+                const duration = game.duration;
+                if (charsTyped < 150 || duration < 10) {
+                    shouldSave = false;
+                    reason = "Session not saved: Custom snippets must be >150 chars and >10s duration.";
+                }
+            }
+
+            if (shouldSave) {
+                addPracticeResult({
+                    id: currentSessionId.current,
+                    date: Date.now(),
+                    wpm: game.wpm,
+                    accuracy: game.accuracy,
+                    duration: game.duration,
+                    errors: game.errors,
+                    language: sessionLabel,
+                    snippetLength: snippet.length,
+                    timestamp: Date.now(),
+                    linesTyped: game.typedText.split('\n').length,
+                    errorMap: game.errorMap,
+                    attemptMap: game.attemptMap
+                });
+                setSaveStatus({ saved: true });
+            } else {
+                setSaveStatus({ saved: false, reason });
+            }
 
             if (currentTargetedKeys.length > 0) {
                 setIsTargetedResultsModalOpen(true);

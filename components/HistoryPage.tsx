@@ -87,6 +87,9 @@ const HistoryPage: React.FC = () => {
                                     <tr key={session.timestamp} className={index % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800' : ''}>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
                                             {formatShortDate(session.timestamp)}
+                                            <span className="block text-xs text-gray-700 dark:text-gray-300">
+                                                {new Date(session.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100 font-medium">
                                             {session.wpm.toFixed(0)}
