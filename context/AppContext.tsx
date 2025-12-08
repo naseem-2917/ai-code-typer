@@ -153,12 +153,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) return savedTheme as 'light' | 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    // User Request: Default to Light mode for new users
+    return 'light';
   });
 
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(() => {
     const savedLangId = localStorage.getItem('selectedLanguage');
-    return SUPPORTED_LANGUAGES.find(l => l.id === savedLangId) || SUPPORTED_LANGUAGES[0];
+    // User Request: Default to Python
+    return SUPPORTED_LANGUAGES.find(l => l.id === (savedLangId || 'python')) || SUPPORTED_LANGUAGES[0];
   });
 
   const [practiceMode, setPracticeMode] = useState<PracticeMode>('code');
@@ -909,8 +911,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setKeyAttemptStats({});
 
     // Preferences Reset
-    setTheme('dark'); // Default to dark safe choice or system
-    setSelectedLanguage(SUPPORTED_LANGUAGES[0]);
+    setTheme('light'); // User Request: Default to Light
+    setSelectedLanguage(SUPPORTED_LANGUAGES.find(l => l.id === 'python') || SUPPORTED_LANGUAGES[0]);
     setPracticeMode('code');
     setGeneralContentTypes(['characters']);
     setSnippetLength('medium');

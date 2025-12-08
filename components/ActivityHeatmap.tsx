@@ -15,6 +15,16 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ data }) => {
         dark: ['#1e293b', '#064e3b', '#065f46', '#047857', '#059669'], // Slate-800 to Emerald-600
     };
 
+    const isDataEmpty = !data || data.length === 0;
+
+    if (isDataEmpty) {
+        return (
+            <div className="w-full h-32 flex items-center justify-center text-slate-500 text-sm italic">
+                No coding activity recorded yet. Start practicing to see your heatmap!
+            </div>
+        );
+    }
+
     return (
         <div className="w-full flex justify-center py-4">
             <ActivityCalendar

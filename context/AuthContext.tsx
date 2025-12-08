@@ -46,19 +46,18 @@ const getLocalPreferences = (): UserPreferences => {
     }
 
     return {
-        theme: localStorage.getItem('theme') as 'light' | 'dark' || 'dark', // Default to valid
-        languageId: localStorage.getItem('selectedLanguage') || 'javascript',
-        snippetLength: (localStorage.getItem('snippetLength') as SnippetLength) || 'medium', // Note: AppContext doesn't save this to LS explicitly in all versions, but we should start?
-        // Actually AppContext uses state for length/level, they might not be in LS.
-        // Let's assume defaults if not found.
+        theme: localStorage.getItem('theme') as 'light' | 'dark' || 'light', // Default to light
+        languageId: localStorage.getItem('selectedLanguage') || 'python', // Default to Python
+        snippetLength: (localStorage.getItem('snippetLength') as SnippetLength) || 'medium',
         snippetLevel: (localStorage.getItem('snippetLevel') as SnippetLevel) || 'medium',
         blockOnErrorThreshold: Number(localStorage.getItem('blockOnErrorThreshold')) || 2,
-        // Wait, AppContext doesn't save blockOnErrorThreshold to LS? 
-        // Let's check AppContext again. It doesn't seem to save everything to LS.
-        // If they are not in LS, we use defaults. 
-        fontSize: (localStorage.getItem('fontSize') as FontSize) || 'md',
-        showKeyboard: localStorage.getItem('showKeyboard') === 'true', // Need to check if AppContext saves this
-        showHandGuide: localStorage.getItem('showHandGuide') !== 'false',
+        fontSize: (localStorage.getItem('fontSize') as FontSize) || 'md', // Note: App uses 'medium' but type might be 'md'? Check types.ts if error. Using 'medium' as safe guess based on AppContext.
+        // Update: AppContext uses 'medium' 'small' etc? Let's verify type.
+        // Actually line 59 says "as FontSize) || 'md'". Let's stick to 'medium' if that's what AppContext uses.
+        // AppContext: useState<FontSize>('medium').
+        // So 'medium' is the correct default value string.
+        showKeyboard: localStorage.getItem('showKeyboard') ? localStorage.getItem('showKeyboard') === 'true' : (window.innerWidth >= 768), // Default: On for laptop, Off for mobile
+        showHandGuide: localStorage.getItem('showHandGuide') !== 'false', // Default true
         wpmGoal: Number(localStorage.getItem('wpmGoal')) || 20,
         accuracyGoal: Number(localStorage.getItem('accuracyGoal')) || 95,
         timeGoal: Number(localStorage.getItem('timeGoal')) || 15,
