@@ -25,7 +25,11 @@ const HistoryPage: React.FC = () => {
 
     const handleExportData = () => {
         try {
-            exportAllData();
+            exportAllData({
+                practiceHistory,
+                keyErrorStats: context.keyErrorStats, // Explicitly accessing context props if destructured above didn't include them, but they are in context
+                keyAttemptStats: context.keyAttemptStats
+            });
             showAlert('Data exported successfully!', 'info');
         } catch (error) {
             showAlert('Failed to export data.', 'error');

@@ -8,6 +8,7 @@ import Keyboard from './Keyboard';
 import { Button } from './ui/Button';
 import { ResultsModal } from './ResultsModal';
 import { TargetedResultsModal } from './TargetedResultsModal';
+import { FrustrationModal } from './FrustrationModal';
 
 import { ResetIcon } from './icons/ResetIcon';
 import { PlayIcon } from './icons/PlayIcon';
@@ -347,8 +348,25 @@ const PracticePage: React.FC = () => {
     }, [game.isFinished, hasSubmitted, isResultsModalOpen, isTargetedResultsModalOpen, game.wpm, game.accuracy, game.errors, game.duration, game.errorMap, game.attemptMap, addPracticeResult, selectedLanguage.name, snippet.length, currentTargetedKeys]);
 
 
+
+    // Frustration Detection
+    const [isFrustrated, setIsFrustrated] = useState(false);
+
+    useEffect(() => {
+        // Trigger if 10 consecutive errors occurring
+        if (game.consecutiveErrors >= 10 && !isFrustrated && !game.isFinished) {
+            setIsFrustrated(true);
+            gameRef.current.pauseGame();
+        }
+    }, [game.consecutiveErrors, isFrustrated, game.isFinished]);
+
+    const handleFrustrationRestart = useCallback(() => {
+        setIsFrustrated(false);
+        resetGame();
+    }, [resetGame]);
+
     const handleShortcuts = useCallback((e: KeyboardEvent) => {
-        if (isResultsModalOpen || isTargetedResultsModalOpen || isSetupModalOpen) return;
+        if (isResultsModalOpen || isTargetedResultsModalOpen || isSetupModalOpen || isFrustrated) return;
 
         if (e.altKey) {
             switch (e.key.toLowerCase()) {
@@ -397,7 +415,12 @@ const PracticePage: React.FC = () => {
         const handleTypingInput = (e: KeyboardEvent) => {
             const currentGame = gameRef.current;
 
-            if (isResultsModalOpen || isTargetedResultsModalOpen || isSetupModalOpen || e.altKey || e.ctrlKey || e.metaKey) {
+            if (isResultsModalOpen || isTargetedResultsModalOpen || isSetupModalOpen || isFrustrated || e.altKey || e.ctrlKey || e.metaKey) {
+                return;
+            }
+
+            if (e.repeat) {
+                e.preventDefault();
                 return;
             }
 
@@ -556,6 +579,7 @@ const PracticePage: React.FC = () => {
                     isLoading={isLoadingSnippet}
                     error={snippetError}
                     isPaused={game.isPaused}
+                    disabled={isFrustrated}
                     onRetry={() => fetchNewSnippet()}
                     className="flex-grow h-full overflow-y-auto" // Ensure vertical scroll
                 />
@@ -622,6 +646,11 @@ const PracticePage: React.FC = () => {
                 }}
                 sessionErrorMap={lastStats.errorMap}
                 sessionAttemptMap={lastStats.attemptMap}
+            />
+
+            <FrustrationModal
+                isOpen={isFrustrated}
+                onRestart={handleFrustrationRestart}
             />
         </div >
     );

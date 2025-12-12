@@ -172,7 +172,7 @@ const CodeSnippet: React.FC<CodeSnippetProps> = ({ code, charStates, currentInde
     };
 
     return (
-        <div className={`font-mono leading-relaxed tracking-wide ${fontSizeClass} [tab-size:4]`}>
+        <div className={`font-mono leading-relaxed tracking-wide ${fontSizeClass} [tab-size:4] typography-boost`}>
             {logicalLines.map(({ chars, lineNumber }, lineIndex) => {
                 const isBlankLine = chars.length === 1 && chars[0].char === '\n';
                 const isLastLine = lineIndex === logicalLines.length - 1;

@@ -25,14 +25,14 @@ const SkeletonLoader: React.FC = () => {
     ];
 
     return (
-        <div className={`animate-pulse font-mono leading-relaxed tracking-wide ${fontSizeClass}`}>
+        <div className={`animate-pulse font-mono leading-relaxed tracking-wide ${fontSizeClass} typography-boost`}>
             {lines.map((line, index) => (
                 <div key={index} className="flex mb-1 h-5 sm:h-6">
                     <div className="text-right pr-4 text-transparent bg-slate-300 dark:bg-slate-700 rounded-md select-none flex-shrink-0 w-10 sm:w-12" aria-hidden="true">
-                       {index + 1}
+                        {index + 1}
                     </div>
                     <div className="flex-1 min-w-0 flex items-center">
-                         <div className="h-full bg-slate-300 dark:bg-slate-700 rounded-md" style={{ width: line.width }}></div>
+                        <div className="h-full bg-slate-300 dark:bg-slate-700 rounded-md" style={{ width: line.width }}></div>
                     </div>
                 </div>
             ))}

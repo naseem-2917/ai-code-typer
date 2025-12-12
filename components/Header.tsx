@@ -40,7 +40,7 @@ const Header: React.FC = () => {
     isSetupModalOpen
   } = context;
 
-  const { user, loginWithGoogle } = useAuth();
+  const { user, loginWithGoogle, loading } = useAuth();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -162,7 +162,10 @@ const Header: React.FC = () => {
             </div>
 
             {/* User Profile / Sign In - Moved to Right */}
-            {user ? (
+            {loading ? (
+              // Loading Skeleton
+              <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse border-2 border-slate-100 dark:border-slate-800" />
+            ) : user ? (
               <button
                 onClick={() => navigateTo('profile')}
                 className="relative group outline-none"
@@ -186,7 +189,7 @@ const Header: React.FC = () => {
               </Button>
             )}
             {/* Mobile Sign In Icon (if not logged in) */}
-            {!user && (
+            {!loading && !user && (
               <Button
                 variant="ghost"
                 size="icon"

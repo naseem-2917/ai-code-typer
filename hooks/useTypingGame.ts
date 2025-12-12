@@ -19,6 +19,7 @@ export interface TypingGame {
   wpm: number;
   accuracy: number;
   errors: number;
+  consecutiveErrors: number;
   duration: number;
   isFinished: boolean;
   currentIndex: number;
@@ -214,6 +215,12 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
       consecutiveErrorsRef.current = 0;
 
       if (currentIndex > 0) {
+        // Forgiving Backspace: If the char we are removing was incorrect,
+        // decrement the total error count (but not below 0).
+        if (charStates[currentIndex - 1] === CharState.Incorrect) {
+          setErrors(prev => Math.max(0, prev - 1));
+        }
+
         setTypedText(prev => prev.slice(0, -1));
         setCharStates(prev => {
           const newStates = [...prev];
@@ -393,7 +400,7 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
   }, [pauseGame, resumeGame]);
 
   return {
-    charStates, typedText, wpm, accuracy, errors, duration, isFinished,
+    charStates, typedText, wpm, accuracy, errors, consecutiveErrors, duration, isFinished,
     currentIndex, isError, isPaused, handleKeyDown, pauseGame, resumeGame, togglePause,
     reset, clearAutoPauseTimer, resetIdleTimer,
     errorMap: errorMapRef.current,

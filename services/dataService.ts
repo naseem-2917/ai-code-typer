@@ -51,7 +51,7 @@ export const updateDailyPracticeTime = (sessionDuration: number): number => {
  * Compiles all user-related data from localStorage into a single JSON object
  * and initiates a download for the user.
  */
-export const exportAllData = () => {
+export const exportAllData = (overrides?: Record<string, any>) => {
   // 1. Identify all keys used by the application in localStorage.
   const allKeys = [
     'theme',
@@ -66,19 +66,31 @@ export const exportAllData = () => {
     'dailyPracticeDate',
     'dailyPracticeTime',
     'generalContentTypes',
+    'snippetLength',
+    'snippetLevel',
+    'blockOnErrorThreshold',
+    'fontSize',
+    'showKeyboard',
+    'showHandGuide',
+    'practiceMode',
   ];
 
   // 2. Collect all data into a single object.
   const dataToExport: Record<string, any> = {};
 
   allKeys.forEach(key => {
-    const rawData = localStorage.getItem(key);
-    if (rawData !== null) {
-      try {
-        // Attempt to parse JSON strings, otherwise store as-is.
-        dataToExport[key] = JSON.parse(rawData);
-      } catch (e) {
-        dataToExport[key] = rawData;
+    // Priority: 1. Overrides (In-Memory State), 2. LocalStorage
+    if (overrides && overrides[key] !== undefined) {
+      dataToExport[key] = overrides[key];
+    } else {
+      const rawData = localStorage.getItem(key);
+      if (rawData !== null) {
+        try {
+          // Attempt to parse JSON strings, otherwise store as-is.
+          dataToExport[key] = JSON.parse(rawData);
+        } catch (e) {
+          dataToExport[key] = rawData;
+        }
       }
     }
   });

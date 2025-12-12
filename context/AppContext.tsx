@@ -148,7 +148,7 @@ export const AppContext = createContext<AppContextType | null>(null);
 
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user, syncStatus, userData, saveUserPreferences, loading } = useAuth();
+  const { user, syncStatus, userData, loading } = useAuth();
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -192,10 +192,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const previousPageRef = useRef<Page | null>(null);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
 
-  // LOOP PREVENTION: Flag to indicate if current state change comes from Cloud Sync
-  const isRemoteUpdate = useRef(false);
-  // SYNC CONTROL: Flag to ensure strict one-time sync for preferences on load
-  const preferencesSyncCompleted = useRef(false);
+
 
   const [practiceHistory, setPracticeHistory] = useState<PracticeStats[]>(() =>
     safeParseJSON('practiceHistory', [])
@@ -377,100 +374,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setKeyErrorStats(keyErrorStats);
         setKeyAttemptStats(keyAttemptStats);
       }
-
-      // 2. Update Preferences (Sync ONLY on Initial Load)
-      if (userData.preferences && !preferencesSyncCompleted.current) {
-        const p = userData.preferences;
-
-        // FLAG: This update is from Cloud. Do NOT echo back to Cloud.
-        isRemoteUpdate.current = true;
-
-        // Apply settings
-        if (p.theme && p.theme !== theme) {
-          setTheme(p.theme);
-          document.documentElement.classList.toggle('dark', p.theme === 'dark');
-        }
-        if (p.languageId && p.languageId !== selectedLanguage.id) {
-          const lang = SUPPORTED_LANGUAGES.find(l => l.id === p.languageId);
-          if (lang) setSelectedLanguage(lang);
-        }
-        if (p.snippetLength && p.snippetLength !== snippetLength) setSnippetLength(p.snippetLength);
-        if (p.snippetLevel && p.snippetLevel !== snippetLevel) setSnippetLevel(p.snippetLevel);
-        if (p.blockOnErrorThreshold !== undefined && p.blockOnErrorThreshold !== blockOnErrorThreshold) setBlockOnErrorThreshold(p.blockOnErrorThreshold);
-        if (p.fontSize && p.fontSize !== fontSize) setFontSize(p.fontSize);
-        if (p.showKeyboard !== undefined && p.showKeyboard !== showKeyboard) setShowKeyboard(p.showKeyboard);
-        if (p.showHandGuide !== undefined && p.showHandGuide !== showHandGuide) setShowHandGuide(p.showHandGuide);
-
-        if (p.wpmGoal && p.wpmGoal !== wpmGoal) setWpmGoal(p.wpmGoal);
-        if (p.accuracyGoal && p.accuracyGoal !== accuracyGoal) setAccuracyGoal(p.accuracyGoal);
-        if (p.timeGoal && p.timeGoal !== timeGoal) setTimeGoal(p.timeGoal);
-
-        // Session Persistence Sync
-        if (p.lastSetupTab && p.lastSetupTab !== setupTab) setSetupTab(p.lastSetupTab);
-        if (p.lastPracticeMode && p.lastPracticeMode !== practiceMode) setPracticeMode(p.lastPracticeMode);
-        if (p.generalContentTypes && JSON.stringify(p.generalContentTypes) !== JSON.stringify(generalContentTypes)) {
-          setGeneralContentTypes(p.generalContentTypes);
-        }
-
-        // Mark sync complete
-        preferencesSyncCompleted.current = true;
-
-        // RESET FLAG: Extended to 4000ms to ensure it outlasts the 2000ms saver debounce
-        setTimeout(() => {
-          isRemoteUpdate.current = false;
-        }, 4000);
-      }
       setIsDataLoaded(true);
-
     } else if (!user) {
-      // Reset sync status on logout
-      preferencesSyncCompleted.current = false;
       setIsDataLoaded(true);
     }
   }, [userData, user]);
 
-  // -------------------------------------------------------------------------
-  // DEBOUNCED CLOUD SAVE (Firestore Optimization)
-  // Watch all preference states -> Wait 2000ms -> Save ONCE
-  // -------------------------------------------------------------------------
-  useEffect(() => {
-    // 1. Guard: If no user or if this change came from cloud, skip.
-    // AND CRITICAL: Skip if we are still loading initial data (Race Condition Fix)
-    // AND CRITICAL: Skip if userData is not yet hydrated (Failed/Empty Sync prevention)
-    if (!user || isRemoteUpdate.current || loading || !userData) {
-      return;
-    }
 
-    const timer = setTimeout(() => {
-      const prefsToSave = {
-        theme,
-        languageId: selectedLanguage.id,
-        snippetLength,
-        snippetLevel,
-        blockOnErrorThreshold,
-        fontSize,
-        showKeyboard,
-        showHandGuide,
-        wpmGoal,
-        accuracyGoal,
-        timeGoal,
-        lastSetupTab: setupTab,
-        lastPracticeMode: practiceMode,
-        generalContentTypes
-      };
-      console.log("Debounced Save Payload:", prefsToSave);
-      saveUserPreferences(prefsToSave);
-    }, 2000); // 2 Second Debounce
-
-    return () => clearTimeout(timer);
-  }, [
-    // Dependencies: ANY change here resets the timer
-    theme, selectedLanguage, snippetLength, snippetLevel, blockOnErrorThreshold,
-    fontSize, showKeyboard, showHandGuide,
-    wpmGoal, accuracyGoal, timeGoal,
-    setupTab, practiceMode, generalContentTypes,
-    user, loading, userData // Re-run if user/loading/data state changes
-  ]);
 
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
@@ -489,11 +399,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setIsAccessKeyMenuVisible(false);
       }
     };
+    const handleBlur = () => {
+      setIsAccessKeyMenuVisible(false);
+    };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
     };
   }, []);
 

@@ -169,13 +169,17 @@ const DashboardPage: React.FC = () => {
 
     const handleExportData = useCallback(() => {
         try {
-            exportAllData();
+            exportAllData({
+                practiceHistory,
+                keyErrorStats,
+                keyAttemptStats
+            });
             showAlert('Data exported successfully!', 'info');
         } catch (error) {
             showAlert('Failed to export data.', 'error');
             console.error(error);
         }
-    }, [showAlert]);
+    }, [showAlert, practiceHistory, keyErrorStats, keyAttemptStats]);
 
     const handleImportClick = useCallback(() => {
         fileInputRef.current?.click();

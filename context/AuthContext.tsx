@@ -22,7 +22,6 @@ interface AuthContextType {
     loginWithGoogle: () => Promise<void>;
     logout: () => Promise<void>;
     syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
-    saveUserPreferences: (prefs: Partial<UserPreferences>) => Promise<void>;
     updateUserProfile: (profile: { displayName?: string; photoURL?: string }) => Promise<void>;
 }
 
@@ -102,7 +101,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 docExists = true;
             }
 
-            // --- HISTORY LOGIC (Merge Local + Cloud) ---
+             // --- HISTORY LOGIC (Merge Local + Cloud) ---
             let historyToSave = cloudHistory;
             let needsHistoryUpdate = false;
 
@@ -121,35 +120,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 localStorage.removeItem('keyAttemptStats');
             }
 
-            // --- PREFERENCES LOGIC (Cloud Priority) ---
-            let finalPreferences: UserPreferences;
-            let needsPrefsUpdate = false;
-
-            if (cloudPrefs) {
-                // Cloud exists: Merge cloud over local defaults (Cloud wins)
-                finalPreferences = { ...localPrefs, ...cloudPrefs };
-            } else {
-                // Cloud empty: Upload local defaults
-                finalPreferences = localPrefs;
-                needsPrefsUpdate = true;
-            }
-
-            // --- SAVE TO FIRESTORE ---
-            if (needsHistoryUpdate || needsPrefsUpdate || !docExists) {
-                const updates: any = {};
-
-                if (needsHistoryUpdate) updates.history = historyToSave;
-                // Only upload preferences if cloud was empty
-                if (needsPrefsUpdate) updates.preferences = finalPreferences;
-
+            // --- SAVE TO FIRESTORE (History Only) ---
+            if (needsHistoryUpdate || !docExists) {
                 if (docExists) {
-                    if (Object.keys(updates).length > 0) {
-                        await updateDoc(userDocRef, updates);
+                    // Update existing user
+                    if (needsHistoryUpdate) {
+                        await updateDoc(userDocRef, { history: historyToSave });
                     }
                 } else {
+                    // Create new user (History only)
                     await setDoc(userDocRef, {
                         history: historyToSave,
-                        preferences: finalPreferences
+                        // No preferences saved to cloud
                     });
                 }
             }
@@ -158,7 +140,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             return {
                 history: historyToSave,
-                preferences: finalPreferences
+                preferences: localPrefs // Return local prefs just to satisfy type, but cloud ignored
             };
 
         } catch (error) {
@@ -168,28 +150,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
-    const saveUserPreferences = async (newPrefs: Partial<UserPreferences>) => {
-        if (!user) {
-            console.warn("saveUserPreferences: No user logged in. Aborting save.");
-            return;
-        }
-        console.log("saveUserPreferences: Attempting to save...", newPrefs);
 
-        try {
-            // 🛠️ COMBINED FIX: Use Dot Notation for keys + setDoc with merge: true
-            const updates: Record<string, any> = {};
-            Object.entries(newPrefs).forEach(([key, value]) => {
-                updates[`preferences.${key}`] = value;
-            });
-            // Add timestamp for synchronization handling
-            updates['preferences.updatedAt'] = Date.now();
-
-            await setDoc(doc(db, 'users', user.uid), updates, { merge: true });
-            console.log("saveUserPreferences: Save SUCCESS.", updates);
-        } catch (error) {
-            console.error("saveUserPreferences: Failed to save preferences:", error);
-        }
-    };
 
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
@@ -254,7 +215,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             loginWithGoogle,
             logout,
             syncStatus,
-            saveUserPreferences,
             updateUserProfile
         }}>
             {children}
