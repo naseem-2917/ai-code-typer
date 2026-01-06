@@ -179,7 +179,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [snippetLevel, setSnippetLevel] = useState<SnippetLevel>('medium');
   const [blockOnErrorThreshold, setBlockOnErrorThreshold] = useState<number>(2);
 
-  const [fontSize, setFontSize] = useState<FontSize>('medium');
+  const [fontSize, setFontSize] = useState<FontSize>(() => {
+    const savedSize = localStorage.getItem('fontSize') as FontSize | null;
+    // Only return saved size if it's a valid FontSize
+    if (savedSize && FONT_SIZES.includes(savedSize)) {
+      return savedSize;
+    }
+    return 'md'; // Default to medium
+  });
   const [showKeyboard, setShowKeyboard] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth >= 768; // Default to true only on desktop
