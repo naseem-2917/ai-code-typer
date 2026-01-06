@@ -357,7 +357,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
         />
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Mode</label>
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Mode</label>
           <SegmentedControl
             ref={modeRef}
             options={modeOptions}
@@ -374,7 +374,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
           <div className="space-y-4 animate-fade-in-up">
             {selectedMode === 'code' && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Language</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Language</label>
                 <Select
                   ref={languageRef}
                   options={generateLanguages.map(l => ({ label: l.name, value: l.id }))}
@@ -386,7 +386,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Length</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Length</label>
               <SegmentedControl
                 ref={lengthRef}
                 options={lengthOptions}
@@ -401,7 +401,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
 
             {selectedMode === 'code' ? (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Difficulty Level</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Difficulty Level</label>
                 <SegmentedControl
                   ref={levelRef}
                   options={levelOptions}
@@ -415,7 +415,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
               </div>
             ) : (
               <div className="space-y-2" ref={contentRef}>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Content Type</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Content Type</label>
                 <div className="flex p-1 gap-1 bg-slate-100 dark:bg-slate-700/50 rounded-lg w-full">
                   <button
                     onClick={() => toggleContentType('characters')}
@@ -454,7 +454,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
           <div className="space-y-4 animate-fade-in-up">
             {selectedMode === 'code' && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Language</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Language</label>
                 <Select
                   ref={languageRef}
                   options={uploadLanguages.map(l => ({ label: l.name, value: l.id }))}
@@ -465,7 +465,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
               </div>
             )}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Paste Code</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Paste Code</label>
               <textarea
                 ref={pasteTextAreaRef}
                 className="w-full h-32 p-3 border rounded-md dark:bg-slate-800 dark:border-slate-600 dark:text-white font-mono text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none resize-none"
@@ -480,7 +480,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
                 <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-slate-900 text-gray-500">Or upload file</span>
+                <span className="px-2 text-slate-500 dark:text-slate-400">Or upload file</span>
               </div>
             </div>
 

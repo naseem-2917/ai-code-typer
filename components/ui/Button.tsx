@@ -33,13 +33,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
     buttonRef.current?.click();
   }, { disabled: props.disabled });
 
-  const baseClasses = 'relative inline-flex items-center justify-center rounded-md font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed';
+  const baseClasses = 'relative inline-flex items-center justify-center rounded-lg font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97]';
 
   const variantClasses = {
-    primary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500',
+    primary: 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 focus:ring-purple-500 shadow-md hover:shadow-lg hover:shadow-purple-500/25',
     secondary: 'bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 focus:ring-slate-500',
-    ghost: 'hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 focus:ring-slate-500',
-    outline: 'border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 focus:ring-slate-500',
+    ghost: 'hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-300 focus:ring-slate-500',
+    outline: 'border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 hover:border-purple-400 dark:hover:border-purple-500 focus:ring-purple-500',
   };
 
   const sizeClasses = {

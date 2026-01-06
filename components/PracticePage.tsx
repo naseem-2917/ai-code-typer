@@ -9,6 +9,7 @@ import { Button } from './ui/Button';
 import { ResultsModal } from './ResultsModal';
 import { TargetedResultsModal } from './TargetedResultsModal';
 import { FrustrationModal } from './FrustrationModal';
+import { MobileActionMenu } from './ui/MobileActionMenu';
 
 import { ResetIcon } from './icons/ResetIcon';
 import { PlayIcon } from './icons/PlayIcon';
@@ -22,6 +23,13 @@ import { XIcon } from './icons/XIcon';
 import { WarningIcon } from './icons/WarningIcon';
 import { CopyIcon } from './icons/CopyIcon';
 import { CheckIcon } from './icons/CheckIcon';
+
+// More icon for mobile menu
+const MoreIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+    </svg>
+);
 
 const blockOnErrorOptions = [
     { label: 'Off', value: 0 },
@@ -83,6 +91,7 @@ const PracticePage: React.FC = () => {
     const [saveStatus, setSaveStatus] = useState<{ saved: boolean; reason?: string } | null>(null);
     const [sessionToRestore, setSessionToRestore] = useState<PausedSessionData | null>(null);
     const [isCopied, setIsCopied] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const handleCopy = async () => {
         const copyToClipboardFallback = (text: string) => {
@@ -498,9 +507,9 @@ const PracticePage: React.FC = () => {
                 </div>
             )}
 
-            {/* Header / Stats - flex-shrink-0 prevents it from shrinking */}
-            <div className="w-full max-w-[1100px] mx-auto mb-2 pt-2 flex-shrink-0 px-4">
-                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+            {/* Header / Stats - Glass Card Style */}
+            <div className="w-full max-w-[1100px] mx-auto mb-2 pt-2 flex-shrink-0 px-3 md:px-4">
+                <div className="glass-card rounded-xl p-3 md:p-4">
                     <StatsDisplay
                         wpm={game.wpm}
                         accuracy={game.accuracy}
@@ -511,26 +520,27 @@ const PracticePage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Action Bar - flex-shrink-0 */}
-            <div className="w-full max-w-[1100px] mx-auto mb-2 flex-shrink-0 px-4">
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                    <Button onClick={handleSetupNew} variant="primary" disabled={isSetupModalOpen} title="New Snippet (Alt+N)" accessKey="n" size="sm">
+            {/* Action Bar - Desktop: All buttons, Mobile: Primary + More Menu */}
+            <div className="w-full max-w-[1100px] mx-auto mb-2 flex-shrink-0 px-3 md:px-4">
+                {/* Desktop Action Bar */}
+                <div className="hidden md:flex flex-wrap items-center justify-center gap-2">
+                    <Button onClick={handleSetupNew} variant="primary" disabled={isSetupModalOpen} title="New Snippet (Alt+N)" accessKey="n" size="sm" className="btn-press glow-hover">
                         <FileCodeIcon className="w-4 h-4 mr-2" />
                         New
                     </Button>
-                    <Button onClick={handleEndSession} variant="outline" disabled={isSetupModalOpen || game.isFinished} title="End Session (Alt+E)" accessKey="e" size="sm">
+                    <Button onClick={handleEndSession} variant="outline" disabled={isSetupModalOpen || game.isFinished} title="End Session (Alt+E)" accessKey="e" size="sm" className="btn-press">
                         <XIcon className="w-4 h-4 mr-2" />
                         End
                     </Button>
-                    <Button onClick={resetGame} variant="outline" disabled={isSetupModalOpen} title="Reset (Alt+R)" accessKey="r" size="sm">
+                    <Button onClick={resetGame} variant="outline" disabled={isSetupModalOpen} title="Reset (Alt+R)" accessKey="r" size="sm" className="btn-press">
                         <ResetIcon className="w-4 h-4 mr-2" />
                         Reset
                     </Button>
-                    <Button onClick={togglePause} variant="outline" disabled={isSetupModalOpen || game.isFinished} title={game.isPaused ? "Resume (Alt+P)" : "Pause (Alt+P)"} accessKey="p" size="sm">
+                    <Button onClick={togglePause} variant="outline" disabled={isSetupModalOpen || game.isFinished} title={game.isPaused ? "Resume (Alt+P)" : "Pause (Alt+P)"} accessKey="p" size="sm" className="btn-press">
                         {game.isPaused ? <PlayIcon className="w-4 h-4 mr-2" /> : <PauseIcon className="w-4 h-4 mr-2" />}
                         {game.isPaused ? "Resume" : "Pause"}
                     </Button>
-                    <Button onClick={handleCopy} variant="outline" disabled={isSetupModalOpen} title="Copy Code (Alt+C)" accessKey="c" size="sm">
+                    <Button onClick={handleCopy} variant="outline" disabled={isSetupModalOpen} title="Copy Code (Alt+C)" accessKey="c" size="sm" className="btn-press">
                         {isCopied ? <CheckIcon className="w-4 h-4 mr-2 text-green-500" /> : <CopyIcon className="w-4 h-4 mr-2" />}
                         {isCopied ? "Copied" : "Copy"}
                     </Button>
@@ -538,7 +548,7 @@ const PracticePage: React.FC = () => {
                     <Dropdown
                         ref={blockOnErrorRef}
                         trigger={
-                            <Button variant="outline" title="Block on Error Settings (Alt+B)" accessKey="b" size="sm">
+                            <Button variant="outline" title="Block on Error Settings (Alt+B)" accessKey="b" size="sm" className="btn-press">
                                 <BlockIcon className="w-4 h-4 mr-2" />
                                 <span className="hidden sm:inline">
                                     Block: {blockOnErrorOptions.find(o => o.value === blockOnErrorThreshold)?.label}
@@ -556,13 +566,78 @@ const PracticePage: React.FC = () => {
                             </DropdownItem>
                         ))}
                     </Dropdown>
-                    <Button variant="outline" onClick={() => { toggleHandGuide(); requestFocusOnCode(); }} title="Toggle Hand Guide (Alt+G)" disabled={isSetupModalOpen} accessKey="g" size="sm">
+                    <Button variant="outline" onClick={() => { toggleHandGuide(); requestFocusOnCode(); }} title="Toggle Hand Guide (Alt+G)" disabled={isSetupModalOpen} accessKey="g" size="sm" className="btn-press">
                         <HandGuideIcon className="w-4 h-4 sm:mr-2" />
                         <span className="hidden sm:inline">
                             Hand Guide
                         </span>
                     </Button>
                 </div>
+
+                {/* Mobile Action Bar - Simplified */}
+                <div className="flex md:hidden items-center justify-center gap-2">
+                    <Button onClick={handleSetupNew} variant="primary" disabled={isSetupModalOpen} title="New Snippet" size="sm" className="btn-press glow-hover flex-1 max-w-[140px]">
+                        <FileCodeIcon className="w-4 h-4 mr-2" />
+                        New
+                    </Button>
+                    <Button onClick={togglePause} variant="outline" disabled={isSetupModalOpen || game.isFinished} title={game.isPaused ? "Resume" : "Pause"} size="sm" className="btn-press">
+                        {game.isPaused ? <PlayIcon className="w-5 h-5" /> : <PauseIcon className="w-5 h-5" />}
+                    </Button>
+                    <Button onClick={resetGame} variant="outline" disabled={isSetupModalOpen} title="Reset" size="sm" className="btn-press">
+                        <ResetIcon className="w-5 h-5" />
+                    </Button>
+                    <Button
+                        onClick={() => setIsMobileMenuOpen(true)}
+                        variant="outline"
+                        disabled={isSetupModalOpen}
+                        title="More Options"
+                        size="sm"
+                        className="btn-press"
+                    >
+                        <MoreIcon className="w-5 h-5" />
+                    </Button>
+                </div>
+
+                {/* Mobile Action Menu (Bottom Sheet) */}
+                <MobileActionMenu
+                    isOpen={isMobileMenuOpen}
+                    onClose={() => setIsMobileMenuOpen(false)}
+                    title="More Actions"
+                    items={[
+                        {
+                            label: 'End Session',
+                            icon: <XIcon className="w-4 h-4" />,
+                            onClick: handleEndSession,
+                            disabled: isSetupModalOpen || game.isFinished,
+                            shortcut: 'Alt+E'
+                        },
+                        {
+                            label: isCopied ? 'Copied!' : 'Copy Code',
+                            icon: isCopied ? <CheckIcon className="w-4 h-4" /> : <CopyIcon className="w-4 h-4" />,
+                            onClick: handleCopy,
+                            disabled: isSetupModalOpen,
+                            shortcut: 'Alt+C'
+                        },
+                        {
+                            label: showHandGuide ? 'Hide Hand Guide' : 'Show Hand Guide',
+                            icon: <HandGuideIcon className="w-4 h-4" />,
+                            onClick: () => { toggleHandGuide(); requestFocusOnCode(); },
+                            disabled: isSetupModalOpen,
+                            shortcut: 'Alt+G'
+                        },
+                        {
+                            label: `Error Block: ${blockOnErrorOptions.find(o => o.value === blockOnErrorThreshold)?.label}`,
+                            icon: <BlockIcon className="w-4 h-4" />,
+                            onClick: () => {
+                                const currentIndex = blockOnErrorOptions.findIndex(o => o.value === blockOnErrorThreshold);
+                                const nextIndex = (currentIndex + 1) % blockOnErrorOptions.length;
+                                setBlockOnErrorThreshold(blockOnErrorOptions[nextIndex].value);
+                                requestFocusOnCode();
+                            },
+                            shortcut: 'Alt+B'
+                        },
+                    ]}
+                />
             </div>
 
             {/* Code Editor Area - flex-grow ensures it takes remaining space, min-h-0 allows internal scrolling */}

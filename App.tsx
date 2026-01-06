@@ -10,6 +10,7 @@ import { Page } from './types';
 import { Alert } from './components/ui/Alert';
 import { PracticeSetupModal } from './components/PracticeSetupModal';
 import { AuthProvider } from './context/AuthContext';
+import { BottomNav } from './components/ui/BottomNav';
 
 
 const AppContent: React.FC = () => {
@@ -37,12 +38,13 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="h-screen overflow-hidden bg-slate-50 dark:bg-slate-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300 flex flex-col">
+    <div className="h-screen overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300 flex flex-col">
       <Alert />
       <Header />
-      <main className="container mx-auto px-4 py-4 flex-grow flex flex-col min-h-0 overflow-y-auto">
+      <main className="container mx-auto px-4 py-4 pb-20 md:pb-4 flex-grow flex flex-col min-h-0 overflow-y-auto">
         {renderPage()}
       </main>
+      <BottomNav currentPage={page} onNavigate={navigateTo} />
       <PracticeSetupModal
         isOpen={isSetupModalOpen}
         onClose={closeSetupModal}

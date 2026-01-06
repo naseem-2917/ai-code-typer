@@ -82,20 +82,11 @@ const Header: React.FC = () => {
   const canIncrease = currentSizeIndex < FONT_SIZES.length - 1;
 
   return (
-    <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800">
+    <header className="glass sticky top-0 z-10 border-b border-slate-200/50 dark:border-slate-700/50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-2 md:gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              aria-label="Toggle menu"
-            >
-              {isMobileMenuOpen ? <XIcon className="w-6 h-6" /> : <MenuIcon className="w-6 h-6" />}
-            </Button>
-            <h1 className="text-xl font-bold text-primary-600 dark:text-primary-400">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
               <span className='hidden lg:inline'>AI Code Typer</span>
               <span className='lg:hidden hidden sm:inline'>ACT</span>
             </h1>

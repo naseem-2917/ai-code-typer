@@ -124,12 +124,12 @@ export const Select = forwardRef<SelectRef, SelectProps>(({ options, className =
             onChange(options[newIndex].value);
           }
         }}
-        className="w-full flex items-center justify-between px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-400 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full flex items-center justify-between px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
         <span>{selectedOption?.label || 'Select...'}</span>
-        <ChevronDownIcon className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDownIcon className={`w-5 h-5 text-slate-400 dark:text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
@@ -142,8 +142,8 @@ export const Select = forwardRef<SelectRef, SelectProps>(({ options, className =
             <li
               key={option.value}
               className={`cursor-pointer select-none relative py-2 pl-3 pr-9 transition-colors ${highlightedIndex === index
-                  ? 'text-white bg-primary-600'
-                  : 'text-gray-900 dark:text-gray-100 hover:bg-slate-100 dark:hover:bg-slate-700'
+                ? 'text-white bg-primary-600'
+                : 'text-gray-900 dark:text-gray-100 hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
               onClick={() => {
                 onChange(option.value);

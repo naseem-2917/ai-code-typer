@@ -25,7 +25,7 @@ import {
     Tooltip
 } from 'recharts';
 
-const COLORS = ['#10b981', '#3b82f6', '#ef4444', '#f97316', '#8b5cf6', '#ec4899'];
+const COLORS = ['#a855f7', '#6366f1', '#ec4899', '#f97316', '#06b6d4', '#10b981'];
 
 const formatSessionDuration = (totalSeconds: number) => {
     if (isNaN(totalSeconds) || totalSeconds < 0) return '0m 00s';

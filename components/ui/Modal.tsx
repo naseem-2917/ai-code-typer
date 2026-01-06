@@ -46,16 +46,16 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
 
   const modalContent = (
     <div
-      className="fixed top-0 left-0 w-[100vw] h-[100vh] z-[9999] flex items-center justify-center bg-black/70"
+      className="fixed top-0 left-0 w-[100vw] h-[100vh] z-[9999] flex items-center justify-center bg-black/70 p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
         }
       }}
     >
-      <Card ref={modalRef} className="w-full max-w-md p-6 animate-fade-in-up">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{title}</h2>
+      <Card ref={modalRef} className="w-full max-w-md max-h-[90vh] overflow-y-auto custom-scrollbar p-6 animate-fade-in-up">
+        <div className="flex justify-between items-center mb-4 sticky top-0 glass-card -mx-6 px-6 z-10 pb-2 pt-6 -mt-6">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{title}</h2>
           <Button
             variant="ghost"
             size="icon"
