@@ -41,11 +41,11 @@ const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
                     {dateLabel}
                 </p>
                 <div className="space-y-1">
-                    <p className="text-emerald-600 dark:text-emerald-400 flex justify-between gap-4">
+                    <p className="flex justify-between gap-4" style={{ color: 'var(--color-chart-wpm)' }}>
                         <span>WPM:</span>
                         <span className="font-bold">{data.wpm}</span>
                     </p>
-                    <p className="text-blue-600 dark:text-blue-400 flex justify-between gap-4">
+                    <p className="flex justify-between gap-4" style={{ color: 'var(--color-chart-acc)' }}>
                         <span>Accuracy:</span>
                         <span className="font-bold">{Number(data.accuracy).toFixed(2)}%</span>
                     </p>
@@ -117,9 +117,9 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({ data, xDataK
                         type="monotone"
                         dataKey="wpm"
                         name="WPM"
-                        stroke="#10b981"
+                        stroke="var(--color-chart-wpm)"
                         strokeWidth={2}
-                        dot={{ r: 3, strokeWidth: 0, fill: '#10b981' }}
+                        dot={{ r: 3, strokeWidth: 0, fill: 'var(--color-chart-wpm)' }}
                         activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
                         animationDuration={1000}
                     />
@@ -128,9 +128,9 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({ data, xDataK
                         type="monotone"
                         dataKey="accuracy"
                         name="Accuracy"
-                        stroke="#3b82f6"
+                        stroke="var(--color-chart-acc)"
                         strokeWidth={2}
-                        dot={{ r: 3, strokeWidth: 0, fill: '#3b82f6' }}
+                        dot={{ r: 3, strokeWidth: 0, fill: 'var(--color-chart-acc)' }}
                         activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
                         animationDuration={1000}
                     />

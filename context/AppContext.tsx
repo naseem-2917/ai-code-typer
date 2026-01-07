@@ -141,6 +141,11 @@ interface AppContextType {
   handleSetupNew: () => void;
   deletePracticeSession: (timestamp: number) => void;
   clearPracticeHistory: () => void;
+
+  // Global Modal State
+  isAnyModalOpen: boolean;
+  registerModalOpen: () => void;
+  registerModalClose: () => void;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -198,6 +203,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [page, setPage] = useState<Page>('home');
   const previousPageRef = useRef<Page | null>(null);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
+
+  // Global Modal Tracking
+  const [modalCount, setModalCount] = useState(0);
+  const isAnyModalOpen = modalCount > 0;
+  const registerModalOpen = useCallback(() => setModalCount(prev => prev + 1), []);
+  const registerModalClose = useCallback(() => setModalCount(prev => Math.max(0, prev - 1)), []);
 
 
 
@@ -916,6 +927,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     sessionResetKey,
     handleStartFromSetup, handleNextSnippet, handlePracticeSame, handleSetupNew,
     deletePracticeSession, clearPracticeHistory,
+    isAnyModalOpen, registerModalOpen, registerModalClose,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -100,6 +100,17 @@ export const Select = forwardRef<SelectRef, SelectProps>(({ options, className =
     }
   }, [highlightedIndex, isOpen]);
 
+  const [openUpwards, setOpenUpwards] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      // If space below is less than 200px (approx max height), open upwards
+      setOpenUpwards(spaceBelow < 220);
+    }
+  }, [isOpen]);
+
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <button
@@ -110,31 +121,30 @@ export const Select = forwardRef<SelectRef, SelectProps>(({ options, className =
         onKeyDown={(e) => {
           if (!disabled && !isOpen && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
             e.preventDefault();
-            e.stopPropagation(); // Ensure we stop propagation
+            e.stopPropagation();
             const currentIndex = options.findIndex(o => o.value === value);
             const direction = e.key === 'ArrowRight' ? 1 : -1;
-
             let newIndex;
             if (currentIndex !== -1) {
               newIndex = (currentIndex + direction + options.length) % options.length;
             } else {
-              // If current value is invalid, start from 0
               newIndex = 0;
             }
             onChange(options[newIndex].value);
           }
         }}
-        className="w-full flex items-center justify-between px-3 py-2 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full flex items-center justify-between px-3 py-2 text-slate-900 dark:text-slate-100 bg-slate-200 dark:bg-slate-700/50 border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
         <span>{selectedOption?.label || 'Select...'}</span>
-        <ChevronDownIcon className={`w-5 h-5 text-slate-400 dark:text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDownIcon className={`w-5 h-5 text-slate-500 dark:text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
         <ul
-          className="absolute z-10 mt-1 w-full bg-white dark:bg-slate-800 shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm border border-slate-200 dark:border-slate-700"
+          className={`absolute z-[100] w-full bg-white dark:bg-slate-800 shadow-xl max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm border border-slate-200 dark:border-slate-700 ${openUpwards ? 'bottom-full mb-1' : 'mt-1'
+            }`}
           tabIndex={-1}
           role="listbox"
         >

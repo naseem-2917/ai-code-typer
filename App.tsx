@@ -41,7 +41,7 @@ const AppContent: React.FC = () => {
     <div className="h-screen overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300 flex flex-col">
       <Alert />
       <Header />
-      <main className="container mx-auto px-4 py-4 pb-20 md:pb-4 flex-grow flex flex-col min-h-0 overflow-y-auto">
+      <main className="container mx-auto px-4 py-4 pt-20 pb-20 md:pb-4 flex-grow flex flex-col min-h-0 overflow-y-auto">
         {renderPage()}
       </main>
       <BottomNav currentPage={page} onNavigate={navigateTo} />

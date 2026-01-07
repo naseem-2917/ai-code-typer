@@ -37,7 +37,8 @@ const Header: React.FC = () => {
     navigateTo,
     isAccessKeyMenuVisible,
     requestFocusOnCode,
-    isSetupModalOpen
+    isSetupModalOpen,
+    isAnyModalOpen
   } = context;
 
   const { user, loginWithGoogle, loading } = useAuth();
@@ -82,13 +83,13 @@ const Header: React.FC = () => {
   const canIncrease = currentSizeIndex < FONT_SIZES.length - 1;
 
   return (
-    <header className="glass sticky top-0 z-10 border-b border-slate-200/50 dark:border-slate-700/50">
+    <header className="glass fixed top-0 left-0 right-0 z-40 border-b border-slate-200/50 dark:border-slate-700/50 transition-all duration-300">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-2 md:gap-4">
-            <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
-              <span className='hidden lg:inline'>AI Code Typer</span>
-              <span className='lg:hidden hidden sm:inline'>ACT</span>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent cursor-pointer" onClick={() => navigateTo('home')}>
+              <span className='hidden sm:inline'>AI Code Typer</span>
+              <span className='sm:hidden'>AI Code Typer</span>
             </h1>
             <nav className="hidden md:flex items-center gap-1 sm:gap-2">
               <NavButton page="home" label="Home" icon={<HomeIcon className="w-5 h-5" />} accessKeyChar="H" onClick={() => navigateTo('home')} />
@@ -149,7 +150,7 @@ const Header: React.FC = () => {
                 disabled={isSetupModalOpen}
                 options={SUPPORTED_LANGUAGES.map(lang => ({ value: lang.id, label: lang.name }))}
               />
-              {isAccessKeyMenuVisible && <AccessKeyLabel label="L" />}
+              {isAccessKeyMenuVisible && !isAnyModalOpen && <AccessKeyLabel label="L" />}
             </div>
 
             {/* User Profile / Sign In - Moved to Right */}
@@ -167,7 +168,7 @@ const Header: React.FC = () => {
                   alt="Profile"
                   className={`w-8 h-8 rounded-full border-2 border-slate-200 dark:border-slate-700 transition-transform group-hover:scale-105 ${page === 'profile' ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
                 />
-                {isAccessKeyMenuVisible && <AccessKeyLabel label="U" />}
+                {isAccessKeyMenuVisible && !isAnyModalOpen && <AccessKeyLabel label="U" />}
               </button>
             ) : (
               <Button

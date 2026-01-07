@@ -162,10 +162,10 @@ const DashboardPage: React.FC = () => {
     }, [focusedButtonIndex, practiceHistory.length]);
 
 
-    useAccessKey('2', () => setTimeFilter('24h'), { disabled: isGoalsModalOpen });
-    useAccessKey('7', () => setTimeFilter('7d'), { disabled: isGoalsModalOpen });
-    useAccessKey('3', () => setTimeFilter('30d'), { disabled: isGoalsModalOpen });
-    useAccessKey('a', () => setTimeFilter('all'), { disabled: isGoalsModalOpen });
+    useAccessKey('2', () => setTimeFilter('24h'), { disabled: isGoalsModalOpen || isSetupModalOpen });
+    useAccessKey('7', () => setTimeFilter('7d'), { disabled: isGoalsModalOpen || isSetupModalOpen });
+    useAccessKey('3', () => setTimeFilter('30d'), { disabled: isGoalsModalOpen || isSetupModalOpen });
+    useAccessKey('a', () => setTimeFilter('all'), { disabled: isGoalsModalOpen || isSetupModalOpen });
 
     const handleExportData = useCallback(() => {
         try {
@@ -185,8 +185,8 @@ const DashboardPage: React.FC = () => {
         fileInputRef.current?.click();
     }, []);
 
-    useAccessKey('E', handleExportData, { disabled: isGoalsModalOpen });
-    useAccessKey('I', handleImportClick, { disabled: isGoalsModalOpen });
+    useAccessKey('E', handleExportData, { disabled: isGoalsModalOpen || isSetupModalOpen });
+    useAccessKey('I', handleImportClick, { disabled: isGoalsModalOpen || isSetupModalOpen });
 
 
 
@@ -550,6 +550,7 @@ const DashboardPage: React.FC = () => {
                         selectedValue={timeFilter}
                         onSelect={(value) => setTimeFilter(value as any)}
                         accessKeyChars={filterAccessKeys}
+                        disabled={isSetupModalOpen}
                     />
                 </div>
 
@@ -739,17 +740,17 @@ const DashboardPage: React.FC = () => {
                                 </div>
                             </div>
                             {filteredHistory.length > 0 ? (
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                                <div className="w-full">
+                                    <table className="w-full divide-y divide-slate-200 dark:divide-slate-700 table-fixed">
                                         <thead>
                                             <tr>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">WPM</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Accuracy</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Duration</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Language</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Errors</th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"></th>
+                                                <th className="w-1/4 px-2 sm:px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
+                                                <th className="w-1/6 px-2 sm:px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">WPM</th>
+                                                <th className="w-1/6 px-2 sm:px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Acc</th>
+                                                <th className="hidden lg:table-cell w-1/6 px-2 sm:px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Duration</th>
+                                                <th className="hidden xl:table-cell w-1/6 px-2 sm:px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Language</th>
+                                                <th className="hidden md:table-cell w-1/6 px-2 sm:px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Errors</th>
+                                                <th className="w-16 px-2 sm:px-4 py-2 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -758,15 +759,15 @@ const DashboardPage: React.FC = () => {
                                                 .slice(0, 5)
                                                 .map((session, index) => (
                                                     <tr key={session.id} className={index % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800' : ''}>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
+                                                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
                                                             {formatShortDate(session.date)}
                                                         </td>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.wpm.toFixed(0)}</td>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.accuracy.toFixed(1)}%</td>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{formatSessionDuration(session.duration)}</td>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.language}</td>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.errors}</td>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
+                                                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.wpm.toFixed(0)}</td>
+                                                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.accuracy.toFixed(1)}%</td>
+                                                        <td className="hidden lg:table-cell px-2 sm:px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{formatSessionDuration(session.duration)}</td>
+                                                        <td className="hidden xl:table-cell px-2 sm:px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.language}</td>
+                                                        <td className="hidden md:table-cell px-2 sm:px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">{session.errors}</td>
+                                                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap text-center text-sm font-medium">
                                                             <Button variant="ghost" size="icon" onClick={() => setDeleteConfirmation({ type: 'single', timestamp: session.timestamp })}>
                                                                 <TrashIcon className="w-4 h-4 text-red-500" />
                                                             </Button>
@@ -803,20 +804,30 @@ const DashboardPage: React.FC = () => {
             >
                 <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
                     {sortedErrorStats.length > 0 ? (
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             {sortedErrorStats.map((error, index) => (
-                                <div key={index} className="space-y-1">
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">
-                                            {displayKey(error.key)}
-                                        </span>
-                                        <span className="text-slate-500 dark:text-slate-400 text-xs">
-                                            {error.errors} Errors / {error.attempts} Attempts ({error.errorRate.toFixed(1)}%)
-                                        </span>
+                                <div key={index} className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-mono bg-slate-200 dark:bg-slate-700 px-3 py-1.5 rounded-lg text-lg font-semibold text-slate-800 dark:text-slate-200">
+                                                {displayKey(error.key)}
+                                            </span>
+                                            <span className="text-red-600 dark:text-red-400 font-bold text-base">
+                                                {error.errorRate.toFixed(1)}%
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+                                    <div className="grid grid-cols-2 gap-2 text-sm mb-2">
+                                        <div className="text-slate-600 dark:text-slate-400">
+                                            <span className="font-medium">Errors:</span> {error.errors}
+                                        </div>
+                                        <div className="text-slate-600 dark:text-slate-400">
+                                            <span className="font-medium">Attempts:</span> {error.attempts}
+                                        </div>
+                                    </div>
+                                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                                         <div
-                                            className="bg-red-500 h-1.5 rounded-full"
+                                            className="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full transition-all"
                                             style={{ width: `${Math.min(100, error.errorRate)}%` }}
                                         ></div>
                                     </div>
@@ -824,11 +835,11 @@ const DashboardPage: React.FC = () => {
                             ))}
                         </div>
                     ) : (
-                        <p className="text-center text-slate-500">No error data available.</p>
+                        <p className="text-center text-slate-500 py-8">No error data available.</p>
                     )}
                 </div>
                 <div className="mt-6 flex justify-center">
-                    <Button variant="secondary" onClick={() => setIsErrorModalOpen(false)} autoFocus>
+                    <Button variant="secondary" onClick={() => setIsErrorModalOpen(false)} accessKeyChar="C" autoFocus>
                         Close
                     </Button>
                 </div>

@@ -2,6 +2,7 @@ import React, { forwardRef, useContext } from 'react';
 import { Button } from './Button';
 import { AppContext } from '../../context/AppContext';
 import { AccessKeyLabel } from './AccessKeyLabel';
+import { ModalContext } from './Modal';
 
 interface SegmentedControlProps {
     options: { label: string, value: string }[];
@@ -19,11 +20,12 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
     accessKeyChars,
 }, ref) => {
     const context = useContext(AppContext);
+    const isInsideModal = useContext(ModalContext);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
         if (disabled) return;
         const currentIndex = options.findIndex(opt => opt.value === selectedValue);
-        
+
         if (e.key === 'ArrowRight') {
             e.preventDefault();
             const nextIndex = (currentIndex + 1) % options.length;
@@ -34,7 +36,10 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
             onSelect(options[prevIndex].value);
         }
     };
-    
+
+    // Show label if: visible, has key, AND (inside modal OR no modal open)
+    const shouldShowLabels = context?.isAccessKeyMenuVisible && (isInsideModal || !context?.isAnyModalOpen);
+
     return (
         <div
             ref={ref}
@@ -53,7 +58,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
                     disabled={disabled}
                     tabIndex={-1} // Prevent individual buttons from being tab stops
                 >
-                    {context?.isAccessKeyMenuVisible && accessKeyChars?.[index] && (
+                    {shouldShowLabels && accessKeyChars?.[index] && (
                         <AccessKeyLabel label={accessKeyChars[index]!} />
                     )}
                     {label}

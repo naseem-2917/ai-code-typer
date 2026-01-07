@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useContext } from 'react';
+import React, { useRef, useEffect, useContext, useState } from 'react';
 import CodeSnippet from './CodeSnippet';
 import { Card } from './ui/Card';
 import { WarningIcon } from './icons/WarningIcon';
@@ -53,7 +53,34 @@ export const CodeEditorComponent = React.forwardRef<CodeEditorHandle, CodeEditor
     // Inject Context
     const context = useContext(AppContext);
 
+    // Track Visual Viewport height for mobile keyboard detection
+    const [viewportHeight, setViewportHeight] = useState(() => {
+        if (typeof window !== 'undefined' && window.visualViewport) {
+            return window.visualViewport.height;
+        }
+        return typeof window !== 'undefined' ? window.innerHeight : 600;
+    });
 
+    // Visual Viewport API - Auto-detect mobile keyboard
+    useEffect(() => {
+        const handleViewportResize = () => {
+            if (window.visualViewport) {
+                setViewportHeight(window.visualViewport.height);
+            }
+        };
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', handleViewportResize);
+            window.visualViewport.addEventListener('scroll', handleViewportResize);
+        }
+
+        return () => {
+            if (window.visualViewport) {
+                window.visualViewport.removeEventListener('resize', handleViewportResize);
+                window.visualViewport.removeEventListener('scroll', handleViewportResize);
+            }
+        };
+    }, []);
 
     // Expose focus method
     React.useImperativeHandle(ref, () => ({
@@ -81,25 +108,23 @@ export const CodeEditorComponent = React.forwardRef<CodeEditorHandle, CodeEditor
         onValueChange(e.target.value);
     };
 
-    // Auto-scroll to cursor
+    // Auto-scroll cursor into view when typing
     useEffect(() => {
-        // ... (lines 80-116 unchanged, keeping previous logic if needed, but for brevity just showing modified parts below)
-        const scrollContainer = scrollableCardRef.current;
         const cursor = cursorRef.current;
-        if (scrollContainer && cursor) {
-            // ... existing scroll logic ...
+        if (cursor && !isPaused) {
+            cursor.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
         }
-    }, [currentIndex]);
-
-    // Re-implemented standard effect for scrolling just to be safe not to break it? 
-    // Actually the user only wants to change the focus/disabled logic. 
-    // I should only target the focus effect and textarea.
+    }, [currentIndex, isPaused]);
 
     return (
         <div
             ref={containerRef}
             className={`relative flex-grow min-h-0 w-full flex flex-col ${isError ? 'animate-shake' : ''} ${className}`}
             onClick={handleContainerClick}
+            style={{
+                maxHeight: `${viewportHeight}px`,
+                transition: 'max-height 0.3s ease-out'
+            }}
         >
             {/* Hidden Textarea for Input */}
             <textarea

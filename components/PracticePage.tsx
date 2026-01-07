@@ -682,6 +682,7 @@ const PracticePage: React.FC = () => {
 
             <ResultsModal
                 isOpen={isResultsModalOpen}
+                title={isSessionEndedEarly ? "Session Ended" : "Session Complete"}
                 onClose={() => {
                     if (isSessionEndedEarly) {
                         setIsResultsModalOpen(false);

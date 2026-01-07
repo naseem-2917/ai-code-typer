@@ -7,6 +7,7 @@ import { Select } from './ui/Select';
 import { UploadIcon } from './icons/UploadIcon';
 import { SnippetLength, SnippetLevel, Language, PracticeMode, ContentType } from '../types';
 import { SUPPORTED_LANGUAGES } from '../constants';
+import { useAccessKey } from '../hooks/useAccessKey';
 
 interface PracticeSetupModalProps {
   isOpen: boolean;
@@ -95,6 +96,12 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
       setTimeout(() => pasteTextAreaRef.current?.focus(), 50);
     }
   }, [isOpen, setupTab]);
+
+  // Modal-specific shortcut keys (only active when modal is open)
+  useAccessKey('A', () => setSetupTab('generate'), { disabled: !isOpen });
+  useAccessKey('U', () => setSetupTab('upload'), { disabled: !isOpen });
+  useAccessKey('C', () => setSelectedMode('code'), { disabled: !isOpen });
+  useAccessKey('G', () => setSelectedMode('general'), { disabled: !isOpen });
 
   const handleStartGenerate = () => {
     // MANDATORY RESET: Clear any previous session state before starting
@@ -343,7 +350,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Practice Setup" size="md">
-      <div className="space-y-6">
+      <div className="space-y-6 mt-2">
         <SegmentedControl
           ref={tabsRef}
           options={tabOptions}
@@ -352,7 +359,6 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
             setSetupTab(value as 'generate' | 'upload');
             tabsRef.current?.focus();
           }}
-          className="mb-4"
           accessKeyChars={['A', 'U']}
         />
 
@@ -371,7 +377,7 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
         </div>
 
         {setupTab === 'generate' && (
-          <div className="space-y-4 animate-fade-in-up">
+          <div className="space-y-4 animate-fade-in-up relative z-20">
             {selectedMode === 'code' && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Language</label>
@@ -416,33 +422,33 @@ export const PracticeSetupModal: React.FC<PracticeSetupModalProps> = ({ isOpen, 
             ) : (
               <div className="space-y-2" ref={contentRef}>
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Content Type</label>
-                <div className="flex p-1 gap-1 bg-slate-100 dark:bg-slate-700/50 rounded-lg w-full">
+                <div className="flex justify-center items-center gap-1 bg-slate-200 dark:bg-slate-700 p-1 rounded-lg">
                   <button
                     onClick={() => toggleContentType('characters')}
-                    className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${selectedContentTypes.includes('characters')
-                      ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 bg-transparent'
+                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${selectedContentTypes.includes('characters')
+                      ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
                       }`}
                   >
-                    Characters (a-z)
+                    Characters
                   </button>
                   <button
                     onClick={() => toggleContentType('numbers')}
-                    className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${selectedContentTypes.includes('numbers')
-                      ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 bg-transparent'
+                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${selectedContentTypes.includes('numbers')
+                      ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
                       }`}
                   >
-                    Numbers (0-9)
+                    Numbers
                   </button>
                   <button
                     onClick={() => toggleContentType('symbols')}
-                    className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${selectedContentTypes.includes('symbols')
-                      ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 bg-transparent'
+                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${selectedContentTypes.includes('symbols')
+                      ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
                       }`}
                   >
-                    Symbols (!@#)
+                    Symbols
                   </button>
                 </div>
               </div>
