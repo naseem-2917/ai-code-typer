@@ -123,6 +123,12 @@
       /* primary-600 */
       --key-highlight-text: #ffffff;
       --key-highlight-glow: rgba(168, 85, 247, 0.4);
+
+      /* Chart Colors (Theme Aware) */
+      --color-chart-wpm: #9333ea;
+      /* purple-600 */
+      --color-chart-acc: #3b82f6;
+      /* blue-500 (kept distinct but harmonious) */
     }
 
     html.dark {
@@ -130,6 +136,12 @@
       /* primary-400 */
       --key-highlight-text: #1e1b4b;
       --key-highlight-glow: rgba(192, 132, 252, 0.4);
+
+      /* Chart Colors Dark Mode */
+      --color-chart-wpm: #c084fc;
+      /* purple-400 */
+      --color-chart-acc: #60a5fa;
+      /* blue-400 */
     }
 
     .key-highlight {
@@ -245,39 +257,43 @@
     /* ============================================
        CUSTOM SCROLLBAR
        ============================================ */
-    .custom-scrollbar {
+    /* ============================================
+       CUSTOM SCROLLBAR (GLOBAL)
+       ============================================ */
+    * {
       scrollbar-width: thin;
       scrollbar-color: #a78bfa transparent;
     }
 
-    .dark .custom-scrollbar {
+    .dark * {
       scrollbar-color: #6d28d9 transparent;
     }
 
-    .custom-scrollbar::-webkit-scrollbar {
-      width: 8px;
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
     }
 
-    .custom-scrollbar::-webkit-scrollbar-track {
+    ::-webkit-scrollbar-track {
       background: transparent;
     }
 
-    .custom-scrollbar::-webkit-scrollbar-thumb {
+    ::-webkit-scrollbar-thumb {
       background-color: #a78bfa;
-      border-radius: 4px;
+      border-radius: 9999px;
       border: 2px solid transparent;
       background-clip: content-box;
     }
 
-    .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    .dark ::-webkit-scrollbar-thumb {
       background-color: #6d28d9;
     }
 
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    ::-webkit-scrollbar-thumb:hover {
       background-color: #8b5cf6;
     }
 
-    .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    .dark ::-webkit-scrollbar-thumb:hover {
       background-color: #7c3aed;
     }
 
@@ -359,7 +375,7 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="/ai-code-typer/assets/index-BU4IAzie.js"></script>
+  <script type="module" crossorigin src="/ai-code-typer/assets/index-bzshE5Z2.js"></script>
 </head>
 
 <body class="min-h-screen">
