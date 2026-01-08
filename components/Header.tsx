@@ -87,9 +87,9 @@ const Header: React.FC = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-2 md:gap-4">
-            <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent cursor-pointer" onClick={() => navigateTo('home')}>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent cursor-pointer min-w-0" onClick={() => navigateTo('home')}>
               <span className='hidden sm:inline'>AI Code Typer</span>
-              <span className='sm:hidden'>AI Code Typer</span>
+              <span className='inline sm:hidden'>ACT</span>
             </h1>
             <nav className="hidden md:flex items-center gap-1 sm:gap-2">
               <NavButton page="home" label="Home" icon={<HomeIcon className="w-5 h-5" />} accessKeyChar="H" onClick={() => navigateTo('home')} />

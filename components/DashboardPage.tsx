@@ -22,7 +22,8 @@ import {
     Pie,
     Cell,
     Legend,
-    Tooltip
+    Tooltip,
+    Sector
 } from 'recharts';
 
 const COLORS = ['#a855f7', '#6366f1', '#ec4899', '#f97316', '#06b6d4', '#10b981'];
@@ -128,6 +129,12 @@ const DashboardPage: React.FC = () => {
     const [importConfirmation, setImportConfirmation] = useState<{ fileContent: string } | null>(null);
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ type: 'single' | 'all', timestamp?: number } | null>(null);
 
+    // Pie chart active slice state
+    const [activePieIndex, setActivePieIndex] = useState<number | undefined>(undefined);
+
+    // Track deleting row for animation
+    const [deletingTimestamp, setDeletingTimestamp] = useState<number | null>(null);
+
     const [focusedButtonIndex, setFocusedButtonIndex] = useState(0);
     const startButtonRef = useRef<HTMLButtonElement>(null);
     const importButtonRef = useRef<HTMLButtonElement>(null);
@@ -160,6 +167,37 @@ const DashboardPage: React.FC = () => {
             importButtonRef.current?.focus();
         }
     }, [focusedButtonIndex, practiceHistory.length]);
+
+    // Pie chart ref for click outside detection
+    const pieChartRef = useRef<HTMLDivElement>(null);
+
+    // Clear active pie slice on click/touch outside or scroll
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+            if (pieChartRef.current && !pieChartRef.current.contains(event.target as Node)) {
+                setActivePieIndex(undefined);
+            }
+        };
+
+        const handleScroll = () => {
+            if (activePieIndex !== undefined) {
+                setActivePieIndex(undefined);
+            }
+        };
+
+        // Mouse and touch events for click outside
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('touchstart', handleClickOutside, { passive: false });
+
+        // Scroll event
+        window.addEventListener('scroll', handleScroll, true);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('touchstart', handleClickOutside);
+            window.removeEventListener('scroll', handleScroll, true);
+        };
+    }, [activePieIndex]);
 
 
     useAccessKey('2', () => setTimeFilter('24h'), { disabled: isGoalsModalOpen || isSetupModalOpen });
@@ -256,9 +294,16 @@ const DashboardPage: React.FC = () => {
 
     const handleDeleteConfirm = () => {
         if (deleteConfirmation?.type === 'single' && deleteConfirmation.timestamp) {
-            deletePracticeSession(deleteConfirmation.timestamp);
-            showAlert('Session deleted.', 'info');
-            setDeleteConfirmation(null);
+            // Show animation first
+            setDeletingTimestamp(deleteConfirmation.timestamp);
+
+            // Delete after animation completes (300ms)
+            setTimeout(() => {
+                deletePracticeSession(deleteConfirmation.timestamp!);
+                showAlert('Session deleted.', 'info');
+                setDeleteConfirmation(null);
+                setDeletingTimestamp(null);
+            }, 300);
         } else if (deleteConfirmation?.type === 'all') {
             localStorage.clear();
             window.location.reload();
@@ -650,25 +695,94 @@ const DashboardPage: React.FC = () => {
                                         <h2 className="text-xl font-semibold">Language Focus</h2>
                                     </div>
                                     {languageFocus.length > 0 ? (
-                                        <div className="flex justify-center w-full">
+                                        <div
+                                            ref={pieChartRef}
+                                            className="flex justify-center w-full"
+                                        >
                                             <ResponsiveContainer width="100%" height={300}>
                                                 <PieChart>
                                                     <Pie
                                                         data={languageFocus}
                                                         cx="50%"
                                                         cy="50%"
-                                                        labelLine={false}
-                                                        outerRadius={100}
+                                                        labelLine={{ stroke: '#64748b', strokeWidth: 1 }}
+                                                        outerRadius={typeof window !== 'undefined' && window.innerWidth < 640 ? 80 : 100}
                                                         fill="#8884d8"
                                                         dataKey="value"
                                                         nameKey="name"
-                                                        label={renderCustomizedLabel}
+                                                        activeIndex={activePieIndex}
+                                                        activeShape={(props: any) => {
+                                                            const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+                                                            return (
+                                                                <g>
+                                                                    <Sector
+                                                                        cx={cx}
+                                                                        cy={cy}
+                                                                        innerRadius={innerRadius}
+                                                                        outerRadius={outerRadius + 10}
+                                                                        startAngle={startAngle}
+                                                                        endAngle={endAngle}
+                                                                        fill={fill}
+                                                                        stroke="#fff"
+                                                                        strokeWidth={3}
+                                                                    />
+                                                                </g>
+                                                            );
+                                                        }}
+                                                        onClick={(_, index) => {
+                                                            setActivePieIndex(activePieIndex === index ? undefined : index);
+                                                        }}
+                                                        label={({ cx, cy, midAngle, outerRadius, fill, percent, name }: any) => {
+                                                            // Show labels for slices >= 2%
+                                                            if (percent < 0.02) return null;
+
+                                                            const RADIAN = Math.PI / 180;
+                                                            const radius = outerRadius + 25;
+                                                            const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                                                            const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+                                                            return (
+                                                                <text
+                                                                    x={x}
+                                                                    y={y}
+                                                                    fill={fill}
+                                                                    textAnchor={x > cx ? 'start' : 'end'}
+                                                                    dominantBaseline="central"
+                                                                    className="text-xs sm:text-sm font-bold pointer-events-none select-none"
+                                                                    style={{ userSelect: 'none' }}
+                                                                >
+                                                                    {`${(percent * 100).toFixed(1)}%`}
+                                                                </text>
+                                                            );
+                                                        }}
                                                     >
                                                         {languageFocus.map((entry, index) => (
-                                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                            <Cell
+                                                                key={`cell-${index}`}
+                                                                fill={COLORS[index % COLORS.length]}
+                                                                style={{ outline: 'none', cursor: 'pointer' }}
+                                                            />
                                                         ))}
                                                     </Pie>
-                                                    <Tooltip formatter={(value) => formatDuration(value as number)} />
+                                                    <Tooltip
+                                                        content={({ active, payload }: any) => {
+                                                            if (active && payload && payload.length) {
+                                                                const data = payload[0];
+                                                                return (
+                                                                    <div className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700">
+                                                                        <p className="font-bold text-slate-900 dark:text-slate-100">{data.name}</p>
+                                                                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                                                                            Time: {formatDuration(data.value)}
+                                                                        </p>
+                                                                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                                                                            {((data.value / languageFocus.reduce((acc, curr) => acc + curr.value, 0)) * 100).toFixed(1)}%
+                                                                        </p>
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        }}
+                                                    />
                                                     <Legend wrapperStyle={{ paddingTop: '20px' }} />
                                                 </PieChart>
                                             </ResponsiveContainer>
@@ -758,7 +872,14 @@ const DashboardPage: React.FC = () => {
                                                 .sort((a, b) => b.timestamp - a.timestamp)
                                                 .slice(0, 5)
                                                 .map((session, index) => (
-                                                    <tr key={session.id} className={index % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800' : ''}>
+                                                    <tr
+                                                        key={session.id}
+                                                        className={`
+                                                            ${index % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800' : ''}
+                                                            ${deletingTimestamp === session.timestamp ? 'opacity-0 scale-95 bg-red-50 dark:bg-red-900/20' : ''}
+                                                            transition-all duration-300
+                                                        `}
+                                                    >
                                                         <td className="px-2 sm:px-4 py-2 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
                                                             {formatShortDate(session.date)}
                                                         </td>

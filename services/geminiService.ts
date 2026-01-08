@@ -77,6 +77,11 @@ The code must be syntactically correct for the requested language.`;
           throw new Error('Quota Exceeded: The AI service daily limit has been reached.');
         }
 
+        // Check for 503 Service Unavailable / Overloaded
+        if (response.status === 503 || errorDetails.includes('"status":"UNAVAILABLE"') || errorDetails.includes('overloaded')) {
+          throw new Error('AI Service Overloaded: The model is currently overloaded. Please try again in a few moments or use the "Upload Text" option instead.');
+        }
+
         throw new Error(`Worker Error: ${errorDetails}`);
       }
 
@@ -98,11 +103,12 @@ The code must be syntactically correct for the requested language.`;
     } catch (error) {
       lastError = error as Error;
 
-      // Retry logic for 429 errors (but NOT for Quota Exceeded which won't resolve quickly)
+      // Retry logic for 429 and 503 errors (but NOT for Quota Exceeded which won't resolve quickly)
       const isRateLimit = error instanceof Error && error.message.includes('429');
+      const isOverloaded = error instanceof Error && error.message.includes('AI Service Overloaded');
       const isQuota = error instanceof Error && error.message.includes('Quota Exceeded');
 
-      if (isRateLimit && !isQuota) {
+      if ((isRateLimit || isOverloaded) && !isQuota) {
         if (attempt < maxRetries) {
           const delay = Math.pow(2, attempt) * 1000;
           await new Promise(resolve => setTimeout(resolve, delay));
@@ -119,6 +125,9 @@ The code must be syntactically correct for the requested language.`;
   if (lastError) {
     if (lastError.message.includes('Quota Exceeded')) {
       throw lastError; // Propagate the specific message
+    }
+    if (lastError.message.includes('AI Service Overloaded')) {
+      throw new Error("AI model is overloaded. Try Upload Text option or wait a moment and retry.");
     }
     if (lastError.message.includes('429')) {
       throw new Error("AI service is busy. Please try again shortly.");

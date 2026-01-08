@@ -710,6 +710,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return newHistory;
     });
 
+    // Save to localStorage immediately
+    localStorage.setItem('practiceHistory', JSON.stringify(newHistory));
+
     // Explicitly Save to Cloud
     saveHistoryToCloud(newHistory);
 
@@ -822,7 +825,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // 2. Update Local State
     setPracticeHistory(newHistory);
 
-    // 3. Update Daily Stats
+    // 3. Save to localStorage immediately
+    localStorage.setItem('practiceHistory', JSON.stringify(newHistory));
+
+    // 4. Update Daily Stats
     const sessionDate = new Date(sessionToDelete.timestamp).toDateString();
     const todayDate = new Date().toDateString();
     if (sessionDate === todayDate) {
@@ -831,7 +837,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       localStorage.setItem('dailyPracticeTime', String(Math.max(0, currentDailyTime - sessionToDelete.duration)));
     }
 
-    // 4. Update Cloud
+    // 5. Update Cloud
     saveHistoryToCloud(newHistory);
 
   }, [practiceHistory, user]);
