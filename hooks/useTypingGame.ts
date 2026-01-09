@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { SavableTypingGameState } from '../types';
+import { soundManager } from '../utils/soundManager';
 
 export enum CharState {
   Idle,
@@ -240,6 +241,9 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
           errorMapRef.current[expectedChar] = (errorMapRef.current[expectedChar] || 0) + 1;
           setErrors(prev => prev + 1);
 
+          // Play error sound
+          soundManager.playError();
+
           // Calculate new consecutive errors count immediately
           const currentConsecutive = consecutiveErrorsRef.current + 1;
           setConsecutiveErrors(currentConsecutive);
@@ -263,6 +267,10 @@ const useTypingGame = (textToType: string, errorThreshold: number, options: Typi
             return; // STOP HERE
           }
         } else {
+          // --- CORRECT KEY ---
+          // Play typing sound (throttled automatically by soundManager)
+          soundManager.playTyping();
+
           // Reset on correct
           setConsecutiveErrors(0);
           consecutiveErrorsRef.current = 0;

@@ -17,6 +17,9 @@ import { useAccessKey } from '../hooks/useAccessKey';
 import { AccessKeyLabel } from './ui/AccessKeyLabel';
 import { MenuIcon } from './icons/MenuIcon';
 import { XIcon } from './icons/XIcon';
+import { SettingsIcon } from './icons/SettingsIcon';
+import { Modal } from './ui/Modal';
+import { Settings } from './Settings';
 
 const FONT_SIZES: FontSize[] = ['sm', 'md', 'lg', 'xl'];
 
@@ -44,6 +47,7 @@ const Header: React.FC = () => {
   const { user, loginWithGoogle, loading } = useAuth();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const selectRef = useRef<SelectRef>(null);
   useAccessKey('L', () => selectRef.current?.toggle(), { disabled: isSetupModalOpen });
@@ -133,6 +137,17 @@ const Header: React.FC = () => {
                   accessKeyChar="K"
                 >
                   <KeyboardIcon className="w-6 h-6" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsSettingsOpen(true)}
+                  aria-label="Settings"
+                  title="Settings (Sound & Visuals)"
+                  disabled={isSetupModalOpen}
+                  accessKeyChar="S"
+                >
+                  <SettingsIcon className="w-6 h-6" />
                 </Button>
               </>
             )}
@@ -235,6 +250,15 @@ const Header: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Settings Modal */}
+      <Modal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        title="Settings"
+      >
+        <Settings />
+      </Modal>
     </header>
   );
 };
