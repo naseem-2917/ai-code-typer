@@ -192,6 +192,40 @@
       animation: fade-in 0.2s ease-out forwards;
     }
 
+    /* Star bounce-in animation */
+    @keyframes bounce-in {
+      0% {
+        transform: scale(0) rotate(0deg);
+        opacity: 0;
+      }
+
+      50% {
+        transform: scale(1.2) rotate(180deg);
+      }
+
+      100% {
+        transform: scale(1) rotate(360deg);
+        opacity: 1;
+      }
+    }
+
+    /* Confetti fall animation */
+    @keyframes confetti {
+      0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+      }
+
+      100% {
+        transform: translateY(100vh) rotate(720deg);
+        opacity: 0;
+      }
+    }
+
+    .animate-confetti {
+      animation: confetti 3s ease-in forwards;
+    }
+
     @keyframes slide-up {
       from {
         opacity: 0;
@@ -298,13 +332,15 @@
     }
 
     /* Remove focus outline from SVG elements (pie chart) */
-    svg, svg * {
-        outline: none !important;
+    svg,
+    svg * {
+      outline: none !important;
     }
 
-    svg path, svg g {
-        outline: none !important;
-        -webkit-tap-highlight-color: transparent;
+    svg path,
+    svg g {
+      outline: none !important;
+      -webkit-tap-highlight-color: transparent;
     }
 
     /* ============================================
@@ -385,7 +421,7 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="/ai-code-typer/assets/index-DIqm_R3v.js"></script>
+  <script type="module" crossorigin src="/ai-code-typer/assets/index-0Upsoa4F.js"></script>
 </head>
 
 <body class="min-h-screen">
