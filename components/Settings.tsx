@@ -36,8 +36,8 @@ export const Settings: React.FC = () => {
             </div>
             <div
                 className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${checked
-                        ? 'bg-primary-500'
-                        : 'bg-slate-300 dark:bg-slate-600'
+                    ? 'bg-primary-500'
+                    : 'bg-slate-300 dark:bg-slate-600'
                     }`}
                 onClick={() => onChange(!checked)}
             >
@@ -53,13 +53,43 @@ export const Settings: React.FC = () => {
         <div className="space-y-6">
             {/* Sound Settings */}
             <section className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-5">
-                <div className="flex items-center gap-2 mb-4">
-                    <svg className="w-5 h-5 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                    </svg>
-                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                        Sound Effects
-                    </h3>
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                        <svg className="w-5 h-5 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        </svg>
+                        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                            Sound Effects
+                        </h3>
+                    </div>
+                    {/* Master Toggle - All Sounds On/Off */}
+                    <div
+                        className={`relative w-11 h-6 rounded-full transition-colors duration-200 cursor-pointer ${settings.sound.typingSoundEnabled || settings.sound.errorSoundEnabled || settings.sound.successSoundEnabled
+                                ? 'bg-primary-500'
+                                : 'bg-slate-300 dark:bg-slate-600'
+                            }`}
+                        onClick={() => {
+                            const allEnabled = settings.sound.typingSoundEnabled && settings.sound.errorSoundEnabled && settings.sound.successSoundEnabled;
+                            const newValue = !allEnabled;
+                            const newSettings = {
+                                ...settings,
+                                sound: {
+                                    ...settings.sound,
+                                    typingSoundEnabled: newValue,
+                                    errorSoundEnabled: newValue,
+                                    successSoundEnabled: newValue
+                                }
+                            };
+                            soundManager.updateSettings(newSettings);
+                            setSettings(soundManager.getSettings());
+                        }}
+                        title={settings.sound.typingSoundEnabled && settings.sound.errorSoundEnabled && settings.sound.successSoundEnabled ? 'Disable all sounds' : 'Enable all sounds'}
+                    >
+                        <div
+                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-200 ${settings.sound.typingSoundEnabled || settings.sound.errorSoundEnabled || settings.sound.successSoundEnabled ? 'translate-x-5' : 'translate-x-0'
+                                }`}
+                        />
+                    </div>
                 </div>
 
                 <div className="space-y-1 divide-y divide-slate-200 dark:divide-slate-700">

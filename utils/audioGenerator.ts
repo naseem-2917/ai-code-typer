@@ -189,13 +189,14 @@ export class AudioGenerator {
     }
 
     /**
-     * Star Unlock Sound - Bell chime
+     * Star Unlock Sound - Quick soft ding (very short, non-irritating)
      */
     playStar(starNum: number, volume: number = 0.3): void {
         if (!this.unlocked) return;
 
         const now = this.ctx.currentTime;
-        const baseFreq = 400 + (starNum * 80);
+        // Soft, pleasant frequencies - G5, A5, B5
+        const baseFreq = 784 + (starNum * 55);
 
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -203,15 +204,17 @@ export class AudioGenerator {
         osc.connect(gain);
         gain.connect(this.ctx.destination);
 
+        // Soft sine wave
         osc.type = 'sine';
         osc.frequency.setValueAtTime(baseFreq, now);
 
+        // Very quick, soft envelope (0.1s total)
         gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(volume * 0.8, now + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        gain.gain.linearRampToValueAtTime(volume * 0.3, now + 0.01);   // Soft attack
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);      // Quick fade
 
         osc.start(now);
-        osc.stop(now + 0.4);
+        osc.stop(now + 0.1);
 
         osc.onended = () => {
             osc.disconnect();
