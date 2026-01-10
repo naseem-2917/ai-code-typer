@@ -1,22 +1,17 @@
-import React, { useContext, useRef, useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
-import { SUPPORTED_LANGUAGES } from '../constants';
 import { SunIcon } from './icons/SunIcon';
 import { MoonIcon } from './icons/MoonIcon';
 import { KeyboardIcon } from './icons/KeyboardIcon';
 import { ChartBarIcon } from './icons/ChartBarIcon';
 import { HomeIcon } from './icons/HomeIcon';
-import { Select, SelectRef } from './ui/Select';
 import { Button } from './ui/Button';
 import { FontSize } from '../types';
 import { TextSizeIncreaseIcon } from './icons/TextSizeIncreaseIcon';
 import { TextSizeDecreaseIcon } from './icons/TextSizeDecreaseIcon';
 import { PracticeIcon } from './icons/PracticeIcon';
 import { useAccessKey } from '../hooks/useAccessKey';
-import { AccessKeyLabel } from './ui/AccessKeyLabel';
-import { MenuIcon } from './icons/MenuIcon';
-import { XIcon } from './icons/XIcon';
 import { SettingsIcon } from './icons/SettingsIcon';
 import { Modal } from './ui/Modal';
 import { Settings } from './Settings';
@@ -29,8 +24,6 @@ const Header: React.FC = () => {
   const {
     theme,
     toggleTheme,
-    selectedLanguage,
-    setSelectedLanguage,
     fontSize,
     increaseFontSize,
     decreaseFontSize,
@@ -38,10 +31,8 @@ const Header: React.FC = () => {
     toggleKeyboard,
     page,
     navigateTo,
-    isAccessKeyMenuVisible,
     requestFocusOnCode,
-    isSetupModalOpen,
-    isAnyModalOpen
+    isSetupModalOpen
   } = context;
 
   const { user, loginWithGoogle, loading } = useAuth();
@@ -49,8 +40,6 @@ const Header: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  const selectRef = useRef<SelectRef>(null);
-  useAccessKey('L', () => selectRef.current?.toggle(), { disabled: isSetupModalOpen });
   useAccessKey('U', () => navigateTo('profile'), { disabled: isSetupModalOpen || !user });
 
   const handleSettingChange = (action: () => void) => {
@@ -91,9 +80,9 @@ const Header: React.FC = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-2 md:gap-4">
-            <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent cursor-pointer min-w-0" onClick={() => navigateTo('home')}>
-              <span className='hidden sm:inline'>AI Code Typer</span>
-              <span className='inline sm:hidden'>ACT</span>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent cursor-pointer whitespace-nowrap" onClick={() => navigateTo('home')}>
+              <span className='hidden md:inline'>AI Code Typer</span>
+              <span className='inline md:hidden'>ACT</span>
             </h1>
             <nav className="hidden md:flex items-center gap-1 sm:gap-2">
               <NavButton page="home" label="Home" icon={<HomeIcon className="w-5 h-5" />} accessKeyChar="H" onClick={() => navigateTo('home')} />
@@ -152,22 +141,6 @@ const Header: React.FC = () => {
               </>
             )}
 
-            <div className='relative w-32 sm:w-40'>
-              <Select
-                ref={selectRef}
-                value={selectedLanguage.id}
-                onChange={(value) => {
-                  const lang = SUPPORTED_LANGUAGES.find(l => l.id === value);
-                  if (lang) {
-                    handleSettingChange(() => setSelectedLanguage(lang));
-                  }
-                }}
-                disabled={isSetupModalOpen}
-                options={SUPPORTED_LANGUAGES.map(lang => ({ value: lang.id, label: lang.name }))}
-              />
-              {isAccessKeyMenuVisible && !isAnyModalOpen && <AccessKeyLabel label="L" />}
-            </div>
-
             {/* User Profile / Sign In - Moved to Right */}
             {loading ? (
               // Loading Skeleton
@@ -183,7 +156,6 @@ const Header: React.FC = () => {
                   alt="Profile"
                   className={`w-8 h-8 rounded-full border-2 border-slate-200 dark:border-slate-700 transition-transform group-hover:scale-105 ${page === 'profile' ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
                 />
-                {isAccessKeyMenuVisible && !isAnyModalOpen && <AccessKeyLabel label="U" />}
               </button>
             ) : (
               <Button

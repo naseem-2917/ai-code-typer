@@ -168,7 +168,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return SUPPORTED_LANGUAGES.find(l => l.id === (savedLangId || 'python')) || SUPPORTED_LANGUAGES[0];
   });
 
-  const [practiceMode, setPracticeMode] = useState<PracticeMode>('code');
+  const [practiceMode, setPracticeMode] = useState<PracticeMode>(() =>
+    (localStorage.getItem('practiceMode') as PracticeMode) || 'code'
+  );
 
   // Initialize generalContentTypes from LocalStorage
   const [generalContentTypes, setGeneralContentTypes] = useState<ContentType[]>(() =>
@@ -180,8 +182,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [snippetError, setSnippetError] = useState<string | null>(null);
   const [isCustomSession, setIsCustomSession] = useState(false);
 
-  const [snippetLength, setSnippetLength] = useState<SnippetLength>('medium');
-  const [snippetLevel, setSnippetLevel] = useState<SnippetLevel>('medium');
+  const [snippetLength, setSnippetLength] = useState<SnippetLength>(() =>
+    (localStorage.getItem('snippetLength') as SnippetLength) || 'short'
+  );
+  const [snippetLevel, setSnippetLevel] = useState<SnippetLevel>(() =>
+    (localStorage.getItem('snippetLevel') as SnippetLevel) || 'easy'
+  );
   const [blockOnErrorThreshold, setBlockOnErrorThreshold] = useState<number>(2);
 
   const [fontSize, setFontSize] = useState<FontSize>(() => {
